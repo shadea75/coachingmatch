@@ -246,12 +246,41 @@ export default function CoachRegisterPage() {
                 
                 <div>
                   <label className="label">Foto profilo</label>
-                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 transition-colors cursor-pointer">
-                    <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">
-                      Trascina un'immagine o clicca per caricare
-                    </p>
-                  </div>
+                  <label className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 transition-colors cursor-pointer block">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          updateForm('photo', file)
+                        }
+                      }}
+                    />
+                    {formData.photo ? (
+                      <div className="flex flex-col items-center">
+                        <img 
+                          src={URL.createObjectURL(formData.photo)} 
+                          alt="Anteprima" 
+                          className="w-24 h-24 rounded-full object-cover mb-2"
+                        />
+                        <p className="text-sm text-green-600 font-medium">
+                          ✓ {formData.photo.name}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Clicca per cambiare
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">
+                          Trascina un'immagine o clicca per caricare
+                        </p>
+                      </>
+                    )}
+                  </label>
                 </div>
                 
                 <div>
