@@ -14,6 +14,7 @@ import {
   Briefcase,
   Shield
 } from 'lucide-react'
+import Logo from '@/components/Logo'
 
 export default function HomePage() {
   return (
@@ -21,11 +22,8 @@ export default function HomePage() {
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-semibold text-charcoal">CoachMatch</span>
+          <Link href="/">
+            <Logo size="md" />
           </Link>
           
           <div className="flex items-center gap-4">
@@ -267,7 +265,7 @@ export default function HomePage() {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
-              <span className="font-semibold text-charcoal">CoachMatch</span>
+              <span className="font-semibold text-charcoal">CoachaMi</span>
             </div>
             
             <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-500">
@@ -286,7 +284,7 @@ export default function HomePage() {
             </div>
             
             <p className="text-sm text-gray-400">
-              © 2024 CoachMatch. Tutti i diritti riservati.
+              © 2024 CoachaMi. Tutti i diritti riservati.
             </p>
           </div>
         </div>
