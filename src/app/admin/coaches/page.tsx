@@ -30,7 +30,7 @@ const MOCK_APPLICATIONS = [
     coachingSchool: 'ICF Italia',
     mainCertification: 'icf',
     certificationLevel: 'PCC',
-    selectedAreas: ['carriera', 'fiducia', 'focus'] as const,
+    selectedAreas: ['carriera', 'crescita', 'finanze'] as const,
     submittedAt: new Date('2024-01-15'),
     bio: 'Executive coach con 12 anni di esperienza nel supportare professionisti e manager.',
   },
@@ -46,9 +46,9 @@ const MOCK_APPLICATIONS = [
     coachingSchool: 'Scuola Italiana di Coaching',
     mainCertification: 'aicp',
     certificationLevel: '',
-    selectedAreas: ['benessere', 'famiglia', 'scopo'] as const,
+    selectedAreas: ['salute', 'relazioni', 'spiritualita'] as const,
     submittedAt: new Date('2024-01-14'),
-    bio: 'Life coach specializzato in benessere emotivo e gestione dello stress.',
+    bio: 'Life coach specializzato in benessere e gestione dello stress.',
   },
 ]
 

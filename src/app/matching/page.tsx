@@ -27,7 +27,7 @@ const MOCK_COACHES: Coach[] = [
     typicalSessionCount: '8-12 sessioni',
     freeCallAvailable: true,
     specializations: {
-      lifeAreas: ['carriera', 'fiducia', 'focus'],
+      lifeAreas: ['carriera', 'crescita', 'finanze'],
       focusTopics: ['Leadership', 'Crescita professionale', 'Work-life balance'],
       targetClients: ['Manager', 'Professionisti', 'Imprenditori'],
       coachingMethod: 'Coaching ontologico e PNL per risultati concreti'
@@ -68,7 +68,7 @@ const MOCK_COACHES: Coach[] = [
     typicalSessionCount: '6-8 sessioni',
     freeCallAvailable: true,
     specializations: {
-      lifeAreas: ['benessere', 'famiglia', 'scopo'],
+      lifeAreas: ['salute', 'relazioni', 'spiritualita'],
       focusTopics: ['Stress', 'Ansia', 'Burnout', 'Relazioni'],
       targetClients: ['Individui', 'Coppie'],
       coachingMethod: 'Mindfulness e coaching sistemico per ritrovare equilibrio'
@@ -110,7 +110,7 @@ const MOCK_COACHES: Coach[] = [
     typicalSessionCount: '8-12 sessioni',
     freeCallAvailable: true,
     specializations: {
-      lifeAreas: ['carriera', 'denaro', 'focus'],
+      lifeAreas: ['carriera', 'finanze', 'crescita'],
       focusTopics: ['Business development', 'Produttività', 'Decision making'],
       targetClients: ['Imprenditori', 'Freelance', 'Startup founder'],
       coachingMethod: 'Business coaching e goal setting orientato ai risultati'
@@ -152,7 +152,7 @@ const MOCK_COACHES: Coach[] = [
     typicalSessionCount: '6-8 sessioni',
     freeCallAvailable: true,
     specializations: {
-      lifeAreas: ['amore', 'famiglia', 'fiducia'],
+      lifeAreas: ['amore', 'relazioni', 'crescita'],
       focusTopics: ['Comunicazione', 'Conflitti relazionali', 'Autostima'],
       targetClients: ['Individui', 'Coppie'],
       coachingMethod: 'Comunicazione non violenta e coaching relazionale'

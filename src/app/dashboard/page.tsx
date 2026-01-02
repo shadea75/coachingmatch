@@ -44,14 +44,14 @@ export default function DashboardPage() {
   
   // Mock area scores
   const mockScores = user?.areaScores || {
-    carriera: 6,
-    benessere: 5,
-    famiglia: 8,
-    denaro: 4,
+    salute: 6,
+    finanze: 5,
+    carriera: 7,
+    relazioni: 8,
     amore: 7,
-    fiducia: 5,
-    scopo: 6,
-    focus: 4
+    crescita: 5,
+    spiritualita: 6,
+    divertimento: 4
   }
 
   const NavItems = () => (

@@ -132,7 +132,7 @@ export default function HomePage() {
                 icon: Target,
                 color: '#6366F1',
                 title: 'Valuta le aree della tua vita',
-                description: 'Rispondi a semplici domande su 8 aree chiave: carriera, relazioni, benessere e altro.'
+                description: 'Rispondi a semplici domande su 8 aree chiave: salute, finanze, carriera e altro.'
               },
               {
                 icon: Heart,
