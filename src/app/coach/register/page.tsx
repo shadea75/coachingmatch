@@ -12,6 +12,8 @@ import {
   Plus,
   X
 } from 'lucide-react'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 import { LIFE_AREAS, LifeAreaId } from '@/types'
 import Logo from '@/components/Logo'
 
@@ -135,27 +137,62 @@ export default function CoachRegisterPage() {
     setIsSubmitting(true)
     
     try {
-      // Invia email di conferma
-      await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'coach_registration',
-          data: {
-            name: formData.name,
-            email: formData.email,
-            lifeAreas: formData.lifeAreas,
-            yearsOfExperience: formData.yearsOfExperience,
-          }
-        })
-      })
+      // Salva candidatura su Firebase
+      const applicationData = {
+        // Dati personali
+        name: formData.name,
+        email: formData.email,
+        bio: formData.bio,
+        
+        // Esperienza
+        certifications: formData.certifications,
+        yearsOfExperience: formData.yearsOfExperience,
+        languages: formData.languages,
+        
+        // Specializzazioni
+        lifeArea: formData.lifeAreas[0] || null, // Solo 1 area
+        clientTypes: formData.clientTypes,
+        problemsAddressed: formData.problemsAddressed,
+        coachingMethod: formData.coachingMethod,
+        
+        // Servizio
+        sessionMode: formData.sessionMode,
+        location: formData.location,
+        averagePrice: formData.averagePrice,
+        freeCallAvailable: formData.freeCallAvailable,
+        availability: formData.availability,
+        
+        // Status
+        status: 'pending',
+        submittedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      }
       
-      // In production: save to Firestore, upload files, etc.
+      await addDoc(collection(db, 'coachApplications'), applicationData)
+      
+      // Invia email di conferma
+      try {
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'coach_registration',
+            data: {
+              name: formData.name,
+              email: formData.email,
+              lifeAreas: formData.lifeAreas,
+              yearsOfExperience: formData.yearsOfExperience,
+            }
+          })
+        })
+      } catch (emailError) {
+        console.error('Errore invio email:', emailError)
+      }
+      
       router.push('/coach/register/success')
     } catch (error) {
       console.error('Errore durante la registrazione:', error)
-      // Continua comunque alla pagina di successo
-      router.push('/coach/register/success')
+      alert('Errore durante la registrazione. Riprova.')
     } finally {
       setIsSubmitting(false)
     }
@@ -477,12 +514,20 @@ export default function CoachRegisterPage() {
                 </h2>
                 
                 <div>
-                  <label className="label">Aree della vita *</label>
+                  <label className="label">Area di specializzazione * <span className="text-gray-400 font-normal">(scegli 1 area)</span></label>
+                  <p className="text-sm text-gray-500 mb-3">Seleziona l'area in cui sei più specializzato/a</p>
                   <div className="flex flex-wrap gap-2">
                     {LIFE_AREAS.map(area => (
                       <button
                         key={area.id}
-                        onClick={() => toggleArrayItem('lifeAreas', area.id)}
+                        onClick={() => {
+                          // Solo 1 area selezionabile
+                          if (formData.lifeAreas.includes(area.id)) {
+                            updateForm('lifeAreas', [])
+                          } else {
+                            updateForm('lifeAreas', [area.id])
+                          }
+                        }}
                         className={`
                           px-4 py-2 rounded-full text-sm font-medium transition-all
                           ${formData.lifeAreas.includes(area.id)
