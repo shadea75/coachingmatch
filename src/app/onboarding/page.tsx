@@ -103,17 +103,23 @@ export default function OnboardingPage() {
     try {
       await signUp(formData.email, formData.password, formData.name)
       
-      // Save onboarding data
-      await updateUserProfile({
-        areaScores: state.areaScores as Record<LifeAreaId, number>,
-        selectedObjectives: state.selectedObjectives as Record<LifeAreaId, string[]>,
-        onboardingCompleted: true
-      })
+      // Try to save onboarding data, but don't block if it fails
+      try {
+        await updateUserProfile({
+          areaScores: state.areaScores as Record<LifeAreaId, number>,
+          selectedObjectives: state.selectedObjectives as Record<LifeAreaId, string[]>,
+          onboardingCompleted: true
+        })
+      } catch (profileError) {
+        console.log('Profile update skipped:', profileError)
+        // Continue anyway - user is created
+      }
       
+      // Always go to results after successful signup
+      setIsSubmitting(false)
       goToStep('results')
     } catch (error: any) {
       setFormError(error.message || 'Errore durante la registrazione')
-    } finally {
       setIsSubmitting(false)
     }
   }
