@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { 
-  Sparkles, 
   ArrowRight, 
   ArrowLeft,
   Upload,
@@ -14,6 +13,7 @@ import {
   X
 } from 'lucide-react'
 import { LIFE_AREAS, LifeAreaId } from '@/types'
+import Logo from '@/components/Logo'
 
 const STEPS = [
   'Informazioni personali',
@@ -146,11 +146,8 @@ export default function CoachRegisterPage() {
       {/* Header */}
       <header className="bg-white border-b border-gray-100 py-4 px-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-semibold text-charcoal">CoachaMi</span>
+          <Link href="/">
+            <Logo size="sm" />
           </Link>
           
           <span className="text-sm text-gray-500">
