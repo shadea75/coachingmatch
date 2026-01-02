@@ -115,6 +115,11 @@ export interface User {
   createdAt: Date
   updatedAt: Date
   
+  // Dati anagrafici
+  age?: number | null
+  gender?: 'M' | 'F' | 'other' | 'prefer_not' | null
+  codiceFiscale?: string | null
+  
   // Profilo coachee
   areaScores?: Record<LifeAreaId, number>
   selectedObjectives?: Record<LifeAreaId, string[]>
