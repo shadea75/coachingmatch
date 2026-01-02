@@ -24,7 +24,7 @@ const SHORT_LABELS: Record<string, string> = {
 
 export default function RadarChart({ 
   scores, 
-  size = 350, // Aumentato da 300
+  size = 380, // Aumentato per dare più spazio ai label
   animated = true,
   showLabels = true 
 }: RadarChartProps) {
@@ -39,7 +39,7 @@ export default function RadarChart({
     
     const centerX = size / 2
     const centerY = size / 2
-    const radius = (size / 2) - 60 // Più padding per i label
+    const radius = (size / 2) - 80 // Più padding per i label (era 60)
     const areas = LIFE_AREAS
     const numAreas = areas.length
     const angleStep = (Math.PI * 2) / numAreas
@@ -118,12 +118,12 @@ export default function RadarChart({
     
     // Draw labels
     if (showLabels) {
-      ctx.font = '13px system-ui, sans-serif'
+      ctx.font = 'bold 13px system-ui, sans-serif'
       ctx.fillStyle = '#374151'
       
       areas.forEach((area, index) => {
         const angle = angleStep * index - Math.PI / 2
-        const labelRadius = radius + 35
+        const labelRadius = radius + 45 // Aumentato da 35
         let x = centerX + Math.cos(angle) * labelRadius
         let y = centerY + Math.sin(angle) * labelRadius
         
