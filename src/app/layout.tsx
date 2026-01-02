@@ -4,12 +4,17 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { OnboardingProvider } from '@/contexts/OnboardingContext'
 
 export const metadata: Metadata = {
-  title: 'CoachMatch | Trova il coach giusto per te',
+  title: 'CoachaMi | Trova il coach giusto per te',
   description: 'Piattaforma di matching tra coachee e coach certificati. Valuta le aree della tua vita, definisci i tuoi obiettivi e incontra 3 coach selezionati per te.',
-  keywords: 'coaching, life coaching, business coaching, crescita personale, sviluppo professionale',
-  authors: [{ name: 'CoachMatch' }],
+  keywords: 'coaching, life coaching, business coaching, crescita personale, sviluppo professionale, coachami',
+  authors: [{ name: 'CoachaMi' }],
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
   openGraph: {
-    title: 'CoachMatch | Trova il coach giusto per te',
+    title: 'CoachaMi | Trova il coach giusto per te',
     description: 'Piattaforma di matching tra coachee e coach certificati.',
     type: 'website',
     locale: 'it_IT',
