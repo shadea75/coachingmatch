@@ -59,6 +59,9 @@ export default function OnboardingPage() {
     name: '',
     email: '',
     password: '',
+    age: '',
+    gender: '',
+    codiceFiscale: '',
     acceptTerms: false
   })
   const [formError, setFormError] = useState('')
@@ -108,7 +111,11 @@ export default function OnboardingPage() {
         await updateUserProfile({
           areaScores: state.areaScores as Record<LifeAreaId, number>,
           selectedObjectives: state.selectedObjectives as Record<LifeAreaId, string[]>,
-          onboardingCompleted: true
+          onboardingCompleted: true,
+          // Nuovi campi
+          age: formData.age ? parseInt(formData.age) : null,
+          gender: (formData.gender || null) as 'M' | 'F' | 'other' | 'prefer_not' | null,
+          codiceFiscale: formData.codiceFiscale || null,
         })
       } catch (profileError) {
         console.log('Profile update skipped:', profileError)
@@ -318,6 +325,50 @@ export default function OnboardingPage() {
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     minLength={8}
                     required
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Età</label>
+                    <input
+                      type="number"
+                      className="input"
+                      placeholder="Es: 35"
+                      min={18}
+                      max={100}
+                      value={formData.age}
+                      onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="label">Sesso</label>
+                    <select
+                      className="input"
+                      value={formData.gender}
+                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                    >
+                      <option value="">Seleziona</option>
+                      <option value="M">Uomo</option>
+                      <option value="F">Donna</option>
+                      <option value="other">Altro</option>
+                      <option value="prefer_not">Preferisco non dire</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="label">
+                    Codice Fiscale <span className="text-gray-400 font-normal">(opzionale, per fatturazione)</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="input uppercase"
+                    placeholder="RSSMRA85M01H501Z"
+                    maxLength={16}
+                    value={formData.codiceFiscale}
+                    onChange={(e) => setFormData({ ...formData, codiceFiscale: e.target.value.toUpperCase() })}
                   />
                 </div>
                 
