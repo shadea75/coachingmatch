@@ -62,7 +62,6 @@ export default function OnboardingPage() {
     password: '',
     age: '',
     gender: '',
-    codiceFiscale: '',
     acceptTerms: false
   })
   const [formError, setFormError] = useState('')
@@ -116,7 +115,6 @@ export default function OnboardingPage() {
           // Nuovi campi
           age: formData.age ? parseInt(formData.age) : null,
           gender: (formData.gender || null) as 'M' | 'F' | 'other' | 'prefer_not' | null,
-          codiceFiscale: formData.codiceFiscale || null,
         })
       } catch (profileError) {
         console.log('Profile update skipped:', profileError)
@@ -357,20 +355,6 @@ export default function OnboardingPage() {
                       <option value="prefer_not">Preferisco non dire</option>
                     </select>
                   </div>
-                </div>
-                
-                <div>
-                  <label className="label">
-                    Codice Fiscale <span className="text-gray-400 font-normal">(opzionale, per fatturazione)</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="input uppercase"
-                    placeholder="RSSMRA85M01H501Z"
-                    maxLength={16}
-                    value={formData.codiceFiscale}
-                    onChange={(e) => setFormData({ ...formData, codiceFiscale: e.target.value.toUpperCase() })}
-                  />
                 </div>
                 
                 <div className="flex items-start gap-3">
