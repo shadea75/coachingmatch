@@ -30,23 +30,43 @@ export default function StripeOnboardingPage() {
   } | null>(null)
   const [error, setError] = useState('')
   
-  // Verifica stato account
+  // Verifica stato account direttamente da Firebase client
   useEffect(() => {
     const checkAccount = async () => {
       if (!user?.id) return
       
       try {
-        const response = await fetch(`/api/stripe-connect?coachId=${user.id}`)
-        const data = await response.json()
+        // Importa Firebase dinamicamente
+        const { db } = await import('@/lib/firebase')
+        const { doc, getDoc } = await import('firebase/firestore')
         
-        if (data.error) {
-          throw new Error(data.error)
+        const accountDoc = await getDoc(doc(db, 'coachStripeAccounts', user.id))
+        
+        if (accountDoc.exists()) {
+          const data = accountDoc.data()
+          setAccountStatus({
+            hasAccount: true,
+            onboardingComplete: data.onboardingComplete || false,
+            chargesEnabled: data.chargesEnabled || false,
+            payoutsEnabled: data.payoutsEnabled || false
+          })
+        } else {
+          setAccountStatus({
+            hasAccount: false,
+            onboardingComplete: false,
+            chargesEnabled: false,
+            payoutsEnabled: false
+          })
         }
-        
-        setAccountStatus(data)
       } catch (err: any) {
         console.error('Errore verifica account:', err)
-        setError(err.message)
+        // Non mostrare errore, semplicemente mostra form di onboarding
+        setAccountStatus({
+          hasAccount: false,
+          onboardingComplete: false,
+          chargesEnabled: false,
+          payoutsEnabled: false
+        })
       } finally {
         setIsLoading(false)
       }
