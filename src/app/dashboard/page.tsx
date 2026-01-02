@@ -4,7 +4,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { 
-  Sparkles, 
   Calendar, 
   Users, 
   BarChart3,
@@ -21,6 +20,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { LIFE_AREAS } from '@/types'
 import RadarChart from '@/components/RadarChart'
+import Logo from '@/components/Logo'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 
@@ -118,11 +118,8 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-cream">
       {/* Mobile Header */}
       <header className="lg:hidden bg-white border-b border-gray-100 p-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-semibold text-charcoal">CoachMatch</span>
+        <Link href="/">
+          <Logo size="sm" />
         </Link>
         <button 
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -149,11 +146,8 @@ export default function DashboardPage() {
 
       {/* Desktop Sidebar */}
       <aside className="fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-gray-100 p-6 hidden lg:block">
-        <Link href="/" className="flex items-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-xl font-semibold text-charcoal">CoachMatch</span>
+        <Link href="/" className="block mb-8">
+          <Logo size="md" />
         </Link>
         
         <div className="mb-6">
