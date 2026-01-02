@@ -56,7 +56,8 @@ export default function CoachRegisterPage() {
     bio: '',
     
     // Step 2
-    certifications: [{ name: '', institution: '', year: new Date().getFullYear() }],
+    certifications: [{ name: '', institution: '', year: new Date().getFullYear(), file: null as File | null }],
+    certificationFiles: [] as File[],
     yearsOfExperience: 0,
     languages: ['Italiano'],
     sessionMode: ['online'] as ('online' | 'presence')[],
@@ -102,7 +103,7 @@ export default function CoachRegisterPage() {
   const addCertification = () => {
     setFormData(prev => ({
       ...prev,
-      certifications: [...prev.certifications, { name: '', institution: '', year: new Date().getFullYear() }]
+      certifications: [...prev.certifications, { name: '', institution: '', year: new Date().getFullYear(), file: null }]
     }))
   }
   
@@ -371,7 +372,7 @@ export default function CoachRegisterPage() {
                   <label className="label">Certificazioni</label>
                   {formData.certifications.map((cert, index) => (
                     <div key={index} className="bg-gray-50 rounded-xl p-4 mb-3">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                         <div className="md:col-span-1">
                           <label className="text-xs text-gray-500 mb-1 block">Nome certificazione</label>
                           <input
@@ -415,6 +416,39 @@ export default function CoachRegisterPage() {
                             </button>
                           )}
                         </div>
+                      </div>
+                      
+                      {/* Upload certificazione */}
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Carica certificato (PDF o immagine)</label>
+                        <div className="flex items-center gap-3">
+                          <label className="flex-1 flex items-center gap-2 px-4 py-2 bg-white border border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors">
+                            <Upload size={18} className="text-gray-400" />
+                            <span className="text-sm text-gray-500">
+                              {cert.file ? cert.file.name : 'Scegli file...'}
+                            </span>
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file) {
+                                  updateCertification(index, 'file', file)
+                                }
+                              }}
+                            />
+                          </label>
+                          {cert.file && (
+                            <button
+                              onClick={() => updateCertification(index, 'file', null)}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                            >
+                              <X size={18} />
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">Max 5MB - PDF, JPG, PNG</p>
                       </div>
                     </div>
                   ))}

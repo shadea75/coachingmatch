@@ -34,69 +34,115 @@ export async function POST(request: NextRequest) {
           <html>
           <head>
             <meta charset="utf-8">
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { text-align: center; padding: 30px 0; }
-              .logo { font-size: 28px; font-weight: bold; color: #333; }
-              .logo span { color: #EC7711; font-style: italic; }
-              .content { background: #f9f9f9; border-radius: 12px; padding: 30px; margin: 20px 0; }
-              .highlight { color: #EC7711; font-weight: 600; }
-              .steps { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; }
-              .step { display: flex; align-items: flex-start; margin: 15px 0; }
-              .step-number { background: #EC7711; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 15px; flex-shrink: 0; }
-              .footer { text-align: center; color: #666; font-size: 14px; padding: 20px 0; }
-              .button { display: inline-block; background: #EC7711; color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: 600; margin: 20px 0; }
-            </style>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
           </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <div class="logo">Coacha<span>Mi</span></div>
-              </div>
-              
-              <div class="content">
-                <h2>Ciao ${data.name}! 👋</h2>
-                <p>Grazie per esserti registrato come coach su <span class="highlight">CoachaMi</span>!</p>
-                <p>Abbiamo ricevuto la tua candidatura e il nostro team la esaminerà con attenzione.</p>
-                
-                <div class="steps">
-                  <h3>📋 Prossimi passi:</h3>
-                  <div class="step">
-                    <div class="step-number">1</div>
-                    <div>
-                      <strong>Revisione candidatura</strong><br>
-                      <span style="color: #666;">Esamineremo il tuo profilo entro 48 ore lavorative</span>
-                    </div>
-                  </div>
-                  <div class="step">
-                    <div class="step-number">2</div>
-                    <div>
-                      <strong>Verifica documenti</strong><br>
-                      <span style="color: #666;">Controlleremo le tue certificazioni</span>
-                    </div>
-                  </div>
-                  <div class="step">
-                    <div class="step-number">3</div>
-                    <div>
-                      <strong>Attivazione profilo</strong><br>
-                      <span style="color: #666;">Una volta approvato, sarai visibile ai coachee</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <p>Ti contatteremo presto con l'esito della tua candidatura.</p>
-                
-                <center>
-                  <a href="https://coachami.vercel.app" class="button">Visita CoachaMi</a>
-                </center>
-              </div>
-              
-              <div class="footer">
-                <p>Hai domande? Rispondi a questa email o scrivici a <a href="mailto:coach@coachami.it" style="color: #EC7711;">coach@coachami.it</a></p>
-                <p>© 2024 CoachaMi - Tutti i diritti riservati</p>
-              </div>
-            </div>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr>
+                <td>
+                  <!-- Header con Logo -->
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0;">
+                        <span style="font-size: 28px; font-weight: bold; color: #333;">Coacha</span><span style="font-size: 28px; font-weight: bold; color: #EC7711; font-style: italic;">Mi</span>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <!-- Content -->
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                    <tr>
+                      <td style="padding: 30px;">
+                        <h2 style="margin: 0 0 20px 0; color: #333;">Ciao ${data.name}! 👋</h2>
+                        <p style="margin: 0 0 15px 0;">Grazie per esserti registrato come coach su <strong style="color: #EC7711;">Coacha</strong><strong style="color: #EC7711; font-style: italic;">Mi</strong>!</p>
+                        <p style="margin: 0 0 25px 0;">Abbiamo ricevuto la tua candidatura e il nostro team la esaminerà con attenzione.</p>
+                        
+                        <!-- Steps Box -->
+                        <table width="100%" cellpadding="0" cellspacing="0" style="background: #f9f9f9; border-radius: 8px;">
+                          <tr>
+                            <td style="padding: 20px;">
+                              <h3 style="margin: 0 0 20px 0; color: #333;">📋 Prossimi passi:</h3>
+                              
+                              <!-- Step 1 -->
+                              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 15px;">
+                                <tr>
+                                  <td width="40" valign="top">
+                                    <table cellpadding="0" cellspacing="0">
+                                      <tr>
+                                        <td style="background: #EC7711; color: white; width: 28px; height: 28px; border-radius: 50%; text-align: center; font-weight: bold; font-size: 14px; line-height: 28px;">1</td>
+                                      </tr>
+                                    </table>
+                                  </td>
+                                  <td valign="top">
+                                    <strong style="color: #333;">Revisione candidatura</strong><br>
+                                    <span style="color: #666; font-size: 14px;">Esamineremo il tuo profilo entro 48 ore lavorative</span>
+                                  </td>
+                                </tr>
+                              </table>
+                              
+                              <!-- Step 2 -->
+                              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 15px;">
+                                <tr>
+                                  <td width="40" valign="top">
+                                    <table cellpadding="0" cellspacing="0">
+                                      <tr>
+                                        <td style="background: #EC7711; color: white; width: 28px; height: 28px; border-radius: 50%; text-align: center; font-weight: bold; font-size: 14px; line-height: 28px;">2</td>
+                                      </tr>
+                                    </table>
+                                  </td>
+                                  <td valign="top">
+                                    <strong style="color: #333;">Verifica documenti</strong><br>
+                                    <span style="color: #666; font-size: 14px;">Controlleremo le tue certificazioni</span>
+                                  </td>
+                                </tr>
+                              </table>
+                              
+                              <!-- Step 3 -->
+                              <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                  <td width="40" valign="top">
+                                    <table cellpadding="0" cellspacing="0">
+                                      <tr>
+                                        <td style="background: #EC7711; color: white; width: 28px; height: 28px; border-radius: 50%; text-align: center; font-weight: bold; font-size: 14px; line-height: 28px;">3</td>
+                                      </tr>
+                                    </table>
+                                  </td>
+                                  <td valign="top">
+                                    <strong style="color: #333;">Attivazione profilo</strong><br>
+                                    <span style="color: #666; font-size: 14px;">Una volta approvato, sarai visibile ai coachee</span>
+                                  </td>
+                                </tr>
+                              </table>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <p style="margin: 25px 0;">Ti contatteremo presto con l'esito della tua candidatura.</p>
+                        
+                        <!-- Button -->
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td align="center">
+                              <a href="https://coachami.vercel.app" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Visita CoachaMi</a>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <!-- Footer -->
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0; color: #666; font-size: 14px;">
+                        <p style="margin: 0 0 10px 0;">Hai domande? Rispondi a questa email o scrivici a <a href="mailto:coach@coachami.it" style="color: #EC7711;">coach@coachami.it</a></p>
+                        <p style="margin: 0;">© 2025 CoachaMi - Tutti i diritti riservati</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
           </body>
           </html>
         `
