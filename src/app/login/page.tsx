@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Sparkles, Mail, Lock, ArrowRight } from 'lucide-react'
+import { Mail, Lock, ArrowRight } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import Logo from '@/components/Logo'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -48,11 +49,8 @@ export default function LoginPage() {
         className="w-full max-w-md"
       >
         {/* Logo */}
-        <Link href="/" className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-xl font-semibold text-charcoal">CoachMatch</span>
+        <Link href="/" className="flex justify-center mb-8">
+          <Logo size="lg" />
         </Link>
         
         {/* Card */}
