@@ -10,7 +10,7 @@ Una web app in italiano per il matching tra coachee e coach certificati.
 - **Prenotazione call**: Sistema di calendario custom per prenotare call gratuite
 - **Dashboard utente**: Panoramica completa con aree della vita e prossime call
 - **Registrazione coach**: Form multi-step con specializzazioni e disponibilità
-- **Community**: Sezione membership con canali per area della vita
+- **Community**: Sezione membership con canali per area della vita 
 
 ## 🛠️ Tech Stack
 
