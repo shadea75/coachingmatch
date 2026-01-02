@@ -103,11 +103,15 @@ export const OBJECTIVES_BY_AREA: Record<LifeAreaId, string[]> = {
 // =====================
 // UTENTE / COACHEE
 // =====================
+export type UserRole = 'admin' | 'moderator' | 'coach' | 'coachee'
+
 export interface User {
   id: string
   email: string
   name: string
-  role: 'coachee' | 'coach' | 'admin'
+  phone?: string
+  photo?: string
+  role: UserRole
   createdAt: Date
   updatedAt: Date
   
@@ -121,6 +125,11 @@ export interface User {
   membershipStartDate?: Date
   membershipEndDate?: Date
   stripeCustomerId?: string
+  
+  // Status account
+  isSuspended?: boolean
+  suspendedAt?: Date
+  suspendedReason?: string
 }
 
 // =====================
