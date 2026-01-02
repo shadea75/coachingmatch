@@ -262,12 +262,7 @@ export default function HomePage() {
       <footer className="py-12 px-4 border-t border-gray-100">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-semibold text-charcoal">CoachaMi</span>
-            </div>
+            <Logo size="sm" />
             
             <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-500">
               <Link href="/privacy" className="hover:text-charcoal transition-colors">
@@ -285,7 +280,7 @@ export default function HomePage() {
             </div>
             
             <p className="text-sm text-gray-400">
-              © 2024 CoachaMi. Tutti i diritti riservati.
+              © 2025 CoachaMi. Tutti i diritti riservati.
             </p>
           </div>
         </div>
