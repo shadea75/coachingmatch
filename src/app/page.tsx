@@ -194,14 +194,14 @@ export default function HomePage() {
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Carriera', color: '#6366F1', icon: Briefcase },
-              { label: 'Benessere', color: '#10B981', icon: Heart },
-              { label: 'Famiglia e Amici', color: '#F59E0B', icon: Users },
-              { label: 'Denaro', color: '#14B8A6', icon: Target },
+              { label: 'Salute e Vitalità', color: '#10B981', icon: Heart },
+              { label: 'Finanze', color: '#14B8A6', icon: Target },
+              { label: 'Carriera/Lavoro', color: '#6366F1', icon: Briefcase },
+              { label: 'Relazioni', color: '#F59E0B', icon: Users },
               { label: 'Amore', color: '#EC4899', icon: Heart },
-              { label: 'Fiducia in sé', color: '#8B5CF6', icon: Shield },
-              { label: 'Scopo', color: '#F97316', icon: Sparkles },
-              { label: 'Focus', color: '#3B82F6', icon: Target },
+              { label: 'Crescita Personale', color: '#8B5CF6', icon: Sparkles },
+              { label: 'Spiritualità', color: '#F97316', icon: Star },
+              { label: 'Divertimento', color: '#3B82F6', icon: Sparkles },
             ].map((area, index) => (
               <motion.div
                 key={index}
