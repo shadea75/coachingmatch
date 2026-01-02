@@ -15,7 +15,8 @@ import {
   Crown,
   MessageCircle,
   Menu,
-  X
+  X,
+  Shield
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { LIFE_AREAS } from '@/types'
@@ -37,7 +38,7 @@ const UPCOMING_CALLS = [
 ]
 
 export default function DashboardPage() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, canAccessAdmin } = useAuth()
   const [activeTab, setActiveTab] = useState<'overview' | 'calls' | 'community'>('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   
@@ -93,6 +94,20 @@ export default function DashboardPage() {
           <Crown size={16} className="text-amber-500 ml-auto" />
         )}
       </button>
+      
+      {/* Admin Panel - solo per admin/moderatori */}
+      {canAccessAdmin && (
+        <>
+          <div className="border-t border-gray-100 my-4" />
+          <Link
+            href="/admin"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+          >
+            <Shield size={20} />
+            <span className="font-medium">Pannello Admin</span>
+          </Link>
+        </>
+      )}
       
       <div className="border-t border-gray-100 my-4" />
       
