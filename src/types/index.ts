@@ -126,6 +126,8 @@ export interface User {
 // =====================
 // COACH
 // =====================
+export type CoachStatus = 'pending' | 'reviewing' | 'interview_scheduled' | 'interview_completed' | 'approved' | 'rejected' | 'suspended'
+
 export interface Coach {
   id: string
   userId: string
@@ -133,38 +135,50 @@ export interface Coach {
   // Info base
   name: string
   email: string
+  phone?: string
   photo?: string
   bio: string
   
   // Credenziali
   certifications: Certification[]
   yearsOfExperience: number
+  coachingSchool: string
   languages: string[]
   
   // Modalità
   sessionMode: ('online' | 'presence')[]
   location?: string
   averagePrice: number
+  typicalSessionCount: string // "6-8 sessioni", "10-12 sessioni", etc.
   freeCallAvailable: boolean
   
-  // Specializzazioni (per matching)
+  // Specializzazioni (max 3 aree!)
   specializations: {
-    lifeAreas: LifeAreaId[]
-    clientTypes: string[]
-    problemsAddressed: string[]
-    coachingMethod: string[]
-    style: ('diretto' | 'empatico' | 'strutturato' | 'esplorativo')[]
+    lifeAreas: LifeAreaId[] // MAX 3
+    focusTopics: string[] // Argomenti specifici per area
+    targetClients: string[] // "Manager", "Imprenditori", "Genitori", etc.
+    coachingMethod: string // Descrizione approccio
   }
   
   // Disponibilità
   availability: WeeklyAvailability
   
-  // Status
-  status: 'pending' | 'approved' | 'suspended'
+  // Status candidatura
+  status: CoachStatus
+  applicationDate: Date
+  reviewNotes?: string
+  interviewDate?: Date
+  interviewNotes?: string
+  approvedBy?: string
+  approvedAt?: Date
+  rejectionReason?: string
+  
+  // Commissioni piattaforma
   platformFeePercentage: number
   
-  // Stats
+  // Stats (dopo approvazione)
   totalClients: number
+  totalSessions: number
   totalRevenue: number
   rating: number
   reviewCount: number
@@ -177,8 +191,185 @@ export interface Certification {
   name: string
   institution: string
   year: number
+  type: 'icf' | 'aicp' | 'other'
+  level?: string // ACC, PCC, MCC per ICF
   documentUrl?: string
+  verified: boolean
 }
+
+// =====================
+// CANDIDATURA COACH
+// =====================
+export interface CoachApplication {
+  id: string
+  
+  // Step 1: Dati personali
+  personalInfo: {
+    firstName: string
+    lastName: string
+    email: string
+    phone: string
+    city: string
+    onlineAvailable: boolean
+    inPersonAvailable: boolean
+    photo?: string
+    linkedinUrl?: string
+    websiteUrl?: string
+  }
+  
+  // Step 2: Esperienza e formazione
+  experience: {
+    yearsAsCoach: number
+    coachingSchool: string
+    mainCertification: string
+    certificationLevel?: string
+    otherCertifications: string[]
+    totalClientCount: string // "1-10", "11-50", "51-100", "100+"
+    languages: string[]
+  }
+  
+  // Step 3: Specializzazioni (max 3 aree)
+  specializations: {
+    lifeAreas: LifeAreaId[] // MAX 3!
+    focusTopics: Record<LifeAreaId, string[]> // Per ogni area, quali argomenti
+    targetClients: string[]
+    coachingApproach: string // Testo libero
+  }
+  
+  // Step 4: Dettagli servizio
+  serviceDetails: {
+    sessionPrice: number
+    typicalSessionCount: string
+    freeCallOffered: boolean
+    freeCallDuration: number
+    bio: string // Max 500 caratteri
+  }
+  
+  // Step 5: Documenti
+  documents: {
+    mainCertificateUrl: string
+    cvUrl?: string
+    otherDocumentsUrls: string[]
+    acceptedTerms: boolean
+    acceptedPrivacy: boolean
+  }
+  
+  // Metadata
+  status: CoachStatus
+  currentStep: 1 | 2 | 3 | 4 | 5 | 'completed'
+  submittedAt?: Date
+  reviewedAt?: Date
+  reviewedBy?: string
+  reviewNotes?: string
+  interviewScheduledAt?: Date
+  interviewCompletedAt?: Date
+  interviewNotes?: string
+  
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Focus topics per area (suggerimenti nel form)
+export const FOCUS_TOPICS_BY_AREA: Record<LifeAreaId, string[]> = {
+  carriera: [
+    'Cambio carriera',
+    'Leadership',
+    'Gestione team',
+    'Imprenditoria',
+    'Work-life balance',
+    'Burnout professionale',
+    'Negoziazione',
+    'Public speaking',
+    'Sindrome dell\'impostore',
+    'Primo lavoro / Entry level',
+  ],
+  benessere: [
+    'Gestione stress',
+    'Mindfulness',
+    'Abitudini salutari',
+    'Energia e vitalità',
+    'Sonno e recupero',
+    'Alimentazione consapevole',
+    'Movimento e fitness',
+    'Prevenzione burnout',
+  ],
+  famiglia: [
+    'Comunicazione familiare',
+    'Genitorialità',
+    'Relazioni con genitori anziani',
+    'Gestione conflitti',
+    'Confini sani',
+    'Famiglie allargate',
+    'Amicizie significative',
+    'Solitudine e isolamento',
+  ],
+  denaro: [
+    'Mindset finanziario',
+    'Pianificazione economica',
+    'Uscire dai debiti',
+    'Negoziazione stipendio',
+    'Libertà finanziaria',
+    'Rapporto emotivo col denaro',
+    'Investimenti personali',
+    'Gestione budget',
+  ],
+  amore: [
+    'Trovare partner',
+    'Migliorare relazione',
+    'Comunicazione di coppia',
+    'Superare rotture',
+    'Intimità e connessione',
+    'Relazioni a distanza',
+    'Problemi di fiducia',
+    'Prepararsi al matrimonio',
+  ],
+  fiducia: [
+    'Autostima',
+    'Sindrome dell\'impostore',
+    'Assertività',
+    'Parlare in pubblico',
+    'Gestire critiche',
+    'Prendere decisioni',
+    'Dire di no',
+    'Accettazione di sé',
+  ],
+  scopo: [
+    'Scoprire la missione',
+    'Crisi di mezza età',
+    'Transizioni di vita',
+    'Allineamento valori',
+    'Lasciare un\'eredità',
+    'Spiritualità',
+    'Volontariato e impatto',
+    'Riscoprire passioni',
+  ],
+  focus: [
+    'Produttività',
+    'Procrastinazione',
+    'Gestione tempo',
+    'ADHD e concentrazione',
+    'Obiettivi e pianificazione',
+    'Distrazioni digitali',
+    'Deep work',
+    'Sistemi e routine',
+  ],
+}
+
+// Target clients suggeriti
+export const TARGET_CLIENTS_OPTIONS = [
+  'Manager e dirigenti',
+  'Imprenditori e startup founder',
+  'Professionisti',
+  'Freelance e creativi',
+  'Donne in carriera',
+  'Genitori',
+  'Millennials e Gen Z',
+  'Over 50 in transizione',
+  'Studenti universitari',
+  'Neo-laureati',
+  'Persone in burnout',
+  'Chi cerca cambio vita',
+]
 
 export interface WeeklyAvailability {
   monday: TimeSlot[]
@@ -198,7 +389,7 @@ export interface TimeSlot {
 // =====================
 // MATCHING & CALL
 // =====================
-export interface CoachMatch {
+export interface CoachaMi {
   coach: Coach
   score: number
   matchReasons: string[]
