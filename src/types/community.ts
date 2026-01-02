@@ -59,6 +59,29 @@ export interface CommunitySave {
 }
 
 // =====================
+// RECENSIONI COACH
+// =====================
+
+export interface CoachReview {
+  id: string
+  coachId: string
+  coachName: string
+  coacheeId: string
+  coacheeName: string
+  coacheePhoto?: string
+  rating: 1 | 2 | 3 | 4 | 5
+  message: string
+  sessionId?: string // riferimento alla sessione
+  isVerified: boolean // sessione verificata
+  isPublic: boolean
+  createdAt: Date
+  updatedAt: Date
+  // Risposta del coach
+  coachResponse?: string
+  coachResponseAt?: Date
+}
+
+// =====================
 // SISTEMA PUNTI COACH
 // =====================
 

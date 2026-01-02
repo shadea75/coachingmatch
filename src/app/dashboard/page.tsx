@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { 
@@ -16,7 +16,8 @@ import {
   MessageCircle,
   Menu,
   X,
-  Shield
+  Shield,
+  Gift
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { LIFE_AREAS } from '@/types'
@@ -24,23 +25,72 @@ import RadarChart from '@/components/RadarChart'
 import Logo from '@/components/Logo'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
+import { db } from '@/lib/firebase'
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
 
-// Mock data
-const UPCOMING_CALLS = [
-  {
-    id: '1',
-    coachName: 'Laura Bianchi',
-    coachPhoto: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
-    date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-    time: '10:00',
-    type: 'free_orientation'
-  }
-]
+// Nessuna call mock - verranno caricate da Firebase
+const UPCOMING_CALLS: any[] = []
 
 export default function DashboardPage() {
   const { user, signOut, canAccessAdmin } = useAuth()
   const [activeTab, setActiveTab] = useState<'overview' | 'calls' | 'community'>('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [stats, setStats] = useState({ activeCoaches: 0, totalCoachees: 0 })
+  const [communitySettings, setCommunitySettings] = useState({ freeTrialDays: 30 })
+  const [userCalls, setUserCalls] = useState<any[]>([])
+  
+  // Carica statistiche reali
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        // Conta coach approvati
+        const coachesQuery = query(
+          collection(db, 'coachApplications'),
+          where('status', '==', 'approved')
+        )
+        const coachesSnap = await getDocs(coachesQuery)
+        
+        // Conta utenti coachee
+        const usersQuery = query(
+          collection(db, 'users'),
+          where('role', '==', 'coachee')
+        )
+        const usersSnap = await getDocs(usersQuery)
+        
+        setStats({
+          activeCoaches: coachesSnap.size,
+          totalCoachees: usersSnap.size
+        })
+        
+        // Carica impostazioni community
+        const settingsDoc = await getDoc(doc(db, 'settings', 'community'))
+        if (settingsDoc.exists()) {
+          setCommunitySettings(settingsDoc.data() as any)
+        }
+      } catch (err) {
+        console.error('Errore caricamento stats:', err)
+      }
+    }
+    loadStats()
+  }, [])
+  
+  // Calcola se l'utente è nel periodo di prova gratuito
+  const isInFreeTrial = () => {
+    if (!user?.createdAt) return false
+    const createdAt = user.createdAt instanceof Date ? user.createdAt : new Date(user.createdAt)
+    const trialEndDate = new Date(createdAt.getTime() + communitySettings.freeTrialDays * 24 * 60 * 60 * 1000)
+    return new Date() < trialEndDate
+  }
+  
+  const daysLeftInTrial = () => {
+    if (!user?.createdAt) return 0
+    const createdAt = user.createdAt instanceof Date ? user.createdAt : new Date(user.createdAt)
+    const trialEndDate = new Date(createdAt.getTime() + communitySettings.freeTrialDays * 24 * 60 * 60 * 1000)
+    const daysLeft = Math.ceil((trialEndDate.getTime() - new Date().getTime()) / (24 * 60 * 60 * 1000))
+    return Math.max(0, daysLeft)
+  }
+  
+  const canAccessCommunity = user?.membershipStatus === 'active' || isInFreeTrial()
   
   // Mock area scores
   const mockScores = user?.areaScores || {
@@ -368,9 +418,34 @@ export default function DashboardPage() {
               Community
             </h1>
             
-            {user?.membershipStatus === 'active' ? (
-              <div className="bg-white rounded-2xl p-6">
-                <p>Contenuto community per membri...</p>
+            {canAccessCommunity ? (
+              <div className="space-y-4">
+                {/* Banner periodo gratuito */}
+                {isInFreeTrial() && user?.membershipStatus !== 'active' && (
+                  <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl p-4 text-white flex items-center gap-3">
+                    <Gift size={24} />
+                    <div className="flex-1">
+                      <p className="font-semibold">Periodo di prova gratuito!</p>
+                      <p className="text-sm text-green-100">
+                        Ti restano {daysLeftInTrial()} giorni di accesso gratuito alla community
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="bg-white rounded-2xl p-6">
+                  <h2 className="font-semibold text-charcoal mb-4">Accedi alla Community</h2>
+                  <p className="text-gray-500 mb-6">
+                    Interagisci con coach e altri coachee, scopri contenuti esclusivi e partecipa agli eventi.
+                  </p>
+                  <Link 
+                    href="/community"
+                    className="btn bg-primary-500 text-white hover:bg-primary-600 w-full justify-center"
+                  >
+                    <Users size={20} />
+                    Entra nella Community
+                  </Link>
+                </div>
               </div>
             ) : (
               <div className="bg-white rounded-2xl p-8 text-center max-w-lg mx-auto">
@@ -410,6 +485,9 @@ export default function DashboardPage() {
                 <button className="btn btn-primary w-full">
                   Abbonati a €29/mese
                 </button>
+                <p className="text-xs text-gray-400 mt-2">
+                  Il periodo di prova gratuito è terminato
+                </p>
               </div>
             )}
           </motion.div>
