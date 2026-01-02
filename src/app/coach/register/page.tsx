@@ -304,41 +304,57 @@ export default function CoachRegisterPage() {
                 <div>
                   <label className="label">Certificazioni</label>
                   {formData.certifications.map((cert, index) => (
-                    <div key={index} className="flex gap-2 mb-2">
-                      <input
-                        type="text"
-                        className="input flex-1"
-                        placeholder="Nome certificazione"
-                        value={cert.name}
-                        onChange={(e) => updateCertification(index, 'name', e.target.value)}
-                      />
-                      <input
-                        type="text"
-                        className="input w-32"
-                        placeholder="Ente"
-                        value={cert.institution}
-                        onChange={(e) => updateCertification(index, 'institution', e.target.value)}
-                      />
-                      <input
-                        type="number"
-                        className="input w-24"
-                        placeholder="Anno"
-                        value={cert.year}
-                        onChange={(e) => updateCertification(index, 'year', parseInt(e.target.value))}
-                      />
-                      {formData.certifications.length > 1 && (
-                        <button
-                          onClick={() => removeCertification(index)}
-                          className="p-3 text-red-500 hover:bg-red-50 rounded-xl"
-                        >
-                          <X size={20} />
-                        </button>
-                      )}
+                    <div key={index} className="bg-gray-50 rounded-xl p-4 mb-3">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="md:col-span-1">
+                          <label className="text-xs text-gray-500 mb-1 block">Nome certificazione</label>
+                          <input
+                            type="text"
+                            className="input"
+                            placeholder="Es: ICF PCC, AICP, Life Coach"
+                            value={cert.name}
+                            onChange={(e) => updateCertification(index, 'name', e.target.value)}
+                          />
+                        </div>
+                        <div className="md:col-span-1">
+                          <label className="text-xs text-gray-500 mb-1 block">Ente / Istituzione</label>
+                          <input
+                            type="text"
+                            className="input"
+                            placeholder="Es: ICF Italia, AICP"
+                            value={cert.institution}
+                            onChange={(e) => updateCertification(index, 'institution', e.target.value)}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <label className="text-xs text-gray-500 mb-1 block">Anno</label>
+                            <input
+                              type="number"
+                              className="input"
+                              placeholder="2024"
+                              min={1990}
+                              max={2030}
+                              value={cert.year}
+                              onChange={(e) => updateCertification(index, 'year', parseInt(e.target.value))}
+                            />
+                          </div>
+                          {formData.certifications.length > 1 && (
+                            <button
+                              onClick={() => removeCertification(index)}
+                              className="self-end p-3 text-red-500 hover:bg-red-100 rounded-xl transition-colors"
+                              title="Rimuovi certificazione"
+                            >
+                              <X size={20} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                   <button
                     onClick={addCertification}
-                    className="flex items-center gap-2 text-primary-500 text-sm font-medium mt-2"
+                    className="flex items-center gap-2 text-primary-500 text-sm font-medium mt-2 hover:text-primary-600 transition-colors"
                   >
                     <Plus size={16} />
                     Aggiungi certificazione
@@ -352,8 +368,10 @@ export default function CoachRegisterPage() {
                       type="number"
                       className="input"
                       min={0}
+                      max={50}
+                      placeholder="Es: 5"
                       value={formData.yearsOfExperience}
-                      onChange={(e) => updateForm('yearsOfExperience', parseInt(e.target.value))}
+                      onChange={(e) => updateForm('yearsOfExperience', parseInt(e.target.value) || 0)}
                     />
                   </div>
                   <div>
