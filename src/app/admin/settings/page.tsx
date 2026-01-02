@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AdminLayout from '@/components/AdminLayout'
-import { Save, AlertCircle } from 'lucide-react'
+import { Save, AlertCircle, Users, Gift } from 'lucide-react'
+import { db } from '@/lib/firebase'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState({
@@ -13,13 +15,81 @@ export default function AdminSettingsPage() {
     freeCallDuration: 15,
     maxAreasPerCoach: 1,
     autoApproveCoaches: false,
+    // Community settings
+    communityFreeTrialDays: 30,
+    communityMonthlyPrice: 29,
+    coachMonthlyPrice: 29,
+    minPostsPerMonth: 4,
   })
   const [saved, setSaved] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  const handleSave = () => {
-    // TODO: Salvare su Firebase
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+  // Carica impostazioni da Firebase
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settingsDoc = await getDoc(doc(db, 'settings', 'platform'))
+        if (settingsDoc.exists()) {
+          setSettings(prev => ({ ...prev, ...settingsDoc.data() }))
+        }
+        
+        const communityDoc = await getDoc(doc(db, 'settings', 'community'))
+        if (communityDoc.exists()) {
+          const data = communityDoc.data()
+          setSettings(prev => ({ 
+            ...prev, 
+            communityFreeTrialDays: data.freeTrialDays || 30,
+            communityMonthlyPrice: data.monthlyPrice || 29
+          }))
+        }
+      } catch (err) {
+        console.error('Errore caricamento settings:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadSettings()
+  }, [])
+
+  const handleSave = async () => {
+    try {
+      // Salva settings piattaforma
+      await setDoc(doc(db, 'settings', 'platform'), {
+        platformName: settings.platformName,
+        supportEmail: settings.supportEmail,
+        coachEmail: settings.coachEmail,
+        platformFeePercentage: settings.platformFeePercentage,
+        freeCallDuration: settings.freeCallDuration,
+        maxAreasPerCoach: settings.maxAreasPerCoach,
+        autoApproveCoaches: settings.autoApproveCoaches,
+        minPostsPerMonth: settings.minPostsPerMonth,
+        updatedAt: new Date()
+      })
+      
+      // Salva settings community
+      await setDoc(doc(db, 'settings', 'community'), {
+        freeTrialDays: settings.communityFreeTrialDays,
+        monthlyPrice: settings.communityMonthlyPrice,
+        coachMonthlyPrice: settings.coachMonthlyPrice,
+        updatedAt: new Date()
+      })
+      
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error('Errore salvataggio settings:', err)
+      alert('Errore durante il salvataggio')
+    }
+  }
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+        </div>
+      </AdminLayout>
+    )
   }
 
   return (
@@ -29,15 +99,6 @@ export default function AdminSettingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-charcoal">Impostazioni</h1>
           <p className="text-gray-500">Configura le impostazioni della piattaforma</p>
-        </div>
-
-        {/* Alert */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm text-yellow-800 font-medium">Funzionalità in sviluppo</p>
-            <p className="text-sm text-yellow-700">Le impostazioni saranno salvate su Firebase in una prossima versione.</p>
-          </div>
         </div>
 
         {/* Settings Form */}
@@ -82,9 +143,86 @@ export default function AdminSettingsPage() {
             </div>
           </div>
 
+          {/* Community */}
+          <div className="p-6">
+            <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+              <Gift size={20} className="text-green-500" />
+              Community & Abbonamenti
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Periodo di prova gratuito (giorni)
+                </label>
+                <select
+                  value={settings.communityFreeTrialDays}
+                  onChange={(e) => setSettings({ ...settings, communityFreeTrialDays: parseInt(e.target.value) })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value={0}>Nessun periodo gratuito</option>
+                  <option value={7}>7 giorni</option>
+                  <option value={14}>14 giorni</option>
+                  <option value={30}>30 giorni</option>
+                  <option value={60}>60 giorni</option>
+                  <option value={90}>90 giorni</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  I nuovi utenti avranno accesso gratuito alla community per questo periodo
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Prezzo abbonamento Coachee (€/mese)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={settings.communityMonthlyPrice}
+                    onChange={(e) => setSettings({ ...settings, communityMonthlyPrice: parseInt(e.target.value) })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Prezzo abbonamento Coach (€/mese)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={settings.coachMonthlyPrice}
+                    onChange={(e) => setSettings({ ...settings, coachMonthlyPrice: parseInt(e.target.value) })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Post minimi al mese per coach
+                </label>
+                <select
+                  value={settings.minPostsPerMonth}
+                  onChange={(e) => setSettings({ ...settings, minPostsPerMonth: parseInt(e.target.value) })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value={2}>2 post/mese</option>
+                  <option value={4}>4 post/mese</option>
+                  <option value={6}>6 post/mese</option>
+                  <option value={8}>8 post/mese</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  I coach che non raggiungono questo obiettivo perdono visibilità
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Coach */}
           <div className="p-6">
-            <h2 className="font-semibold text-charcoal mb-4">Impostazioni Coach</h2>
+            <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+              <Users size={20} className="text-primary-500" />
+              Impostazioni Coach
+            </h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -115,6 +253,9 @@ export default function AdminSettingsPage() {
                   onChange={(e) => setSettings({ ...settings, platformFeePercentage: parseInt(e.target.value) })}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Il coach riceve {100 - settings.platformFeePercentage}% di ogni sessione
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
