@@ -134,11 +134,31 @@ export default function CoachRegisterPage() {
   const handleSubmit = async () => {
     setIsSubmitting(true)
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // In production: save to Firestore, upload files, etc.
-    router.push('/coach/register/success')
+    try {
+      // Invia email di conferma
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'coach_registration',
+          data: {
+            name: formData.name,
+            email: formData.email,
+            lifeAreas: formData.lifeAreas,
+            yearsOfExperience: formData.yearsOfExperience,
+          }
+        })
+      })
+      
+      // In production: save to Firestore, upload files, etc.
+      router.push('/coach/register/success')
+    } catch (error) {
+      console.error('Errore durante la registrazione:', error)
+      // Continua comunque alla pagina di successo
+      router.push('/coach/register/success')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
   
   return (
