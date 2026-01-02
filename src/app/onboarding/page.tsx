@@ -24,6 +24,7 @@ import { getAreaSubtitle } from '@/lib/areaDescriptions'
 import ScoreSelector from '@/components/ScoreSelector'
 import ObjectivesSelector from '@/components/ObjectivesSelector'
 import RadarChart from '@/components/RadarChart'
+import Logo from '@/components/Logo'
 
 // Icon mapping
 const AREA_ICONS: Record<LifeAreaId, typeof Briefcase> = {
@@ -156,10 +157,7 @@ export default function OnboardingPage() {
               <ArrowLeft size={20} className="text-gray-600" />
             </button>
             
-            <div className="flex items-center gap-2">
-              <Sparkles size={20} className="text-primary-500" />
-              <span className="font-semibold text-charcoal">CoachMatch</span>
-            </div>
+            <Logo size="sm" />
             
             <div className="w-9" /> {/* Spacer */}
           </div>
