@@ -10,9 +10,21 @@ interface RadarChartProps {
   showLabels?: boolean
 }
 
+// Label abbreviati per il radar chart
+const SHORT_LABELS: Record<string, string> = {
+  'salute': 'Salute',
+  'finanze': 'Finanze',
+  'carriera': 'Carriera',
+  'relazioni': 'Relazioni',
+  'amore': 'Amore',
+  'crescita': 'Crescita',
+  'spiritualita': 'Spiritualità',
+  'divertimento': 'Divertimento',
+}
+
 export default function RadarChart({ 
   scores, 
-  size = 300, 
+  size = 350, // Aumentato da 300
   animated = true,
   showLabels = true 
 }: RadarChartProps) {
@@ -27,7 +39,7 @@ export default function RadarChart({
     
     const centerX = size / 2
     const centerY = size / 2
-    const radius = (size / 2) - 40
+    const radius = (size / 2) - 60 // Più padding per i label
     const areas = LIFE_AREAS
     const numAreas = areas.length
     const angleStep = (Math.PI * 2) / numAreas
@@ -106,36 +118,47 @@ export default function RadarChart({
     
     // Draw labels
     if (showLabels) {
-      ctx.font = '12px system-ui'
+      ctx.font = '13px system-ui, sans-serif'
       ctx.fillStyle = '#374151'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
       
       areas.forEach((area, index) => {
         const angle = angleStep * index - Math.PI / 2
-        const labelRadius = radius + 25
-        const x = centerX + Math.cos(angle) * labelRadius
-        const y = centerY + Math.sin(angle) * labelRadius
+        const labelRadius = radius + 35
+        let x = centerX + Math.cos(angle) * labelRadius
+        let y = centerY + Math.sin(angle) * labelRadius
+        
+        // Get short label
+        const label = SHORT_LABELS[area.id] || area.label.split(' ')[0]
         
         // Adjust text alignment based on position
-        if (Math.abs(x - centerX) < 10) {
+        const normalizedAngle = ((angle + Math.PI / 2) + Math.PI * 2) % (Math.PI * 2)
+        
+        if (normalizedAngle < 0.3 || normalizedAngle > Math.PI * 2 - 0.3) {
+          // Top
           ctx.textAlign = 'center'
-        } else if (x < centerX) {
-          ctx.textAlign = 'right'
-        } else {
+          ctx.textBaseline = 'bottom'
+        } else if (normalizedAngle > Math.PI - 0.3 && normalizedAngle < Math.PI + 0.3) {
+          // Bottom
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'top'
+        } else if (normalizedAngle < Math.PI) {
+          // Right side
           ctx.textAlign = 'left'
+          ctx.textBaseline = 'middle'
+        } else {
+          // Left side
+          ctx.textAlign = 'right'
+          ctx.textBaseline = 'middle'
         }
         
-        // Shorten labels
-        const shortLabel = area.label.split(' ')[0]
-        ctx.fillText(shortLabel, x, y)
+        ctx.fillText(label, x, y)
       })
     }
     
   }, [scores, size, showLabels])
   
   return (
-    <div className="relative">
+    <div className="relative flex justify-center">
       <canvas 
         ref={canvasRef} 
         width={size} 

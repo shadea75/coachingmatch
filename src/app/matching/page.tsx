@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Sparkles, Loader2 } from 'lucide-react'
+import { Loader2, Sparkles } from 'lucide-react'
+import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { Coach, CoachaMi, LIFE_AREAS } from '@/types'
 import CoachCard from '@/components/CoachCard'
+import Logo from '@/components/Logo'
 
 // Mock coaches data (in production, fetch from Firestore)
 const MOCK_COACHES: Coach[] = [
@@ -310,12 +312,11 @@ export default function MatchingPage() {
   return (
     <div className="min-h-screen bg-cream">
       {/* Header */}
-      <header className="bg-white border-b border-gray-100 py-6 px-4">
+      <header className="bg-white border-b border-gray-100 py-4 px-4">
         <div className="max-w-6xl mx-auto">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-6 h-6 text-primary-500" />
-            <span className="font-semibold text-charcoal">CoachaMi</span>
-          </div>
+          <Link href="/">
+            <Logo size="md" />
+          </Link>
         </div>
       </header>
       
