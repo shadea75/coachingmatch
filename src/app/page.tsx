@@ -4,7 +4,6 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { 
   ArrowRight, 
-  Target, 
   Users, 
   Calendar,
   Star,
@@ -12,7 +11,9 @@ import {
   Sparkles,
   Heart,
   Briefcase,
-  Shield
+  Shield,
+  PiggyBank,
+  PartyPopper
 } from 'lucide-react'
 import Logo from '@/components/Logo'
 
@@ -129,7 +130,7 @@ export default function HomePage() {
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                icon: Target,
+                icon: CheckCircle2,
                 color: '#6366F1',
                 title: 'Valuta le aree della tua vita',
                 description: 'Rispondi a semplici domande su 8 aree chiave: salute, finanze, carriera e altro.'
@@ -195,13 +196,13 @@ export default function HomePage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: 'Salute e Vitalità', color: '#10B981', icon: Heart },
-              { label: 'Finanze', color: '#14B8A6', icon: Target },
+              { label: 'Finanze', color: '#14B8A6', icon: PiggyBank },
               { label: 'Carriera/Lavoro', color: '#6366F1', icon: Briefcase },
               { label: 'Relazioni', color: '#F59E0B', icon: Users },
               { label: 'Amore', color: '#EC4899', icon: Heart },
               { label: 'Crescita Personale', color: '#8B5CF6', icon: Sparkles },
               { label: 'Spiritualità', color: '#F97316', icon: Star },
-              { label: 'Divertimento', color: '#3B82F6', icon: Sparkles },
+              { label: 'Divertimento', color: '#3B82F6', icon: PartyPopper },
             ].map((area, index) => (
               <motion.div
                 key={index}

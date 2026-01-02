@@ -10,10 +10,11 @@ import {
   Briefcase,
   Heart,
   Users,
-  Wallet,
   HeartHandshake,
   TrendingUp,
-  Smile,
+  PartyPopper,
+  PiggyBank,
+  Star,
   Check
 } from 'lucide-react'
 import { useOnboarding } from '@/contexts/OnboardingContext'
@@ -28,13 +29,13 @@ import Logo from '@/components/Logo'
 // Icon mapping
 const AREA_ICONS: Record<LifeAreaId, typeof Briefcase> = {
   salute: Heart,
-  finanze: Wallet,
+  finanze: PiggyBank,
   carriera: Briefcase,
   relazioni: Users,
   amore: HeartHandshake,
   crescita: TrendingUp,
-  spiritualita: Sparkles,
-  divertimento: Smile
+  spiritualita: Star,
+  divertimento: PartyPopper
 }
 
 export default function OnboardingPage() {

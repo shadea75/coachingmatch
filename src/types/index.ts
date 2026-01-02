@@ -3,13 +3,13 @@
 // =====================
 export const LIFE_AREAS = [
   { id: 'salute', label: 'Salute e Vitalità', color: '#10B981', icon: 'Heart' },
-  { id: 'finanze', label: 'Finanze', color: '#14B8A6', icon: 'Wallet' },
+  { id: 'finanze', label: 'Finanze', color: '#14B8A6', icon: 'PiggyBank' },
   { id: 'carriera', label: 'Carriera/Lavoro', color: '#6366F1', icon: 'Briefcase' },
   { id: 'relazioni', label: 'Relazioni', color: '#F59E0B', icon: 'Users' },
   { id: 'amore', label: 'Amore', color: '#EC4899', icon: 'HeartHandshake' },
   { id: 'crescita', label: 'Crescita Personale', color: '#8B5CF6', icon: 'TrendingUp' },
-  { id: 'spiritualita', label: 'Spiritualità/Contributo', color: '#F97316', icon: 'Sparkles' },
-  { id: 'divertimento', label: 'Divertimento', color: '#3B82F6', icon: 'Smile' },
+  { id: 'spiritualita', label: 'Spiritualità/Contributo', color: '#F97316', icon: 'Star' },
+  { id: 'divertimento', label: 'Divertimento', color: '#3B82F6', icon: 'PartyPopper' },
 ] as const
 
 export type LifeAreaId = typeof LIFE_AREAS[number]['id']
