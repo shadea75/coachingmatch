@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Sparkles, Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { Coach, CoachMatch, LIFE_AREAS } from '@/types'
+import { Coach, CoachaMi, LIFE_AREAS } from '@/types'
 import CoachCard from '@/components/CoachCard'
 
 // Mock coaches data (in production, fetch from Firestore)
@@ -17,19 +17,20 @@ const MOCK_COACHES: Coach[] = [
     email: 'laura@coach.it',
     photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
     bio: 'Executive coach con 12 anni di esperienza nel supportare professionisti e manager nel raggiungimento dei loro obiettivi di carriera. Specializzata in leadership e gestione del cambiamento.',
-    certifications: [{ name: 'ICF PCC', institution: 'ICF', year: 2018 }],
+    certifications: [{ name: 'ICF PCC', institution: 'ICF', year: 2018, type: 'icf', level: 'PCC', verified: true }],
     yearsOfExperience: 12,
+    coachingSchool: 'ICF Italia',
     languages: ['Italiano', 'Inglese'],
     sessionMode: ['online', 'presence'],
     location: 'Milano',
     averagePrice: 150,
+    typicalSessionCount: '8-12 sessioni',
     freeCallAvailable: true,
     specializations: {
       lifeAreas: ['carriera', 'fiducia', 'focus'],
-      clientTypes: ['Manager', 'Professionisti', 'Imprenditori'],
-      problemsAddressed: ['Crescita professionale', 'Leadership', 'Work-life balance'],
-      coachingMethod: ['Coaching ontologico', 'PNL'],
-      style: ['strutturato', 'diretto']
+      focusTopics: ['Leadership', 'Crescita professionale', 'Work-life balance'],
+      targetClients: ['Manager', 'Professionisti', 'Imprenditori'],
+      coachingMethod: 'Coaching ontologico e PNL per risultati concreti'
     },
     availability: {
       monday: [{ start: '09:00', end: '18:00' }],
@@ -41,8 +42,10 @@ const MOCK_COACHES: Coach[] = [
       sunday: []
     },
     status: 'approved',
+    applicationDate: new Date('2023-01-15'),
     platformFeePercentage: 30,
     totalClients: 87,
+    totalSessions: 520,
     totalRevenue: 52000,
     rating: 4.9,
     reviewCount: 64,
@@ -56,18 +59,19 @@ const MOCK_COACHES: Coach[] = [
     email: 'marco@coach.it',
     photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400',
     bio: 'Life coach specializzato in benessere emotivo e gestione dello stress. Aiuto le persone a ritrovare equilibrio e serenità nella vita quotidiana attraverso tecniche di mindfulness.',
-    certifications: [{ name: 'ICF ACC', institution: 'ICF', year: 2020 }],
+    certifications: [{ name: 'ICF ACC', institution: 'ICF', year: 2020, type: 'icf', level: 'ACC', verified: true }],
     yearsOfExperience: 8,
+    coachingSchool: 'Scuola Italiana di Coaching',
     languages: ['Italiano'],
     sessionMode: ['online'],
     averagePrice: 100,
+    typicalSessionCount: '6-8 sessioni',
     freeCallAvailable: true,
     specializations: {
       lifeAreas: ['benessere', 'famiglia', 'scopo'],
-      clientTypes: ['Individui', 'Coppie'],
-      problemsAddressed: ['Stress', 'Ansia', 'Burnout', 'Relazioni'],
-      coachingMethod: ['Mindfulness', 'Coaching sistemico'],
-      style: ['empatico', 'esplorativo']
+      focusTopics: ['Stress', 'Ansia', 'Burnout', 'Relazioni'],
+      targetClients: ['Individui', 'Coppie'],
+      coachingMethod: 'Mindfulness e coaching sistemico per ritrovare equilibrio'
     },
     availability: {
       monday: [{ start: '10:00', end: '19:00' }],
@@ -79,8 +83,10 @@ const MOCK_COACHES: Coach[] = [
       sunday: []
     },
     status: 'approved',
+    applicationDate: new Date('2023-03-20'),
     platformFeePercentage: 30,
     totalClients: 52,
+    totalSessions: 312,
     totalRevenue: 28000,
     rating: 4.8,
     reviewCount: 41,
@@ -94,19 +100,20 @@ const MOCK_COACHES: Coach[] = [
     email: 'giulia@coach.it',
     photo: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400',
     bio: 'Business coach e formatrice con esperienza nel mondo startup. Supporto imprenditori e freelance nel definire e raggiungere obiettivi ambiziosi con un approccio pratico e orientato ai risultati.',
-    certifications: [{ name: 'ICF PCC', institution: 'ICF', year: 2019 }],
+    certifications: [{ name: 'ICF PCC', institution: 'ICF', year: 2019, type: 'icf', level: 'PCC', verified: true }],
     yearsOfExperience: 10,
+    coachingSchool: 'CoachU',
     languages: ['Italiano', 'Inglese', 'Spagnolo'],
     sessionMode: ['online', 'presence'],
     location: 'Roma',
     averagePrice: 130,
+    typicalSessionCount: '8-12 sessioni',
     freeCallAvailable: true,
     specializations: {
       lifeAreas: ['carriera', 'denaro', 'focus'],
-      clientTypes: ['Imprenditori', 'Freelance', 'Startup founder'],
-      problemsAddressed: ['Business development', 'Produttività', 'Decision making'],
-      coachingMethod: ['Business coaching', 'Goal setting'],
-      style: ['diretto', 'strutturato']
+      focusTopics: ['Business development', 'Produttività', 'Decision making'],
+      targetClients: ['Imprenditori', 'Freelance', 'Startup founder'],
+      coachingMethod: 'Business coaching e goal setting orientato ai risultati'
     },
     availability: {
       monday: [{ start: '08:00', end: '17:00' }],
@@ -118,8 +125,10 @@ const MOCK_COACHES: Coach[] = [
       sunday: []
     },
     status: 'approved',
+    applicationDate: new Date('2023-02-10'),
     platformFeePercentage: 30,
     totalClients: 73,
+    totalSessions: 438,
     totalRevenue: 45000,
     rating: 4.7,
     reviewCount: 58,
@@ -133,19 +142,20 @@ const MOCK_COACHES: Coach[] = [
     email: 'alessandro@coach.it',
     photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
     bio: 'Relationship coach specializzato in comunicazione e dinamiche relazionali. Aiuto individui e coppie a costruire relazioni più autentiche e soddisfacenti.',
-    certifications: [{ name: 'Certified Relationship Coach', institution: 'RCI', year: 2017 }],
+    certifications: [{ name: 'Certified Relationship Coach', institution: 'RCI', year: 2017, type: 'other', verified: true }],
     yearsOfExperience: 9,
+    coachingSchool: 'Relationship Coaching Institute',
     languages: ['Italiano'],
     sessionMode: ['online', 'presence'],
     location: 'Firenze',
     averagePrice: 120,
+    typicalSessionCount: '6-8 sessioni',
     freeCallAvailable: true,
     specializations: {
       lifeAreas: ['amore', 'famiglia', 'fiducia'],
-      clientTypes: ['Individui', 'Coppie'],
-      problemsAddressed: ['Comunicazione', 'Conflitti relazionali', 'Autostima'],
-      coachingMethod: ['Comunicazione non violenta', 'Coaching relazionale'],
-      style: ['empatico', 'esplorativo']
+      focusTopics: ['Comunicazione', 'Conflitti relazionali', 'Autostima'],
+      targetClients: ['Individui', 'Coppie'],
+      coachingMethod: 'Comunicazione non violenta e coaching relazionale'
     },
     availability: {
       monday: [{ start: '14:00', end: '20:00' }],
@@ -157,8 +167,10 @@ const MOCK_COACHES: Coach[] = [
       sunday: []
     },
     status: 'approved',
+    applicationDate: new Date('2023-04-05'),
     platformFeePercentage: 30,
     totalClients: 61,
+    totalSessions: 366,
     totalRevenue: 35000,
     rating: 4.9,
     reviewCount: 47,
@@ -172,7 +184,7 @@ function calculateMatches(
   userScores: Record<string, number>,
   userObjectives: Record<string, string[]>,
   coaches: Coach[]
-): CoachMatch[] {
+): CoachaMi[] {
   // Find priority areas (lowest scores)
   const priorityAreas = Object.entries(userScores)
     .sort(([, a], [, b]) => a - b)
@@ -197,12 +209,12 @@ function calculateMatches(
       reasons.push(`Specializzato in ${matchedAreas.slice(0, 2).join(' e ')}`)
     }
     
-    // Objectives match
+    // Objectives match (using focusTopics instead of problemsAddressed)
     const allUserObjectives = Object.values(userObjectives).flat()
-    const objectiveMatch = coach.specializations.problemsAddressed.some(
-      problem => allUserObjectives.some(obj => 
-        obj.toLowerCase().includes(problem.toLowerCase()) ||
-        problem.toLowerCase().includes(obj.toLowerCase().split(' ')[0])
+    const objectiveMatch = coach.specializations.focusTopics.some(
+      topic => allUserObjectives.some(obj => 
+        obj.toLowerCase().includes(topic.toLowerCase()) ||
+        topic.toLowerCase().includes(obj.toLowerCase().split(' ')[0])
       )
     )
     if (objectiveMatch) {
@@ -213,9 +225,9 @@ function calculateMatches(
     // Rating bonus
     score += coach.rating * 5
     
-    // Style description
-    if (coach.specializations.style.length > 0) {
-      reasons.push(`Approccio ${coach.specializations.style[0]} e ${coach.specializations.style[1] || 'flessibile'}`)
+    // Add coaching method as reason
+    if (coach.specializations.coachingMethod) {
+      reasons.push('Approccio versatile e professionale')
     }
     
     return {
@@ -234,7 +246,7 @@ function calculateMatches(
 export default function MatchingPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const [matches, setMatches] = useState<CoachMatch[]>([])
+  const [matches, setMatches] = useState<CoachaMi[]>([])
   const [loading, setLoading] = useState(true)
   
   useEffect(() => {
@@ -302,7 +314,7 @@ export default function MatchingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="w-6 h-6 text-primary-500" />
-            <span className="font-semibold text-charcoal">CoachMatch</span>
+            <span className="font-semibold text-charcoal">CoachaMi</span>
           </div>
         </div>
       </header>
