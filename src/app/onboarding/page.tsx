@@ -220,11 +220,11 @@ export default function OnboardingPage() {
               />
               
               {/* Mini radar preview */}
-              <div className="mt-12 flex justify-center">
-                <div className="opacity-60 scale-75">
+              <div className="mt-8 flex justify-center">
+                <div className="opacity-80">
                   <RadarChart 
                     scores={state.areaScores} 
-                    size={200}
+                    size={280}
                     showLabels={false}
                   />
                 </div>
