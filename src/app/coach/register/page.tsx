@@ -281,14 +281,23 @@ export default function CoachRegisterPage() {
                 </div>
                 
                 <div>
-                  <label className="label">Bio professionale *</label>
+                  <div className="flex items-center justify-between">
+                    <label className="label mb-0">Bio professionale *</label>
+                    <span className={`text-xs ${formData.bio.length > 500 ? 'text-red-500' : 'text-gray-400'}`}>
+                      {formData.bio.length}/500
+                    </span>
+                  </div>
                   <textarea
-                    className="input min-h-[120px]"
+                    className={`input min-h-[120px] mt-2 ${formData.bio.length > 500 ? 'border-red-500' : ''}`}
                     value={formData.bio}
                     onChange={(e) => updateForm('bio', e.target.value)}
                     placeholder="Descrivi la tua esperienza e il tuo approccio al coaching..."
+                    maxLength={550}
                     required
                   />
+                  {formData.bio.length > 500 && (
+                    <p className="text-red-500 text-xs mt-1">Massimo 500 caratteri</p>
+                  )}
                 </div>
               </div>
             )}
