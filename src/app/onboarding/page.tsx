@@ -12,9 +12,8 @@ import {
   Users,
   Wallet,
   HeartHandshake,
-  Shield,
-  Target,
-  Zap,
+  TrendingUp,
+  Smile,
   Check
 } from 'lucide-react'
 import { useOnboarding } from '@/contexts/OnboardingContext'
@@ -28,14 +27,14 @@ import Logo from '@/components/Logo'
 
 // Icon mapping
 const AREA_ICONS: Record<LifeAreaId, typeof Briefcase> = {
+  salute: Heart,
+  finanze: Wallet,
   carriera: Briefcase,
-  benessere: Heart,
-  famiglia: Users,
-  denaro: Wallet,
+  relazioni: Users,
   amore: HeartHandshake,
-  fiducia: Shield,
-  scopo: Target,
-  focus: Zap
+  crescita: TrendingUp,
+  spiritualita: Sparkles,
+  divertimento: Smile
 }
 
 export default function OnboardingPage() {
