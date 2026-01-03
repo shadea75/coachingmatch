@@ -26,7 +26,6 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
-import CalendarSettings from '@/components/CalendarSettings'
 import { db } from '@/lib/firebase'
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { LIFE_AREAS } from '@/types'
@@ -147,7 +146,6 @@ export default function CoachSettingsPage() {
   
   const tabs = [
     { id: 'profile', label: 'Profilo', icon: User },
-    { id: 'calendar', label: 'Calendario', icon: Calendar },
     { id: 'notifications', label: 'Notifiche', icon: Bell },
   ]
   
@@ -407,47 +405,6 @@ export default function CoachSettingsPage() {
                       </>
                     )}
                   </button>
-                </div>
-              </motion.div>
-            )}
-            
-            {/* Tab: Calendario */}
-            {activeTab === 'calendar' && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-6"
-              >
-                <div className="bg-white rounded-2xl p-6 border border-gray-200">
-                  <h2 className="text-lg font-semibold text-charcoal mb-2">Integrazione Calendario</h2>
-                  <p className="text-gray-500 text-sm mb-6">
-                    Connetti il tuo Google Calendar per sincronizzare automaticamente le disponibilità e creare eventi quando i coachee prenotano.
-                  </p>
-                </div>
-                
-                <CalendarSettings />
-                
-                {/* Info aggiuntive */}
-                <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
-                  <h3 className="font-medium text-blue-800 mb-2">Come funziona?</h3>
-                  <ul className="text-sm text-blue-700 space-y-2">
-                    <li className="flex items-start gap-2">
-                      <Check size={16} className="mt-0.5 flex-shrink-0" />
-                      Le tue disponibilità vengono lette dal calendario Google
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check size={16} className="mt-0.5 flex-shrink-0" />
-                      Quando un coachee prenota, viene creato automaticamente un evento
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check size={16} className="mt-0.5 flex-shrink-0" />
-                      Viene generato un link Google Meet per la videochiamata
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check size={16} className="mt-0.5 flex-shrink-0" />
-                      Entrambi ricevete l'invito via email con tutti i dettagli
-                    </li>
-                  </ul>
                 </div>
               </motion.div>
             )}
