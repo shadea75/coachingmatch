@@ -194,9 +194,10 @@ export default function CoachRegisterPage() {
           const photoRef = ref(storage, `profile-photos/${userId}`)
           await uploadBytes(photoRef, formData.photo)
           photoURL = await getDownloadURL(photoRef)
-        } catch (photoError) {
-          console.error('Errore upload foto:', photoError)
-          // Continua senza foto
+        } catch (photoError: any) {
+          console.warn('Upload foto fallito, continuo senza:', photoError?.message || photoError)
+          // NON blocchiamo la registrazione per la foto
+          photoURL = ''
         }
       }
       
@@ -205,7 +206,7 @@ export default function CoachRegisterPage() {
         name: formData.name,
         email: formData.email,
         photo: photoURL,
-        role: 'coach', // Sarà 'pending_coach' fino all'approvazione? O 'coach' subito?
+        role: 'coach',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       })
