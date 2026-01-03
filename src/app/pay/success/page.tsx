@@ -45,6 +45,8 @@ function PaySuccessContent() {
         
         // Controlla se la rata non è già stata segnata come pagata
         if (installments[installmentIndex] && installments[installmentIndex].status !== 'paid') {
+          const amountPaid = installments[installmentIndex].amount || offerData.pricePerSession
+          
           installments[installmentIndex] = {
             ...installments[installmentIndex],
             status: 'paid',
@@ -61,6 +63,28 @@ function PaySuccessContent() {
             status: paidCount > 0 ? 'active' : offerData.status,
             updatedAt: serverTimestamp()
           })
+
+          // Invia email di conferma a coachee e coach
+          try {
+            await fetch('/api/emails/payment-success', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                coacheeEmail: offerData.coacheeEmail,
+                coacheeName: offerData.coacheeName,
+                coachEmail: offerData.coachEmail,
+                coachName: offerData.coachName,
+                offerTitle: offerData.title,
+                sessionNumber: parseInt(sessionNumber),
+                totalSessions: offerData.totalSessions,
+                amountPaid: amountPaid,
+                offerId: offerId
+              })
+            })
+          } catch (emailErr) {
+            console.error('Errore invio email:', emailErr)
+            // Non blocchiamo il flusso se l'email fallisce
+          }
         }
 
         setIsUpdating(false)
