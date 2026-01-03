@@ -905,18 +905,28 @@ END:VCALENDAR`
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Budget indicativo (opzionale)
                 </label>
-                <select
-                  value={offerRequestForm.budget}
-                  onChange={(e) => setOfferRequestForm(prev => ({ ...prev, budget: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none"
-                >
-                  <option value="">Seleziona...</option>
-                  <option value="100-200">€100 - €200</option>
-                  <option value="200-400">€200 - €400</option>
-                  <option value="400-600">€400 - €600</option>
-                  <option value="600+">€600+</option>
-                  <option value="da_definire">Da definire insieme</option>
-                </select>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={offerRequestForm.budget === 'da_definire' ? '' : offerRequestForm.budget}
+                    onChange={(e) => setOfferRequestForm(prev => ({ ...prev, budget: e.target.value }))}
+                    placeholder="Es: €300, €500, ecc."
+                    disabled={offerRequestForm.budget === 'da_definire'}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                  />
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={offerRequestForm.budget === 'da_definire'}
+                      onChange={(e) => setOfferRequestForm(prev => ({ 
+                        ...prev, 
+                        budget: e.target.checked ? 'da_definire' : '' 
+                      }))}
+                      className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-600">Da definire insieme al coach</span>
+                  </label>
+                </div>
               </div>
               
               {/* Note */}
