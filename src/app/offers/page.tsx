@@ -17,7 +17,8 @@ import {
   ArrowLeft,
   CreditCard,
   AlertCircle,
-  Star
+  Star,
+  CalendarPlus
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -35,6 +36,13 @@ import {
 import { format, formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale'
 
+interface Installment {
+  sessionNumber: number
+  amount: number
+  status: 'pending' | 'paid'
+  paidAt?: Date
+}
+
 interface Offer {
   id: string
   coachId: string
@@ -48,9 +56,17 @@ interface Offer {
   priceTotal: number
   pricePerSession: number
   paidInstallments: number
+  installments: Installment[]
   status: string
   createdAt: Date
   validUntil: Date
+}
+
+interface Session {
+  id: string
+  offerId: string
+  sessionNumber: number
+  status: string
 }
 
 // Formatta valuta
@@ -66,23 +82,25 @@ export default function CoacheeOffersPage() {
   const { user, loading: authLoading } = useAuth()
   
   const [offers, setOffers] = useState<Offer[]>([])
+  const [sessions, setSessions] = useState<Session[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [processingId, setProcessingId] = useState<string | null>(null)
   
-  // Carica offerte ricevute
+  // Carica offerte e sessioni
   useEffect(() => {
-    const loadOffers = async () => {
+    const loadData = async () => {
       if (!user?.id) return
       
       setIsLoading(true)
       try {
+        // Carica offerte
         const offersQuery = query(
           collection(db, 'offers'),
           where('coacheeId', '==', user.id),
           orderBy('createdAt', 'desc')
         )
-        const snapshot = await getDocs(offersQuery)
-        const loadedOffers: Offer[] = snapshot.docs.map(doc => ({
+        const offersSnapshot = await getDocs(offersQuery)
+        const loadedOffers: Offer[] = offersSnapshot.docs.map(doc => ({
           id: doc.id,
           coachId: doc.data().coachId,
           coachName: doc.data().coachName || 'Coach',
@@ -95,22 +113,53 @@ export default function CoacheeOffersPage() {
           priceTotal: doc.data().priceTotal || 0,
           pricePerSession: doc.data().pricePerSession || 0,
           paidInstallments: doc.data().paidInstallments || 0,
+          installments: doc.data().installments || [],
           status: doc.data().status || 'pending',
           createdAt: doc.data().createdAt?.toDate() || new Date(),
           validUntil: doc.data().validUntil?.toDate() || new Date()
         }))
         setOffers(loadedOffers)
+        
+        // Carica sessioni collegate alle offerte
+        const sessionsQuery = query(
+          collection(db, 'sessions'),
+          where('coacheeId', '==', user.id),
+          where('type', '==', 'paid_session')
+        )
+        const sessionsSnapshot = await getDocs(sessionsQuery)
+        const loadedSessions: Session[] = sessionsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          offerId: doc.data().offerId || '',
+          sessionNumber: doc.data().sessionNumber || 0,
+          status: doc.data().status || ''
+        }))
+        setSessions(loadedSessions)
+        
       } catch (err) {
-        console.error('Errore caricamento offerte:', err)
+        console.error('Errore caricamento:', err)
       } finally {
         setIsLoading(false)
       }
     }
     
-    loadOffers()
+    loadData()
   }, [user?.id])
   
-  // Offerte in attesa
+  // Funzione per trovare sessioni non prenotate per un'offerta
+  const getUnbookedPaidSessions = (offer: Offer): number[] => {
+    const paidSessionNumbers = offer.installments
+      .filter(i => i.status === 'paid')
+      .map(i => i.sessionNumber)
+    
+    const bookedSessionNumbers = sessions
+      .filter(s => s.offerId === offer.id && ['pending', 'confirmed', 'completed'].includes(s.status))
+      .map(s => s.sessionNumber)
+    
+    // Sessioni pagate ma non ancora prenotate
+    return paidSessionNumbers.filter(n => !bookedSessionNumbers.includes(n))
+  }
+  
+  // Offerte categorizzate
   const pendingOffers = offers.filter(o => o.status === 'pending')
   const activeOffers = offers.filter(o => ['accepted', 'active'].includes(o.status))
   const otherOffers = offers.filter(o => !['pending', 'accepted', 'active'].includes(o.status))
@@ -138,13 +187,10 @@ export default function CoacheeOffersPage() {
   const handleAccept = async (offer: Offer) => {
     setProcessingId(offer.id)
     try {
-      // Aggiorna stato a "accepted"
       await updateDoc(doc(db, 'offers', offer.id), {
         status: 'accepted',
         respondedAt: serverTimestamp()
       })
-      
-      // Redirect alla pagina di pagamento della prima rata
       router.push(`/pay/offer/${offer.id}`)
     } catch (err) {
       console.error('Errore accettazione:', err)
@@ -201,66 +247,50 @@ export default function CoacheeOffersPage() {
   return (
     <div className="min-h-screen bg-cream">
       {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link 
-                href="/dashboard"
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft size={20} />
-              </Link>
-              <div>
-                <h1 className="text-xl font-semibold text-charcoal">Le mie Offerte</h1>
-                <p className="text-sm text-gray-500">
-                  {pendingOffers.length > 0 
-                    ? `${pendingOffers.length} offerta${pendingOffers.length > 1 ? 'e' : ''} in attesa`
-                    : 'Nessuna offerta in attesa'
-                  }
-                </p>
-              </div>
-            </div>
-            <Logo size="sm" />
-          </div>
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
+        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
+          <Link href="/dashboard" className="p-2 hover:bg-gray-100 rounded-lg">
+            <ArrowLeft size={20} />
+          </Link>
+          <Logo size="sm" />
         </div>
       </header>
       
-      <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-2xl mx-auto px-4 py-6">
+        <h1 className="text-2xl font-bold text-charcoal mb-6">Le mie offerte</h1>
+        
         {isLoading ? (
-          <div className="py-12 text-center">
-            <Loader2 className="animate-spin mx-auto text-primary-500" size={32} />
+          <div className="flex justify-center py-12">
+            <Loader2 className="animate-spin text-primary-500" size={32} />
           </div>
         ) : offers.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center">
-            <FileText size={48} className="mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-semibold text-charcoal mb-2">
-              Nessuna offerta ricevuta
-            </h3>
-            <p className="text-gray-500 mb-4">
-              Quando un coach ti invierà un'offerta, la vedrai qui
+          <div className="bg-white rounded-2xl p-8 text-center">
+            <FileText className="mx-auto mb-4 text-gray-300" size={48} />
+            <h2 className="text-lg font-semibold text-charcoal mb-2">Nessuna offerta</h2>
+            <p className="text-gray-500 mb-6">
+              Non hai ancora ricevuto offerte dai coach
             </p>
             <Link
               href="/matching"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600"
             >
-              Trova un Coach
+              Trova un coach
+              <ChevronRight size={18} />
             </Link>
           </div>
         ) : (
-          <>
+          <div className="space-y-8">
             {/* Offerte in attesa */}
             {pendingOffers.length > 0 && (
               <section>
                 <h2 className="text-lg font-semibold text-charcoal mb-4 flex items-center gap-2">
                   <Clock className="text-yellow-500" size={20} />
-                  In attesa di risposta
+                  In attesa di risposta ({pendingOffers.length})
                 </h2>
                 
                 <div className="space-y-4">
                   {pendingOffers.map((offer, index) => {
                     const expired = isExpired(offer.validUntil)
-                    
                     return (
                       <motion.div
                         key={offer.id}
@@ -377,12 +407,18 @@ export default function CoacheeOffersPage() {
                 </h2>
                 
                 <div className="space-y-4">
-                  {activeOffers.map((offer) => (
+                  {activeOffers.map((offer) => {
+                    const unbookedSessions = getUnbookedPaidSessions(offer)
+                    const hasUnbookedSessions = unbookedSessions.length > 0
+                    const nextSessionToBook = unbookedSessions[0]
+                    const canPayMore = offer.paidInstallments < offer.totalSessions
+                    
+                    return (
                     <div
                       key={offer.id}
                       className="bg-white rounded-xl p-5 shadow-sm"
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
                             <span className="text-green-600 font-semibold text-lg">
@@ -392,30 +428,49 @@ export default function CoacheeOffersPage() {
                           <div>
                             <h3 className="font-semibold text-charcoal">{offer.title}</h3>
                             <p className="text-sm text-gray-500">{offer.coachName}</p>
-                            <div className="flex items-center gap-3 mt-1 text-sm">
-                              <span className="text-green-600">
-                                {offer.paidInstallments}/{offer.totalSessions} sessioni pagate
-                              </span>
-                              <span className="text-gray-400">•</span>
-                              <span className="text-gray-500">
-                                {offer.completedSessions} completate
-                              </span>
-                            </div>
                           </div>
                         </div>
-                        
-                        {offer.paidInstallments < offer.totalSessions && (
-                          <Link
-                            href={`/pay/offer/${offer.id}`}
-                            className="px-4 py-2 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors text-sm"
-                          >
-                            Paga prossima rata
-                          </Link>
-                        )}
                       </div>
                       
+                      {/* Stats */}
+                      <div className="grid grid-cols-3 gap-3 mb-4 p-3 bg-gray-50 rounded-xl text-center">
+                        <div>
+                          <p className="text-lg font-bold text-green-600">{offer.paidInstallments}</p>
+                          <p className="text-xs text-gray-500">Pagate</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-blue-600">
+                            {offer.paidInstallments - unbookedSessions.length}
+                          </p>
+                          <p className="text-xs text-gray-500">Prenotate</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-purple-600">{offer.completedSessions}</p>
+                          <p className="text-xs text-gray-500">Completate</p>
+                        </div>
+                      </div>
+                      
+                      {/* Alert sessioni da prenotare */}
+                      {hasUnbookedSessions && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4">
+                          <div className="flex items-center gap-2 text-yellow-700">
+                            <AlertCircle size={18} />
+                            <span className="font-medium text-sm">
+                              {unbookedSessions.length === 1 
+                                ? 'Hai 1 sessione pagata da prenotare!'
+                                : `Hai ${unbookedSessions.length} sessioni pagate da prenotare!`
+                              }
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
                       {/* Progress bar */}
-                      <div className="mt-4">
+                      <div className="mb-4">
+                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                          <span>Progresso</span>
+                          <span>{offer.completedSessions}/{offer.totalSessions} completate</span>
+                        </div>
                         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                           <div 
                             className="h-full bg-green-500 transition-all"
@@ -423,8 +478,42 @@ export default function CoacheeOffersPage() {
                           />
                         </div>
                       </div>
+                      
+                      {/* Azioni */}
+                      <div className="flex gap-3">
+                        {hasUnbookedSessions && (
+                          <Link
+                            href={`/booking/paid/${offer.id}?session=${nextSessionToBook}`}
+                            className="flex-1 px-4 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors flex items-center justify-center gap-2 font-medium"
+                          >
+                            <CalendarPlus size={18} />
+                            Prenota sessione {nextSessionToBook}
+                          </Link>
+                        )}
+                        
+                        {canPayMore && !hasUnbookedSessions && (
+                          <Link
+                            href={`/pay/offer/${offer.id}`}
+                            className="flex-1 px-4 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors flex items-center justify-center gap-2 font-medium"
+                          >
+                            <CreditCard size={18} />
+                            Paga sessione {offer.paidInstallments + 1}
+                          </Link>
+                        )}
+                        
+                        {canPayMore && hasUnbookedSessions && (
+                          <Link
+                            href={`/pay/offer/${offer.id}`}
+                            className="flex-1 px-4 py-3 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                          >
+                            <CreditCard size={18} />
+                            Paga altra rata
+                          </Link>
+                        )}
+                      </div>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </section>
             )}
@@ -455,7 +544,7 @@ export default function CoacheeOffersPage() {
                 </div>
               </section>
             )}
-          </>
+          </div>
         )}
       </main>
     </div>
