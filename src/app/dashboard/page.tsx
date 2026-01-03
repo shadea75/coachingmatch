@@ -19,16 +19,18 @@ import {
   X,
   Shield,
   Gift,
-  FileText
+  FileText,
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { LIFE_AREAS } from '@/types'
 import RadarChart from '@/components/RadarChart'
 import Logo from '@/components/Logo'
-import { format } from 'date-fns'
+import { format, differenceInHours } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { db } from '@/lib/firebase'
-import { collection, query, where, getDocs, doc, getDoc, orderBy } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, getDoc, orderBy, updateDoc, serverTimestamp } from 'firebase/firestore'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -42,6 +44,69 @@ export default function DashboardPage() {
   const [userCalls, setUserCalls] = useState<any[]>([])
   const [pendingOffersCount, setPendingOffersCount] = useState(0)
   const [isLoadingCalls, setIsLoadingCalls] = useState(true)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  
+  // Funzione per verificare se può annullare (>24h prima)
+  const canCancelOrReschedule = (callDate: Date) => {
+    const hoursUntilCall = differenceInHours(callDate, new Date())
+    return hoursUntilCall > 24
+  }
+  
+  // Annulla sessione
+  const handleCancelSession = async (sessionId: string, callDate: Date) => {
+    if (!canCancelOrReschedule(callDate)) {
+      alert('Non puoi annullare una sessione a meno di 24 ore dall\'inizio. La sessione verrà considerata persa.')
+      return
+    }
+    
+    if (!confirm('Sei sicuro di voler annullare questa sessione?')) return
+    
+    setActionLoading(sessionId)
+    try {
+      await updateDoc(doc(db, 'sessions', sessionId), {
+        status: 'cancelled',
+        cancelledBy: 'coachee',
+        cancelledAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+      
+      setUserCalls(prev => prev.filter(c => c.id !== sessionId))
+    } catch (err) {
+      console.error('Errore annullamento:', err)
+      alert('Errore durante l\'annullamento')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+  
+  // Rimanda sessione
+  const handleRescheduleSession = async (sessionId: string, callDate: Date) => {
+    if (!canCancelOrReschedule(callDate)) {
+      alert('Non puoi rimandare una sessione a meno di 24 ore dall\'inizio. La sessione verrà considerata persa.')
+      return
+    }
+    
+    if (!confirm('Vuoi rimandare questa sessione? Dovrai scegliere una nuova data.')) return
+    
+    setActionLoading(sessionId)
+    try {
+      await updateDoc(doc(db, 'sessions', sessionId), {
+        status: 'rescheduled',
+        rescheduledBy: 'coachee',
+        rescheduledAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+      
+      setUserCalls(prev => prev.filter(c => c.id !== sessionId))
+      // TODO: Redirect a pagina booking per scegliere nuova data
+      alert('Sessione rimandata. Prenota una nuova data.')
+    } catch (err) {
+      console.error('Errore rimando:', err)
+      alert('Errore durante il rimando')
+    } finally {
+      setActionLoading(null)
+    }
+  }
   
   // Redirect coach alla loro dashboard, admin alla dashboard admin
   useEffect(() => {
@@ -120,6 +185,7 @@ export default function DashboardPage() {
           const scheduledAt = data.scheduledAt?.toDate?.() || new Date(data.scheduledAt)
           return {
             id: doc.id,
+            coachId: data.coachId,
             coachName: data.coachName || 'Coach',
             coachPhoto: data.coachPhoto || null,
             date: scheduledAt,
@@ -462,46 +528,99 @@ export default function DashboardPage() {
                   <p className="text-gray-500 mt-2">Caricamento...</p>
                 </div>
               ) : userCalls.length > 0 ? (
-                <div className="space-y-3">
-                  {userCalls.map(call => (
-                    <div key={call.id} className="flex items-center gap-4 p-4 bg-cream rounded-xl">
-                      {call.coachPhoto ? (
-                        <img 
-                          src={call.coachPhoto}
-                          alt={call.coachName}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center">
-                          <Users className="w-6 h-6 text-primary-500" />
+                <div className="space-y-4">
+                  {userCalls.map(call => {
+                    const canModify = canCancelOrReschedule(call.date)
+                    const hoursLeft = differenceInHours(call.date, new Date())
+                    const isLoading = actionLoading === call.id
+                    
+                    return (
+                      <div key={call.id} className="bg-cream rounded-xl p-4">
+                        <div className="flex items-center gap-4">
+                          {call.coachPhoto ? (
+                            <img 
+                              src={call.coachPhoto}
+                              alt={call.coachName}
+                              className="w-12 h-12 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center">
+                              <Users className="w-6 h-6 text-primary-500" />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <p className="font-medium text-charcoal">{call.coachName}</p>
+                            <p className="text-sm text-gray-500">
+                              {format(call.date, "EEEE d MMMM", { locale: it })} alle {call.time}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                call.status === 'confirmed' 
+                                  ? 'bg-green-100 text-green-700' 
+                                  : 'bg-yellow-100 text-yellow-700'
+                              }`}>
+                                {call.status === 'confirmed' ? 'Confermata' : 'In attesa'}
+                              </span>
+                              {call.type === 'free_consultation' && (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                  Gratuita
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {call.meetingLink && call.status === 'confirmed' && (
+                            <a 
+                              href={call.meetingLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn-primary text-sm py-2"
+                            >
+                              <Video size={16} />
+                              Partecipa
+                            </a>
+                          )}
                         </div>
-                      )}
-                      <div className="flex-1">
-                        <p className="font-medium text-charcoal">{call.coachName}</p>
-                        <p className="text-sm text-gray-500">
-                          {format(call.date, "EEEE d MMMM", { locale: it })} alle {call.time}
-                        </p>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          call.status === 'confirmed' 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {call.status === 'confirmed' ? 'Confermata' : 'In attesa'}
-                        </span>
+                        
+                        {/* Azioni rimanda/annulla */}
+                        {call.status !== 'cancelled' && (
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            {canModify ? (
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-gray-400">
+                                  Puoi modificare fino a 24h prima della sessione
+                                </p>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleRescheduleSession(call.id, call.date)}
+                                    disabled={isLoading}
+                                    className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 disabled:opacity-50"
+                                  >
+                                    <RefreshCw size={14} />
+                                    Rimanda
+                                  </button>
+                                  <button
+                                    onClick={() => handleCancelSession(call.id, call.date)}
+                                    disabled={isLoading}
+                                    className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 bg-red-50 rounded-lg hover:bg-red-100 disabled:opacity-50"
+                                  >
+                                    <X size={14} />
+                                    Annulla
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
+                                <AlertTriangle size={16} />
+                                <p className="text-sm">
+                                  Non puoi più modificare (meno di 24h). Se non partecipi, la sessione sarà persa.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      {call.meetingLink && (
-                        <a 
-                          href={call.meetingLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn btn-primary text-sm py-2"
-                        >
-                          <Video size={16} />
-                          Partecipa
-                        </a>
-                      )}
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8">
