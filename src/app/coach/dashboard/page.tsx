@@ -216,7 +216,10 @@ export default function CoachDashboardPage() {
           const data = doc.data()
           return {
             id: doc.id,
-            ...data,
+            coacheeName: data.coacheeName || 'Coachee',
+            coacheeEmail: data.coacheeEmail || '',
+            status: data.status as string,
+            type: data.type as string,
             scheduledAt: data.scheduledAt?.toDate?.() || new Date(data.scheduledAt)
           }
         })
