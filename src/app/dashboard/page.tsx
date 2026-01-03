@@ -292,7 +292,7 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
                   {Object.entries(mockScores).map(([key, value]) => {
                     const area = LIFE_AREAS[key as keyof typeof LIFE_AREAS]
-                    if (!area) return null
+                    if (!area || typeof area !== 'object' || !('label' in area)) return null
                     return (
                       <div key={key} className="bg-cream rounded-xl p-3">
                         <p className="text-xs text-gray-500">{area.label}</p>
