@@ -111,6 +111,7 @@ export default function MatchingPage() {
             email: data.email || '',
             photo: data.photo || null,
             bio: data.bio || data.motivation || '',
+            lifeArea: data.lifeArea || null, // Aggiunto
             certifications: data.certifications || [],
             yearsOfExperience: data.yearsOfExperience || 0,
             coachingSchool: data.coachingSchool || '',
@@ -121,9 +122,9 @@ export default function MatchingPage() {
             typicalSessionCount: data.typicalSessionCount || '6-8 sessioni',
             freeCallAvailable: data.freeCallAvailable !== false,
             specializations: {
-              lifeAreas: data.specializations?.lifeAreas || data.lifeAreas || [],
-              focusTopics: data.specializations?.focusTopics || data.focusTopics || [],
-              targetClients: data.specializations?.targetClients || data.targetClients || [],
+              lifeAreas: data.specializations?.lifeAreas || data.lifeAreas || (data.lifeArea ? [data.lifeArea] : []),
+              focusTopics: data.specializations?.focusTopics || data.focusTopics || data.problemsAddressed || [],
+              targetClients: data.specializations?.targetClients || data.targetClients || data.clientTypes || [],
               coachingMethod: data.specializations?.coachingMethod || data.coachingMethod || ''
             },
             availability: data.availability || {},
@@ -133,7 +134,7 @@ export default function MatchingPage() {
             totalClients: data.totalClients || 0,
             totalSessions: data.totalSessions || 0,
             totalRevenue: data.totalRevenue || 0,
-            rating: data.rating || 4.5,
+            rating: data.rating || 0,
             reviewCount: data.reviewCount || 0,
             createdAt: data.createdAt?.toDate?.() || new Date(),
             updatedAt: data.updatedAt?.toDate?.() || new Date()
