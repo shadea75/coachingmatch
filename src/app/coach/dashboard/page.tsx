@@ -320,11 +320,40 @@ export default function CoachDashboardPage() {
     
     setActionLoading(sessionId)
     try {
+      // Recupera i dati della sessione
+      const sessionDoc = await getDoc(doc(db, 'sessions', sessionId))
+      if (!sessionDoc.exists()) {
+        throw new Error('Sessione non trovata')
+      }
+      const sessionData = sessionDoc.data()
+      
       await updateDoc(doc(db, 'sessions', sessionId), {
         status: 'cancelled',
         cancelledBy: 'coach',
         cancelledAt: serverTimestamp(),
         updatedAt: serverTimestamp()
+      })
+      
+      // Prepara dati per email
+      const scheduledAt = sessionData.scheduledAt?.toDate?.() || new Date(sessionData.scheduledAt)
+      const emailData = {
+        type: 'session_cancelled_by_coach',
+        data: {
+          coachName: user?.name || 'Coach',
+          coachEmail: user?.email,
+          coacheeName: sessionData.coacheeName || 'Coachee',
+          coacheeEmail: sessionData.coacheeEmail,
+          date: format(scheduledAt, "EEEE d MMMM yyyy", { locale: it }),
+          time: format(scheduledAt, "HH:mm"),
+          reason: 'cancelled'
+        }
+      }
+      
+      // Invia email al coachee
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailData)
       })
       
       setPendingSessions(prev => prev.filter(s => s.id !== sessionId))
@@ -333,7 +362,6 @@ export default function CoachDashboardPage() {
         pendingSessions: prev.pendingSessions - 1
       }))
       
-      // TODO: Invia email al coachee
     } catch (err) {
       console.error('Errore rifiuto:', err)
     } finally {
