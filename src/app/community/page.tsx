@@ -48,95 +48,72 @@ import {
 } from 'firebase/firestore'
 import { getCoachLeaderboard } from '@/lib/coachPoints'
 
-// Mock data per sviluppo
-const MOCK_POSTS: CommunityPost[] = [
-  {
-    id: '1',
-    authorId: 'coach1',
-    authorName: 'Laura Bianchi',
-    authorPhoto: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
-    authorRole: 'coach',
-    section: 'coach-corner',
-    title: '5 tecniche per gestire l\'ansia prima di un colloquio importante',
-    content: 'Oggi voglio condividere con voi alcune tecniche che uso con i miei coachee quando devono affrontare situazioni stressanti...\n\n1. **Respirazione 4-7-8**: Inspira per 4 secondi, trattieni per 7, espira per 8.\n2. **Visualizzazione positiva**: Immagina il colloquio che va bene.\n3. **Power posing**: 2 minuti in posizione di forza prima dell\'incontro.\n4. **Grounding**: Concentrati sui 5 sensi per tornare al presente.\n5. **Preparazione**: La sicurezza viene dalla preparazione.',
-    tags: ['ansia', 'carriera', 'colloquio', 'mindset'],
-    likeCount: 47,
-    commentCount: 12,
-    saveCount: 23,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 ore fa
-    updatedAt: new Date(),
-    isPinned: true
-  },
-  {
-    id: '2',
-    authorId: 'coach2',
-    authorName: 'Marco Rossi',
-    authorPhoto: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400',
-    authorRole: 'coach',
-    section: 'coach-corner',
-    title: 'Il potere delle domande giuste',
-    content: 'Nel coaching, le domande sono più potenti delle risposte. Una buona domanda può aprire porte che sembravano chiuse.\n\nEcco alcune domande che uso spesso:\n- "Cosa cambierebbe se raggiungessi questo obiettivo?"\n- "Cosa ti impedisce di iniziare oggi?"\n- "Come ti sentiresti tra 5 anni se non cambiassi nulla?"',
-    tags: ['coaching', 'crescita', 'domande'],
-    likeCount: 35,
-    commentCount: 8,
-    saveCount: 18,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 giorno fa
-    updatedAt: new Date()
-  },
-  {
-    id: '3',
-    authorId: 'coachee1',
-    authorName: 'Giulia M.',
-    authorRole: 'coachee',
-    section: 'coachee-corner',
-    title: 'Ho finalmente cambiato lavoro! 🎉',
-    content: 'Volevo condividere con voi questa bellissima notizia. Dopo 3 mesi di percorso con il mio coach, ho trovato il coraggio di candidarmi per il lavoro dei miei sogni... e ce l\'ho fatta!\n\nGrazie a questa community per il supporto. Non mollate mai!',
-    tags: ['successo', 'carriera', 'cambiamento'],
-    likeCount: 89,
-    commentCount: 24,
-    saveCount: 5,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5), // 5 ore fa
-    updatedAt: new Date()
-  },
-  {
-    id: '4',
-    authorId: 'admin1',
-    authorName: 'Team CoachaMi',
-    authorRole: 'admin',
-    section: 'news',
-    title: '🚀 Nuova funzionalità: Webinar mensili gratuiti!',
-    content: 'Siamo entusiasti di annunciare che da questo mese partono i webinar mensili gratuiti per tutti i membri della community!\n\nIl primo webinar sarà:\n📅 15 Gennaio 2025\n⏰ 18:00\n🎯 Tema: "Obiettivi 2025: come renderli reali"\n\nRegistratevi dalla sezione Eventi!',
-    tags: ['annuncio', 'webinar', 'eventi'],
-    likeCount: 156,
-    commentCount: 42,
-    saveCount: 67,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48), // 2 giorni fa
-    updatedAt: new Date(),
-    isHighlighted: true
-  }
-]
-
-const MOCK_LEADERBOARD: Partial<CoachPoints>[] = [
-  { coachId: '1', coachName: 'Laura Bianchi', totalPoints: 1250, currentLevel: 'elite' },
-  { coachId: '2', coachName: 'Marco Rossi', totalPoints: 890, currentLevel: 'expert' },
-  { coachId: '3', coachName: 'Giulia Verdi', totalPoints: 650, currentLevel: 'expert' },
-  { coachId: '4', coachName: 'Alessandro Neri', totalPoints: 420, currentLevel: 'active' },
-  { coachId: '5', coachName: 'Francesca Blu', totalPoints: 310, currentLevel: 'active' },
-]
-
 export default function CommunityPage() {
   const router = useRouter()
   const { user } = useAuth()
   const [activeSection, setActiveSection] = useState<CommunitySection | 'all'>('all')
-  const [posts, setPosts] = useState<CommunityPost[]>(MOCK_POSTS)
-  const [leaderboard, setLeaderboard] = useState<Partial<CoachPoints>[]>(MOCK_LEADERBOARD)
+  const [posts, setPosts] = useState<CommunityPost[]>([])
+  const [leaderboard, setLeaderboard] = useState<Partial<CoachPoints>[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<'recent' | 'popular'>('recent')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set())
   const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set())
 
   const userRole = user?.role || 'coachee'
+
+  // Carica post reali da Firebase
+  useEffect(() => {
+    const loadPosts = async () => {
+      setIsLoading(true)
+      try {
+        const postsQuery = query(
+          collection(db, 'communityPosts'),
+          orderBy('createdAt', 'desc'),
+          limit(50)
+        )
+        const snapshot = await getDocs(postsQuery)
+        const loadedPosts: CommunityPost[] = snapshot.docs.map(doc => {
+          const data = doc.data()
+          return {
+            id: doc.id,
+            authorId: data.authorId || '',
+            authorName: data.authorName || 'Utente',
+            authorPhoto: data.authorPhoto || null,
+            authorRole: data.authorRole || 'coachee',
+            section: data.section || 'coach-corner',
+            title: data.title || '',
+            content: data.content || '',
+            tags: data.tags || [],
+            likeCount: data.likeCount || 0,
+            commentCount: data.commentCount || 0,
+            saveCount: data.saveCount || 0,
+            createdAt: data.createdAt?.toDate?.() || new Date(),
+            updatedAt: data.updatedAt?.toDate?.() || new Date(),
+            isPinned: data.isPinned || false,
+            isHighlighted: data.isHighlighted || false
+          }
+        })
+        setPosts(loadedPosts)
+      } catch (err) {
+        console.error('Errore caricamento post:', err)
+        setPosts([])
+      }
+      
+      // Carica leaderboard
+      try {
+        const leaderboardData = await getCoachLeaderboard(5)
+        setLeaderboard(leaderboardData)
+      } catch (err) {
+        console.error('Errore caricamento leaderboard:', err)
+        setLeaderboard([])
+      }
+      
+      setIsLoading(false)
+    }
+    
+    loadPosts()
+  }, [])
 
   // Filtra posts per sezione
   const filteredPosts = posts.filter(post => {
