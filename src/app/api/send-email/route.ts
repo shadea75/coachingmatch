@@ -224,6 +224,181 @@ export async function POST(request: NextRequest) {
       })
     }
     
+    // EMAIL PRENOTAZIONE IN ATTESA DI CONFERMA
+    if (type === 'booking_pending') {
+      console.log('📤 Invio email prenotazione in attesa')
+      
+      const { coachId, coachName, coachEmail, coacheeName, coacheeEmail, date, time, duration } = data
+      
+      // Email al COACHEE - In attesa di conferma
+      const coacheeEmailResult = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: coacheeEmail,
+        subject: `⏳ Richiesta inviata a ${coachName} - CoachaMi`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr>
+                <td>
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0;">
+                        <span style="font-size: 28px; font-weight: bold; color: #333;">Coacha</span><span style="font-size: 28px; font-weight: bold; color: #EC7711; font-style: italic;">Mi</span>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                    <tr>
+                      <td style="padding: 30px;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                          <div style="width: 60px; height: 60px; background: #fef3c7; border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
+                            <span style="font-size: 30px;">⏳</span>
+                          </div>
+                        </div>
+                        
+                        <h2 style="margin: 0 0 20px 0; color: #333; text-align: center;">Richiesta inviata!</h2>
+                        
+                        <p style="margin: 0 0 25px 0;">Ciao ${coacheeName}! La tua richiesta di call con <strong>${coachName}</strong> è stata inviata.</p>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0" style="background: #FFF7ED; border-radius: 8px; margin-bottom: 20px;">
+                          <tr>
+                            <td style="padding: 20px;">
+                              <p style="margin: 0 0 10px 0;"><strong>📅 Data richiesta:</strong> ${date}</p>
+                              <p style="margin: 0 0 10px 0;"><strong>🕐 Ora richiesta:</strong> ${time}</p>
+                              <p style="margin: 0 0 10px 0;"><strong>⏱️ Durata:</strong> ${duration} minuti</p>
+                              <p style="margin: 0;"><strong>👤 Coach:</strong> ${coachName}</p>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <div style="background: #fef3c7; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                          <p style="margin: 0; color: #92400e; font-size: 14px;">
+                            <strong>⏳ In attesa di conferma</strong><br>
+                            Il coach riceverà la tua richiesta e la confermerà a breve. Ti invieremo un'email appena sarà confermata.
+                          </p>
+                        </div>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td align="center">
+                              <a href="https://www.coachami.it/dashboard" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Vai alla Dashboard</a>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0; color: #666; font-size: 14px;">
+                        <p style="margin: 0;">© 2025 CoachaMi - Tutti i diritti riservati</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `
+      })
+      
+      console.log('✅ Email coachee (in attesa) inviata:', coacheeEmailResult)
+      
+      // Email al COACH - Nuova richiesta da confermare
+      const coachEmailResult = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: coachEmail,
+        subject: `🔔 Nuova richiesta di call da ${coacheeName} - CoachaMi`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr>
+                <td>
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0;">
+                        <span style="font-size: 28px; font-weight: bold; color: #333;">Coacha</span><span style="font-size: 28px; font-weight: bold; color: #EC7711; font-style: italic;">Mi</span>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                    <tr>
+                      <td style="padding: 30px;">
+                        <h2 style="margin: 0 0 20px 0; color: #333;">🔔 Nuova richiesta di call!</h2>
+                        
+                        <p style="margin: 0 0 25px 0;">Ciao ${coachName}! <strong>${coacheeName}</strong> vorrebbe prenotare una call con te.</p>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0" style="background: #FFF7ED; border-radius: 8px; margin-bottom: 20px;">
+                          <tr>
+                            <td style="padding: 20px;">
+                              <p style="margin: 0 0 10px 0;"><strong>👤 Coachee:</strong> ${coacheeName}</p>
+                              <p style="margin: 0 0 10px 0;"><strong>📧 Email:</strong> ${coacheeEmail}</p>
+                              <p style="margin: 0 0 10px 0;"><strong>📅 Data richiesta:</strong> ${date}</p>
+                              <p style="margin: 0 0 10px 0;"><strong>🕐 Ora richiesta:</strong> ${time}</p>
+                              <p style="margin: 0;"><strong>⏱️ Durata:</strong> ${duration} minuti</p>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <div style="background: #fef3c7; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                          <p style="margin: 0; color: #92400e; font-size: 14px;">
+                            <strong>⚠️ Azione richiesta</strong><br>
+                            Accedi alla tua dashboard per confermare o rifiutare questa richiesta.
+                          </p>
+                        </div>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td align="center">
+                              <a href="https://www.coachami.it/coach/sessions" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Gestisci Richieste</a>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0; color: #666; font-size: 14px;">
+                        <p style="margin: 0;">© 2025 CoachaMi - Tutti i diritti riservati</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `
+      })
+      
+      console.log('✅ Email coach (nuova richiesta) inviata:', coachEmailResult)
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Email prenotazione in attesa inviate',
+        coacheeEmail: coacheeEmailResult,
+        coachEmail: coachEmailResult
+      })
+    }
+    
     // EMAIL CONFERMA PRENOTAZIONE
     if (type === 'booking_confirmation') {
       console.log('📤 Invio email conferma prenotazione')
