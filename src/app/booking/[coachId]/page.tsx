@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { 
   ArrowLeft, 
@@ -11,38 +12,36 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Loader2,
+  User
 } from 'lucide-react'
 import { format, addDays, startOfWeek, isSameDay, isToday, isBefore, addWeeks } from 'date-fns'
 import { it } from 'date-fns/locale'
+import { useAuth } from '@/contexts/AuthContext'
+import Logo from '@/components/Logo'
+import { db } from '@/lib/firebase'
+import { doc, getDoc, addDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore'
 
-// Mock coach data
-const MOCK_COACH = {
-  id: '1',
-  name: 'Laura Bianchi',
-  photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
-  specialization: 'Executive Coach',
-  availability: {
-    // Available time slots per day of week (0 = Sunday)
-    1: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'],
-    2: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'],
-    3: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'],
-    4: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'],
-    5: ['09:00', '10:00', '11:00', '12:00', '13:00'],
-  } as Record<number, string[]>
+interface CoachData {
+  id: string
+  name: string
+  email: string
+  photo: string | null
+  specialization: string
+  bio: string
+  availability: Record<number, string[]>
 }
-
-// Booked slots (mock)
-const BOOKED_SLOTS = [
-  { date: '2024-12-18', time: '10:00' },
-  { date: '2024-12-18', time: '14:00' },
-  { date: '2024-12-19', time: '09:00' },
-]
 
 export default function BookingPage() {
   const router = useRouter()
   const params = useParams()
+  const { user } = useAuth()
   const coachId = params.coachId as string
+  
+  const [coach, setCoach] = useState<CoachData | null>(null)
+  const [isLoadingCoach, setIsLoadingCoach] = useState(true)
+  const [bookedSlots, setBookedSlots] = useState<{date: string, time: string}[]>([])
   
   const [currentWeekStart, setCurrentWeekStart] = useState(() => 
     startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -51,19 +50,85 @@ export default function BookingPage() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [isConfirmed, setIsConfirmed] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  
+  // Carica dati coach da Firebase
+  useEffect(() => {
+    const loadCoach = async () => {
+      setIsLoadingCoach(true)
+      try {
+        // Prova prima dalla collection coachApplications
+        const coachDoc = await getDoc(doc(db, 'coachApplications', coachId))
+        
+        if (coachDoc.exists()) {
+          const data = coachDoc.data()
+          
+          // Crea disponibilità di default se non esiste
+          const defaultAvailability: Record<number, string[]> = {
+            1: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'],
+            2: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'],
+            3: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'],
+            4: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'],
+            5: ['09:00', '10:00', '11:00', '12:00', '13:00'],
+          }
+          
+          setCoach({
+            id: coachDoc.id,
+            name: data.name || 'Coach',
+            email: data.email || '',
+            photo: data.photo || null,
+            specialization: data.specializations?.focusTopics?.[0] || 'Life Coach',
+            bio: data.bio || data.motivation || '',
+            availability: data.availability || defaultAvailability
+          })
+        } else {
+          setError('Coach non trovato')
+        }
+        
+        // Carica slot già prenotati
+        const sessionsQuery = query(
+          collection(db, 'sessions'),
+          where('coachId', '==', coachId),
+          where('status', 'in', ['pending', 'confirmed'])
+        )
+        const sessionsSnap = await getDocs(sessionsQuery)
+        const booked = sessionsSnap.docs.map(doc => {
+          const data = doc.data()
+          const scheduledAt = data.scheduledAt?.toDate?.() || new Date(data.scheduledAt)
+          return {
+            date: format(scheduledAt, 'yyyy-MM-dd'),
+            time: format(scheduledAt, 'HH:mm')
+          }
+        })
+        setBookedSlots(booked)
+        
+      } catch (err) {
+        console.error('Errore caricamento coach:', err)
+        setError('Errore nel caricamento dei dati')
+      } finally {
+        setIsLoadingCoach(false)
+      }
+    }
+    
+    if (coachId) {
+      loadCoach()
+    }
+  }, [coachId])
   
   // Generate week days
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i))
   
   // Get available slots for selected date
   const getAvailableSlots = (date: Date): string[] => {
+    if (!coach) return []
+    
     const dayOfWeek = date.getDay()
-    const slots = MOCK_COACH.availability[dayOfWeek] || []
+    const slots = coach.availability[dayOfWeek] || []
     const dateStr = format(date, 'yyyy-MM-dd')
     
     // Filter out booked slots and past times
     return slots.filter(time => {
-      const isBooked = BOOKED_SLOTS.some(
+      const isBooked = bookedSlots.some(
         slot => slot.date === dateStr && slot.time === time
       )
       
@@ -83,15 +148,62 @@ export default function BookingPage() {
   
   // Handle booking confirmation
   const handleConfirm = async () => {
-    if (!selectedDate || !selectedTime) return
+    if (!selectedDate || !selectedTime || !coach || !user) return
     
     setIsSubmitting(true)
+    setError('')
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    setIsConfirmed(true)
-    setIsSubmitting(false)
+    try {
+      // Crea data/ora completa
+      const [hours, minutes] = selectedTime.split(':').map(Number)
+      const scheduledAt = new Date(selectedDate)
+      scheduledAt.setHours(hours, minutes, 0, 0)
+      
+      // Salva sessione in Firebase
+      const sessionRef = await addDoc(collection(db, 'sessions'), {
+        coachId: coach.id,
+        coachName: coach.name,
+        coachEmail: coach.email,
+        coachPhoto: coach.photo,
+        coacheeId: user.id,
+        coacheeName: user.name || user.email?.split('@')[0] || 'Coachee',
+        coacheeEmail: user.email,
+        scheduledAt: scheduledAt,
+        duration: 30,
+        status: 'confirmed',
+        type: 'free_consultation',
+        meetingProvider: 'google_meet',
+        notes: 'Prima call di orientamento gratuita',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+      
+      // Invia email di conferma
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'booking_confirmation',
+          data: {
+            sessionId: sessionRef.id,
+            coachName: coach.name,
+            coachEmail: coach.email,
+            coacheeName: user.name || user.email?.split('@')[0],
+            coacheeEmail: user.email,
+            date: format(scheduledAt, "EEEE d MMMM yyyy", { locale: it }),
+            time: selectedTime,
+            duration: 30
+          }
+        })
+      })
+      
+      setIsConfirmed(true)
+    } catch (err: any) {
+      console.error('Errore prenotazione:', err)
+      setError('Errore durante la prenotazione. Riprova.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
   
   // Navigation
@@ -110,7 +222,31 @@ export default function BookingPage() {
     setSelectedTime(null)
   }
   
-  if (isConfirmed) {
+  // Loading state
+  if (isLoadingCoach) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <Loader2 className="animate-spin text-primary-500" size={32} />
+      </div>
+    )
+  }
+  
+  // Error state
+  if (error && !coach) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center">
+          <p className="text-red-500 mb-4">{error}</p>
+          <Link href="/matching" className="btn btn-primary">
+            Torna ai coach
+          </Link>
+        </div>
+      </div>
+    )
+  }
+  
+  // Confirmation state
+  if (isConfirmed && coach) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center p-4">
         <motion.div
@@ -131,14 +267,20 @@ export default function BookingPage() {
           
           <div className="bg-cream rounded-xl p-4 mb-6 text-left">
             <div className="flex items-center gap-4 mb-4">
-              <img 
-                src={MOCK_COACH.photo}
-                alt={MOCK_COACH.name}
-                className="w-12 h-12 rounded-full object-cover"
-              />
+              {coach.photo ? (
+                <img 
+                  src={coach.photo}
+                  alt={coach.name}
+                  className="w-12 h-12 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center">
+                  <User className="w-6 h-6 text-primary-500" />
+                </div>
+              )}
               <div>
-                <p className="font-medium text-charcoal">{MOCK_COACH.name}</p>
-                <p className="text-sm text-gray-500">{MOCK_COACH.specialization}</p>
+                <p className="font-medium text-charcoal">{coach.name}</p>
+                <p className="text-sm text-gray-500">{coach.specialization}</p>
               </div>
             </div>
             
@@ -179,21 +321,26 @@ export default function BookingPage() {
     )
   }
   
+  if (!coach) return null
+  
   return (
     <div className="min-h-screen bg-cream">
       {/* Header */}
       <header className="bg-white border-b border-gray-100 py-4 px-4">
-        <div className="max-w-3xl mx-auto flex items-center gap-4">
-          <button
-            onClick={() => router.back()}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <ArrowLeft size={20} className="text-gray-600" />
-          </button>
-          <div className="flex items-center gap-2">
-            <Sparkles size={20} className="text-primary-500" />
-            <span className="font-semibold text-charcoal">Prenota call gratuita</span>
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.back()}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <ArrowLeft size={20} className="text-gray-600" />
+            </button>
+            <div className="flex items-center gap-2">
+              <Sparkles size={20} className="text-primary-500" />
+              <span className="font-semibold text-charcoal">Prenota call gratuita</span>
+            </div>
           </div>
+          <Logo size="sm" />
         </div>
       </header>
       
@@ -206,14 +353,20 @@ export default function BookingPage() {
             animate={{ opacity: 1, y: 0 }}
             className="bg-white rounded-2xl p-6 mb-6 flex items-center gap-4"
           >
-            <img 
-              src={MOCK_COACH.photo}
-              alt={MOCK_COACH.name}
-              className="w-16 h-16 rounded-xl object-cover"
-            />
+            {coach.photo ? (
+              <img 
+                src={coach.photo}
+                alt={coach.name}
+                className="w-16 h-16 rounded-xl object-cover"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-xl bg-primary-100 flex items-center justify-center">
+                <User className="w-8 h-8 text-primary-500" />
+              </div>
+            )}
             <div>
-              <h2 className="text-xl font-semibold text-charcoal">{MOCK_COACH.name}</h2>
-              <p className="text-gray-500">{MOCK_COACH.specialization}</p>
+              <h2 className="text-xl font-semibold text-charcoal">{coach.name}</h2>
+              <p className="text-gray-500">{coach.specialization}</p>
             </div>
           </motion.div>
           
@@ -342,7 +495,7 @@ export default function BookingPage() {
                 </div>
                 <div className="flex items-center gap-3 text-gray-600">
                   <Video size={18} />
-                  <span>Videochiamata (link via email)</span>
+                  <span>Videochiamata (riceverai il link via email)</span>
                 </div>
               </div>
               
@@ -352,13 +505,35 @@ export default function BookingPage() {
                 </p>
               </div>
               
+              {error && (
+                <p className="text-red-500 text-sm text-center mb-4">{error}</p>
+              )}
+              
               <button
                 onClick={handleConfirm}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !user}
                 className="w-full btn btn-primary py-4 disabled:opacity-50"
               >
-                {isSubmitting ? 'Conferma in corso...' : 'Conferma prenotazione'}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="animate-spin mr-2" size={18} />
+                    Conferma in corso...
+                  </>
+                ) : !user ? (
+                  'Accedi per prenotare'
+                ) : (
+                  'Conferma prenotazione'
+                )}
               </button>
+              
+              {!user && (
+                <p className="text-center text-sm text-gray-500 mt-3">
+                  <Link href="/login" className="text-primary-500 hover:underline">
+                    Accedi
+                  </Link>
+                  {' '}per confermare la prenotazione
+                </p>
+              )}
             </motion.div>
           )}
         </div>
