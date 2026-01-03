@@ -15,13 +15,16 @@ import {
   ArrowRight
 } from 'lucide-react'
 import Logo from '@/components/Logo'
+import { AreaIllustrations } from '@/components/AreaIllustrations'
 import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs } from 'firebase/firestore'
+import { LIFE_AREAS, LifeAreaId } from '@/types'
 
 interface Coach {
   id: string
   name: string
   photo: string | null
+  lifeArea?: LifeAreaId
   specialization: string
   focusTopics: string[]
   bio: string
@@ -34,7 +37,7 @@ export default function CoachesListPage() {
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedSpecialization, setSelectedSpecialization] = useState<string>('all')
+  const [selectedArea, setSelectedArea] = useState<string>('all')
 
   useEffect(() => {
     const loadCoaches = async () => {
@@ -46,11 +49,19 @@ export default function CoachesListPage() {
         const snapshot = await getDocs(coachesQuery)
         const loadedCoaches: Coach[] = snapshot.docs.map(doc => {
           const data = doc.data()
+          
+          // Trova il label dell'area dalla lifeArea
+          const lifeAreaId = data.lifeArea as LifeAreaId | undefined
+          const areaLabel = lifeAreaId 
+            ? LIFE_AREAS.find(a => a.id === lifeAreaId)?.label 
+            : null
+          
           return {
             id: doc.id,
             name: data.name || 'Coach',
             photo: data.photo || null,
-            specialization: data.specializations?.focusTopics?.[0] || 'Life Coach',
+            lifeArea: lifeAreaId,
+            specialization: areaLabel || data.specializations?.focusTopics?.[0] || 'Life Coach',
             focusTopics: data.specializations?.focusTopics || [],
             bio: data.bio || data.motivation || '',
             rating: data.rating || 5.0,
@@ -68,11 +79,6 @@ export default function CoachesListPage() {
     loadCoaches()
   }, [])
 
-  // Estrai tutte le specializzazioni uniche
-  const allSpecializations = Array.from(
-    new Set(coaches.flatMap(c => c.focusTopics))
-  ).filter(Boolean)
-
   // Filtra coach
   const filteredCoaches = coaches.filter(coach => {
     const matchesSearch = 
@@ -80,11 +86,11 @@ export default function CoachesListPage() {
       coach.specialization.toLowerCase().includes(searchQuery.toLowerCase()) ||
       coach.focusTopics.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
     
-    const matchesSpecialization = 
-      selectedSpecialization === 'all' || 
-      coach.focusTopics.includes(selectedSpecialization)
+    const matchesArea = 
+      selectedArea === 'all' || 
+      coach.lifeArea === selectedArea
     
-    return matchesSearch && matchesSpecialization
+    return matchesSearch && matchesArea
   })
 
   return (
@@ -141,17 +147,17 @@ export default function CoachesListPage() {
             />
           </div>
           
-          {/* Filter */}
+          {/* Filter per Area */}
           <div className="flex items-center gap-2">
             <Filter size={18} className="text-gray-400" />
             <select
               className="px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
-              value={selectedSpecialization}
-              onChange={(e) => setSelectedSpecialization(e.target.value)}
+              value={selectedArea}
+              onChange={(e) => setSelectedArea(e.target.value)}
             >
-              <option value="all">Tutte le specializzazioni</option>
-              {allSpecializations.map(spec => (
-                <option key={spec} value={spec}>{spec}</option>
+              <option value="all">Tutte le aree</option>
+              {LIFE_AREAS.map(area => (
+                <option key={area.id} value={area.id}>{area.label}</option>
               ))}
             </select>
           </div>
@@ -169,9 +175,9 @@ export default function CoachesListPage() {
             <div className="text-center py-20 text-gray-500">
               <Users className="w-16 h-16 mx-auto mb-4 opacity-50" />
               <p className="text-lg">Nessun coach trovato</p>
-              {searchQuery && (
+              {(searchQuery || selectedArea !== 'all') && (
                 <button 
-                  onClick={() => { setSearchQuery(''); setSelectedSpecialization('all'); }}
+                  onClick={() => { setSearchQuery(''); setSelectedArea('all'); }}
                   className="mt-4 text-primary-500 hover:underline"
                 >
                   Resetta filtri
@@ -183,7 +189,11 @@ export default function CoachesListPage() {
               <p className="text-gray-500 mb-6">{filteredCoaches.length} coach trovati</p>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredCoaches.map((coach, index) => (
+                {filteredCoaches.map((coach, index) => {
+                  // Ottieni l'illustrazione per l'area del coach
+                  const AreaIllustration = coach.lifeArea ? AreaIllustrations[coach.lifeArea] : null
+                  
+                  return (
                   <motion.div
                     key={coach.id}
                     initial={{ opacity: 0, y: 20 }}
@@ -191,55 +201,47 @@ export default function CoachesListPage() {
                     transition={{ delay: index * 0.05 }}
                   >
                     <Link href={`/coaches/${coach.id}`}>
-                      <div className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
-                        {/* Foto */}
-                        <div className="aspect-[3/4] relative overflow-hidden">
-                          {coach.photo ? (
-                            <img 
-                              src={coach.photo} 
-                              alt={coach.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
+                      <div className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
+                        {/* Illustrazione Area */}
+                        <div className="aspect-[3/4] relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6">
+                          {AreaIllustration ? (
+                            <div className="transform group-hover:scale-110 transition-transform duration-300">
+                              <AreaIllustration size={180} />
+                            </div>
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
-                              <span className="text-6xl font-bold text-primary-400">
+                            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
+                              <span className="text-5xl font-bold text-primary-400">
                                 {coach.name.charAt(0)}
                               </span>
                             </div>
                           )}
                           
-                          {/* Overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                          
                           {/* Badge */}
                           <div className="absolute top-4 left-4">
-                            <span className="px-2 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-semibold text-primary-600 flex items-center gap-1">
+                            <span className="px-2 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-semibold text-primary-600 flex items-center gap-1 shadow-sm">
                               <Award size={12} />
                               COACH
                             </span>
                           </div>
-                          
-                          {/* Info */}
-                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                            <h3 className="text-xl font-bold mb-1">{coach.name}</h3>
-                            <p className="text-sm text-white/80">{coach.specialization}</p>
-                            
-                            {coach.reviewCount > 0 && (
-                              <div className="flex items-center gap-1 mt-2">
-                                <Star size={14} className="text-amber-400 fill-amber-400" />
-                                <span className="text-sm">{coach.rating.toFixed(1)}</span>
-                                <span className="text-xs text-white/60">({coach.reviewCount})</span>
-                              </div>
-                            )}
-                          </div>
                         </div>
                         
-                        {/* Action */}
-                        <div className="p-4 bg-white">
-                          <div className="flex items-center justify-between">
+                        {/* Info */}
+                        <div className="p-4 bg-white border-t border-gray-100">
+                          <h3 className="text-lg font-bold text-charcoal mb-1">{coach.name}</h3>
+                          <p className="text-sm text-primary-600 font-medium mb-2">{coach.specialization}</p>
+                          
+                          {coach.reviewCount > 0 && (
+                            <div className="flex items-center gap-1 mb-3">
+                              <Star size={14} className="text-amber-400 fill-amber-400" />
+                              <span className="text-sm text-gray-700">{coach.rating.toFixed(1)}</span>
+                              <span className="text-xs text-gray-400">({coach.reviewCount} recensioni)</span>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                             <span className="text-sm text-gray-500 flex items-center gap-1">
                               <Video size={14} />
-                              Sessioni online
+                              Online
                             </span>
                             <span className="text-primary-500 font-medium text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
                               Scopri
@@ -250,7 +252,8 @@ export default function CoachesListPage() {
                       </div>
                     </Link>
                   </motion.div>
-                ))}
+                  )
+                })}
               </div>
             </>
           )}
