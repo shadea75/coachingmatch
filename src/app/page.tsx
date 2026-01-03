@@ -19,6 +19,7 @@ import {
   ChevronRight
 } from 'lucide-react'
 import Logo from '@/components/Logo'
+import { AreaIllustrations } from '@/components/AreaIllustrations'
 import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { LIFE_AREAS, LifeAreaId } from '@/types'
@@ -205,7 +206,11 @@ export default function HomePage() {
           ) : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {coaches.map((coach, index) => (
+                {coaches.map((coach, index) => {
+                  // Ottieni l'illustrazione per l'area del coach
+                  const AreaIllustration = coach.lifeArea ? AreaIllustrations[coach.lifeArea] : null
+                  
+                  return (
                   <motion.div
                     key={coach.id}
                     initial={{ opacity: 0, y: 20 }}
@@ -214,43 +219,48 @@ export default function HomePage() {
                     viewport={{ once: true }}
                   >
                     <Link href={`/coaches/${coach.id}`}>
-                      <div className="group relative bg-cream rounded-2xl overflow-hidden card-hover">
-                        {/* Foto Coach */}
-                        <div className="aspect-[3/4] relative overflow-hidden">
-                          {coach.photo ? (
-                            <img 
-                              src={coach.photo} 
-                              alt={coach.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
+                      <div className="group relative bg-white rounded-2xl overflow-hidden card-hover shadow-sm border border-gray-100">
+                        {/* Illustrazione Area */}
+                        <div className="aspect-[3/4] relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6">
+                          {AreaIllustration ? (
+                            <div className="transform group-hover:scale-110 transition-transform duration-300">
+                              <AreaIllustration size={180} />
+                            </div>
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
-                              <span className="text-6xl font-bold text-primary-400">
+                            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
+                              <span className="text-5xl font-bold text-primary-400">
                                 {coach.name.charAt(0)}
                               </span>
                             </div>
                           )}
                           
-                          {/* Overlay gradient */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                          
                           {/* Badge COACH */}
                           <div className="absolute top-4 left-4">
-                            <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-semibold text-primary-600">
+                            <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-semibold text-primary-600 shadow-sm">
                               COACH
                             </span>
                           </div>
+                        </div>
+                        
+                        {/* Info bottom - su sfondo bianco */}
+                        <div className="p-4 bg-white border-t border-gray-100">
+                          <h3 className="text-lg font-bold text-charcoal mb-1">{coach.name}</h3>
+                          <p className="text-sm text-primary-600 font-medium">{coach.specialization}</p>
                           
-                          {/* Info bottom */}
-                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                            <h3 className="text-xl font-bold mb-1">{coach.name}</h3>
-                            <p className="text-sm text-white/80">{coach.specialization}</p>
-                          </div>
+                          {/* Rating */}
+                          {coach.reviewCount > 0 && (
+                            <div className="flex items-center gap-1 mt-2 text-sm text-gray-500">
+                              <Star size={14} className="text-amber-500" fill="currentColor" />
+                              <span>{coach.rating.toFixed(1)}</span>
+                              <span>({coach.reviewCount} recensioni)</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </Link>
                   </motion.div>
-                ))}
+                  )
+                })}
               </div>
               
               {/* CTA per vedere tutti */}
@@ -348,15 +358,17 @@ export default function HomePage() {
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Salute e Vitalità', color: '#10B981', icon: Heart },
-              { label: 'Finanze', color: '#14B8A6', icon: PiggyBank },
-              { label: 'Carriera/Lavoro', color: '#6366F1', icon: Briefcase },
-              { label: 'Relazioni', color: '#F59E0B', icon: Users },
-              { label: 'Amore', color: '#EC4899', icon: Heart },
-              { label: 'Crescita Personale', color: '#8B5CF6', icon: Sparkles },
-              { label: 'Spiritualità', color: '#F97316', icon: Star },
-              { label: 'Divertimento', color: '#3B82F6', icon: PartyPopper },
-            ].map((area, index) => (
+              { label: 'Salute e Vitalità', id: 'health' },
+              { label: 'Finanze', id: 'finances' },
+              { label: 'Carriera/Lavoro', id: 'career' },
+              { label: 'Relazioni', id: 'relationships' },
+              { label: 'Amore', id: 'love' },
+              { label: 'Crescita Personale', id: 'personal_growth' },
+              { label: 'Spiritualità', id: 'spirituality' },
+              { label: 'Divertimento', id: 'fun' },
+            ].map((area, index) => {
+              const AreaIllustration = AreaIllustrations[area.id]
+              return (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -365,15 +377,13 @@ export default function HomePage() {
                 viewport={{ once: true }}
                 className="bg-cream rounded-xl p-6 text-center card-hover"
               >
-                <div 
-                  className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center"
-                  style={{ backgroundColor: `${area.color}15` }}
-                >
-                  <area.icon size={24} style={{ color: area.color }} />
+                <div className="flex justify-center mb-3">
+                  {AreaIllustration && <AreaIllustration size={80} />}
                 </div>
                 <span className="font-medium text-charcoal">{area.label}</span>
               </motion.div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </section>
