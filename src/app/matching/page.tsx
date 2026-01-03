@@ -9,185 +9,16 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Coach, CoachaMi, LIFE_AREAS } from '@/types'
 import CoachCard from '@/components/CoachCard'
 import Logo from '@/components/Logo'
+import { db } from '@/lib/firebase'
+import { collection, query, where, getDocs } from 'firebase/firestore'
 
-// Mock coaches data (in production, fetch from Firestore)
-const MOCK_COACHES: Coach[] = [
-  {
-    id: '1',
-    userId: 'u1',
-    name: 'Laura Bianchi',
-    email: 'laura@coach.it',
-    photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
-    bio: 'Executive coach con 12 anni di esperienza nel supportare professionisti e manager nel raggiungimento dei loro obiettivi di carriera. Specializzata in leadership e gestione del cambiamento.',
-    certifications: [{ name: 'ICF PCC', institution: 'ICF', year: 2018, type: 'icf', level: 'PCC', verified: true }],
-    yearsOfExperience: 12,
-    coachingSchool: 'ICF Italia',
-    languages: ['Italiano', 'Inglese'],
-    sessionMode: ['online', 'presence'],
-    location: 'Milano',
-    averagePrice: 150,
-    typicalSessionCount: '8-12 sessioni',
-    freeCallAvailable: true,
-    specializations: {
-      lifeAreas: ['carriera', 'crescita', 'finanze'],
-      focusTopics: ['Leadership', 'Crescita professionale', 'Work-life balance'],
-      targetClients: ['Manager', 'Professionisti', 'Imprenditori'],
-      coachingMethod: 'Coaching ontologico e PNL per risultati concreti'
-    },
-    availability: {
-      monday: [{ start: '09:00', end: '18:00' }],
-      tuesday: [{ start: '09:00', end: '18:00' }],
-      wednesday: [{ start: '09:00', end: '18:00' }],
-      thursday: [{ start: '09:00', end: '18:00' }],
-      friday: [{ start: '09:00', end: '14:00' }],
-      saturday: [],
-      sunday: []
-    },
-    status: 'approved',
-    applicationDate: new Date('2023-01-15'),
-    platformFeePercentage: 30,
-    totalClients: 87,
-    totalSessions: 520,
-    totalRevenue: 52000,
-    rating: 4.9,
-    reviewCount: 64,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  },
-  {
-    id: '2',
-    userId: 'u2',
-    name: 'Marco Rossi',
-    email: 'marco@coach.it',
-    photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400',
-    bio: 'Life coach specializzato in benessere emotivo e gestione dello stress. Aiuto le persone a ritrovare equilibrio e serenità nella vita quotidiana attraverso tecniche di mindfulness.',
-    certifications: [{ name: 'ICF ACC', institution: 'ICF', year: 2020, type: 'icf', level: 'ACC', verified: true }],
-    yearsOfExperience: 8,
-    coachingSchool: 'Scuola Italiana di Coaching',
-    languages: ['Italiano'],
-    sessionMode: ['online'],
-    averagePrice: 100,
-    typicalSessionCount: '6-8 sessioni',
-    freeCallAvailable: true,
-    specializations: {
-      lifeAreas: ['salute', 'relazioni', 'spiritualita'],
-      focusTopics: ['Stress', 'Ansia', 'Burnout', 'Relazioni'],
-      targetClients: ['Individui', 'Coppie'],
-      coachingMethod: 'Mindfulness e coaching sistemico per ritrovare equilibrio'
-    },
-    availability: {
-      monday: [{ start: '10:00', end: '19:00' }],
-      tuesday: [{ start: '10:00', end: '19:00' }],
-      wednesday: [{ start: '10:00', end: '19:00' }],
-      thursday: [{ start: '10:00', end: '19:00' }],
-      friday: [{ start: '10:00', end: '17:00' }],
-      saturday: [{ start: '10:00', end: '13:00' }],
-      sunday: []
-    },
-    status: 'approved',
-    applicationDate: new Date('2023-03-20'),
-    platformFeePercentage: 30,
-    totalClients: 52,
-    totalSessions: 312,
-    totalRevenue: 28000,
-    rating: 4.8,
-    reviewCount: 41,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  },
-  {
-    id: '3',
-    userId: 'u3',
-    name: 'Giulia Verdi',
-    email: 'giulia@coach.it',
-    photo: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400',
-    bio: 'Business coach e formatrice con esperienza nel mondo startup. Supporto imprenditori e freelance nel definire e raggiungere obiettivi ambiziosi con un approccio pratico e orientato ai risultati.',
-    certifications: [{ name: 'ICF PCC', institution: 'ICF', year: 2019, type: 'icf', level: 'PCC', verified: true }],
-    yearsOfExperience: 10,
-    coachingSchool: 'CoachU',
-    languages: ['Italiano', 'Inglese', 'Spagnolo'],
-    sessionMode: ['online', 'presence'],
-    location: 'Roma',
-    averagePrice: 130,
-    typicalSessionCount: '8-12 sessioni',
-    freeCallAvailable: true,
-    specializations: {
-      lifeAreas: ['carriera', 'finanze', 'crescita'],
-      focusTopics: ['Business development', 'Produttività', 'Decision making'],
-      targetClients: ['Imprenditori', 'Freelance', 'Startup founder'],
-      coachingMethod: 'Business coaching e goal setting orientato ai risultati'
-    },
-    availability: {
-      monday: [{ start: '08:00', end: '17:00' }],
-      tuesday: [{ start: '08:00', end: '17:00' }],
-      wednesday: [{ start: '08:00', end: '17:00' }],
-      thursday: [{ start: '08:00', end: '17:00' }],
-      friday: [{ start: '08:00', end: '15:00' }],
-      saturday: [],
-      sunday: []
-    },
-    status: 'approved',
-    applicationDate: new Date('2023-02-10'),
-    platformFeePercentage: 30,
-    totalClients: 73,
-    totalSessions: 438,
-    totalRevenue: 45000,
-    rating: 4.7,
-    reviewCount: 58,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  },
-  {
-    id: '4',
-    userId: 'u4',
-    name: 'Alessandro Neri',
-    email: 'alessandro@coach.it',
-    photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
-    bio: 'Relationship coach specializzato in comunicazione e dinamiche relazionali. Aiuto individui e coppie a costruire relazioni più autentiche e soddisfacenti.',
-    certifications: [{ name: 'Certified Relationship Coach', institution: 'RCI', year: 2017, type: 'other', verified: true }],
-    yearsOfExperience: 9,
-    coachingSchool: 'Relationship Coaching Institute',
-    languages: ['Italiano'],
-    sessionMode: ['online', 'presence'],
-    location: 'Firenze',
-    averagePrice: 120,
-    typicalSessionCount: '6-8 sessioni',
-    freeCallAvailable: true,
-    specializations: {
-      lifeAreas: ['amore', 'relazioni', 'crescita'],
-      focusTopics: ['Comunicazione', 'Conflitti relazionali', 'Autostima'],
-      targetClients: ['Individui', 'Coppie'],
-      coachingMethod: 'Comunicazione non violenta e coaching relazionale'
-    },
-    availability: {
-      monday: [{ start: '14:00', end: '20:00' }],
-      tuesday: [{ start: '14:00', end: '20:00' }],
-      wednesday: [{ start: '14:00', end: '20:00' }],
-      thursday: [{ start: '14:00', end: '20:00' }],
-      friday: [{ start: '14:00', end: '20:00' }],
-      saturday: [{ start: '10:00', end: '14:00' }],
-      sunday: []
-    },
-    status: 'approved',
-    applicationDate: new Date('2023-04-05'),
-    platformFeePercentage: 30,
-    totalClients: 61,
-    totalSessions: 366,
-    totalRevenue: 35000,
-    rating: 4.9,
-    reviewCount: 47,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  }
-]
-
-// Simple matching algorithm
+// Matching algorithm
 function calculateMatches(
   userScores: Record<string, number>,
   userObjectives: Record<string, string[]>,
   coaches: Coach[]
 ): CoachaMi[] {
-  // Find priority areas (lowest scores)
+  // Find priority areas (lowest scores = areas to improve)
   const priorityAreas = Object.entries(userScores)
     .sort(([, a], [, b]) => a - b)
     .slice(0, 3)
@@ -198,25 +29,27 @@ function calculateMatches(
     let score = 0
     const reasons: string[] = []
     
-    // Area match
-    const areaMatch = coach.specializations.lifeAreas.filter(
+    // Area match - check specializations
+    const coachAreas = coach.specializations?.lifeAreas || []
+    const areaMatch = coachAreas.filter(
       area => priorityAreas.includes(area)
     ).length
     score += areaMatch * 30
     
     if (areaMatch > 0) {
-      const matchedAreas = coach.specializations.lifeAreas
+      const matchedAreas = coachAreas
         .filter(area => priorityAreas.includes(area))
         .map(area => LIFE_AREAS.find(a => a.id === area)?.label || area)
       reasons.push(`Specializzato in ${matchedAreas.slice(0, 2).join(' e ')}`)
     }
     
-    // Objectives match (using focusTopics instead of problemsAddressed)
-    const allUserObjectives = Object.values(userObjectives).flat()
-    const objectiveMatch = coach.specializations.focusTopics.some(
+    // Objectives match
+    const allUserObjectives = Object.values(userObjectives || {}).flat()
+    const focusTopics = coach.specializations?.focusTopics || []
+    const objectiveMatch = focusTopics.some(
       topic => allUserObjectives.some(obj => 
-        obj.toLowerCase().includes(topic.toLowerCase()) ||
-        topic.toLowerCase().includes(obj.toLowerCase().split(' ')[0])
+        obj?.toLowerCase().includes(topic?.toLowerCase()) ||
+        topic?.toLowerCase().includes(obj?.toLowerCase().split(' ')[0])
       )
     )
     if (objectiveMatch) {
@@ -225,17 +58,23 @@ function calculateMatches(
     }
     
     // Rating bonus
-    score += coach.rating * 5
+    score += (coach.rating || 4.5) * 5
     
-    // Add coaching method as reason
-    if (coach.specializations.coachingMethod) {
-      reasons.push('Approccio versatile e professionale')
+    // Experience bonus
+    if (coach.yearsOfExperience && coach.yearsOfExperience >= 5) {
+      score += 10
     }
+    
+    // Add default reason if none
+    if (reasons.length === 0) {
+      reasons.push('Coach con esperienza verificata')
+    }
+    reasons.push('Approccio versatile e professionale')
     
     return {
       coach,
       score: Math.min(Math.round(score), 98),
-      matchReasons: reasons
+      matchReasons: reasons.slice(0, 2)
     }
   })
   
@@ -250,25 +89,86 @@ export default function MatchingPage() {
   const { user } = useAuth()
   const [matches, setMatches] = useState<CoachaMi[]>([])
   const [loading, setLoading] = useState(true)
+  const [coaches, setCoaches] = useState<Coach[]>([])
   
+  // Load approved coaches from Firebase
   useEffect(() => {
-    // Simulate matching calculation
+    const loadCoaches = async () => {
+      try {
+        // Query approved coach applications
+        const coachesQuery = query(
+          collection(db, 'coachApplications'),
+          where('status', '==', 'approved')
+        )
+        const snapshot = await getDocs(coachesQuery)
+        
+        const loadedCoaches: Coach[] = snapshot.docs.map(doc => {
+          const data = doc.data()
+          return {
+            id: doc.id,
+            userId: data.userId || doc.id,
+            name: data.name || 'Coach',
+            email: data.email || '',
+            photo: data.photo || null,
+            bio: data.bio || data.motivation || '',
+            certifications: data.certifications || [],
+            yearsOfExperience: data.yearsOfExperience || 0,
+            coachingSchool: data.coachingSchool || '',
+            languages: data.languages || ['Italiano'],
+            sessionMode: data.sessionMode || ['online'],
+            location: data.location || '',
+            averagePrice: data.averagePrice || 100,
+            typicalSessionCount: data.typicalSessionCount || '6-8 sessioni',
+            freeCallAvailable: data.freeCallAvailable !== false,
+            specializations: {
+              lifeAreas: data.specializations?.lifeAreas || data.lifeAreas || [],
+              focusTopics: data.specializations?.focusTopics || data.focusTopics || [],
+              targetClients: data.specializations?.targetClients || data.targetClients || [],
+              coachingMethod: data.specializations?.coachingMethod || data.coachingMethod || ''
+            },
+            availability: data.availability || {},
+            status: 'approved',
+            applicationDate: data.createdAt?.toDate?.() || new Date(),
+            platformFeePercentage: 30,
+            totalClients: data.totalClients || 0,
+            totalSessions: data.totalSessions || 0,
+            totalRevenue: data.totalRevenue || 0,
+            rating: data.rating || 4.5,
+            reviewCount: data.reviewCount || 0,
+            createdAt: data.createdAt?.toDate?.() || new Date(),
+            updatedAt: data.updatedAt?.toDate?.() || new Date()
+          } as Coach
+        })
+        
+        setCoaches(loadedCoaches)
+      } catch (err) {
+        console.error('Errore caricamento coach:', err)
+      }
+    }
+    
+    loadCoaches()
+  }, [])
+  
+  // Calculate matches when coaches are loaded
+  useEffect(() => {
+    if (coaches.length === 0) return
+    
     const timer = setTimeout(() => {
       if (user?.areaScores && user?.selectedObjectives) {
         const calculatedMatches = calculateMatches(
           user.areaScores,
           user.selectedObjectives,
-          MOCK_COACHES
+          coaches
         )
         setMatches(calculatedMatches)
       } else {
         // Use default matches if no user data
         setMatches(
-          MOCK_COACHES.slice(0, 3).map(coach => ({
+          coaches.slice(0, 3).map(coach => ({
             coach,
-            score: Math.floor(Math.random() * 20) + 75,
+            score: Math.floor(Math.random() * 20) + 55,
             matchReasons: [
-              'Coach con ottime recensioni',
+              'Coach con esperienza verificata',
               'Approccio versatile e professionale'
             ]
           }))
@@ -278,7 +178,7 @@ export default function MatchingPage() {
     }, 2000)
     
     return () => clearTimeout(timer)
-  }, [user])
+  }, [user, coaches])
   
   const handleBookCall = (coachId: string) => {
     router.push(`/booking/${coachId}`)
@@ -305,6 +205,41 @@ export default function MatchingPage() {
             Analizziamo il tuo profilo e le tue esigenze
           </p>
         </motion.div>
+      </div>
+    )
+  }
+  
+  // Nessun coach disponibile
+  if (matches.length === 0) {
+    return (
+      <div className="min-h-screen bg-cream">
+        <header className="bg-white border-b border-gray-100 py-4 px-4">
+          <div className="max-w-6xl mx-auto">
+            <Link href="/">
+              <Logo size="md" />
+            </Link>
+          </div>
+        </header>
+        <main className="py-12 px-4">
+          <div className="max-w-md mx-auto text-center">
+            <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-6">
+              <Sparkles className="w-10 h-10 text-gray-400" />
+            </div>
+            <h2 className="text-xl font-semibold text-charcoal mb-2">
+              Nessun coach disponibile al momento
+            </h2>
+            <p className="text-gray-500 mb-6">
+              Stiamo lavorando per aggiungere nuovi coach alla piattaforma. 
+              Torna presto!
+            </p>
+            <Link 
+              href="/dashboard"
+              className="btn bg-primary-500 text-white hover:bg-primary-600"
+            >
+              Torna alla dashboard
+            </Link>
+          </div>
+        </main>
       </div>
     )
   }
