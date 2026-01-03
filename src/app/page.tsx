@@ -21,12 +21,14 @@ import {
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs, limit } from 'firebase/firestore'
+import { LIFE_AREAS, LifeAreaId } from '@/types'
 
 interface Coach {
   id: string
   name: string
   photo: string | null
   specialization: string
+  lifeArea?: LifeAreaId
   bio: string
   rating: number
   reviewCount: number
@@ -48,11 +50,19 @@ export default function HomePage() {
         const snapshot = await getDocs(coachesQuery)
         const loadedCoaches: Coach[] = snapshot.docs.map(doc => {
           const data = doc.data()
+          
+          // Trova il label dell'area dalla lifeArea
+          const lifeAreaId = data.lifeArea as LifeAreaId | undefined
+          const areaLabel = lifeAreaId 
+            ? LIFE_AREAS.find(a => a.id === lifeAreaId)?.label 
+            : null
+          
           return {
             id: doc.id,
             name: data.name || 'Coach',
             photo: data.photo || null,
-            specialization: data.specializations?.focusTopics?.[0] || 'Life Coach',
+            specialization: areaLabel || data.specializations?.focusTopics?.[0] || 'Life Coach',
+            lifeArea: lifeAreaId,
             bio: data.bio || data.motivation || '',
             rating: data.rating || 5.0,
             reviewCount: data.reviewCount || 0
