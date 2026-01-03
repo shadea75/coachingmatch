@@ -36,46 +36,56 @@ export default function CoachDashboardPage() {
   const { user, signOut, canAccessAdmin, loading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [shouldRedirect, setShouldRedirect] = useState(false)
   
   // ADMIN_EMAILS - redirect forzato per admin
   const ADMIN_EMAILS = ['debora.carofiglio@gmail.com']
   
-  // Check se è admin (per email o ruolo)
-  const isAdminUser = user?.role === 'admin' || 
-    (user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()))
+  // Check se è admin (per email o ruolo) - PRIMA di tutto il resto
+  const isAdminByEmail = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false
+  const isAdminByRole = user?.role === 'admin'
+  const isAdminUser = isAdminByEmail || isAdminByRole
   
-  // Redirect se non loggato o se admin
+  // REDIRECT IMMEDIATO per admin - useEffect con priorità massima
   useEffect(() => {
-    // Se ancora caricando, aspetta
-    if (loading) return
-    
-    // Se non loggato, vai al login
-    if (!user) {
+    // Se l'utente è caricato e è admin, redirect SUBITO
+    if (user && isAdminUser) {
+      console.log('Admin detected, redirecting to /admin...')
+      setShouldRedirect(true)
+      window.location.href = '/admin' // Forza redirect con window.location
+    }
+  }, [user, isAdminUser])
+  
+  // Redirect se non loggato
+  useEffect(() => {
+    if (!loading && !user) {
       router.replace('/login')
-      return
     }
-    
-    // Se admin (per ruolo o email), vai alla dashboard admin
-    if (isAdminUser) {
-      router.replace('/admin')
-      return
-    }
-  }, [user, loading, router, isAdminUser])
+  }, [user, loading, router])
   
   // Handler logout con redirect
   const handleSignOut = async () => {
     await signOut()
-    router.replace('/login')
+    window.location.href = '/login'
   }
   
-  // Se è admin, mostra loading mentre fa redirect
-  if (isAdminUser) {
+  // Se è admin o sta per fare redirect, mostra loading
+  if (shouldRedirect || isAdminUser) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-4"></div>
           <p className="text-gray-500">Reindirizzamento al pannello admin...</p>
         </div>
+      </div>
+    )
+  }
+  
+  // Se sta ancora caricando
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
       </div>
     )
   }
