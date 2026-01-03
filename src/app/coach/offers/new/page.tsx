@@ -224,9 +224,29 @@ export default function NewOfferPage() {
         coachNotes: formData.coachNotes.trim() || null,
       }
       
-      await addDoc(collection(db, 'offers'), offerData)
+      const docRef = await addDoc(collection(db, 'offers'), offerData)
       
-      // TODO: Inviare email notifica al coachee
+      // Invia email notifica al coachee
+      try {
+        await fetch('/api/emails/offer-created', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            coacheeEmail: selectedCoachee.email,
+            coacheeName: selectedCoachee.name,
+            coachName: user.name || 'Il tuo coach',
+            offerTitle: formData.title.trim(),
+            totalSessions: formData.totalSessions,
+            sessionDuration: formData.sessionDuration,
+            priceTotal: pricing.priceTotal,
+            pricePerSession: pricing.pricePerSession,
+            offerId: docRef.id
+          })
+        })
+      } catch (emailErr) {
+        console.error('Errore invio email:', emailErr)
+        // Non blocchiamo il flusso se l'email fallisce
+      }
       
       setSuccess(true)
       
