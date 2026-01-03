@@ -173,6 +173,27 @@ function PaySuccessContent() {
             updatedAt: serverTimestamp()
           })
           
+          // Invia email conferma pagamento a coachee e coach
+          try {
+            await fetch('/api/emails/payment-success', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                coacheeEmail: offerData.coacheeEmail,
+                coacheeName: offerData.coacheeName,
+                coachEmail: offerData.coachEmail,
+                coachName: offerData.coachName,
+                offerTitle: offerData.title,
+                sessionNumber: parseInt(sessionNumber),
+                totalSessions: offerData.totalSessions,
+                amountPaid: amountPaid,
+                offerId: offerId
+              })
+            })
+          } catch (emailErr) {
+            console.error('Errore invio email pagamento:', emailErr)
+          }
+          
           // Aggiorna stato locale
           setOffer((prev: any) => ({ 
             ...prev, 
