@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   Calendar, 
@@ -32,12 +33,20 @@ import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firesto
 const UPCOMING_CALLS: any[] = []
 
 export default function DashboardPage() {
+  const router = useRouter()
   const { user, signOut, canAccessAdmin } = useAuth()
   const [activeTab, setActiveTab] = useState<'overview' | 'calls' | 'community'>('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [stats, setStats] = useState({ activeCoaches: 0, totalCoachees: 0 })
   const [communitySettings, setCommunitySettings] = useState({ freeTrialDays: 30 })
   const [userCalls, setUserCalls] = useState<any[]>([])
+  
+  // Redirect coach/admin alla loro dashboard
+  useEffect(() => {
+    if (user?.role === 'coach' || user?.role === 'admin') {
+      router.push('/coach/dashboard')
+    }
+  }, [user?.role, router])
   
   // Carica statistiche reali
   useEffect(() => {

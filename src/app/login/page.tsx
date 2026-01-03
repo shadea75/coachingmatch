@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -10,12 +10,21 @@ import Logo from '@/components/Logo'
 
 export default function LoginPage() {
   const router = useRouter()
-  const { signIn, signInWithGoogle } = useAuth()
+  const { signIn, signInWithGoogle, user } = useAuth()
   
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Funzione per redirect in base al ruolo
+  const redirectByRole = (userRole: string | undefined) => {
+    if (userRole === 'coach' || userRole === 'admin') {
+      router.push('/coach/dashboard')
+    } else {
+      router.push('/dashboard')
+    }
+  }
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,10 +33,9 @@ export default function LoginPage() {
     
     try {
       await signIn(email, password)
-      router.push('/dashboard')
+      // Il redirect avviene nell'useEffect quando user è disponibile
     } catch (err: any) {
       setError(err.message || 'Credenziali non valide')
-    } finally {
       setIsLoading(false)
     }
   }
@@ -35,11 +43,18 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     try {
       await signInWithGoogle()
-      router.push('/dashboard')
+      // Il redirect avviene nell'useEffect quando user è disponibile
     } catch (err: any) {
       setError(err.message || 'Errore durante l\'accesso con Google')
     }
   }
+  
+  // Redirect quando l'utente è loggato
+  useEffect(() => {
+    if (user) {
+      redirectByRole(user.role)
+    }
+  }, [user])
   
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center p-4">
