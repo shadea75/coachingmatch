@@ -228,7 +228,25 @@ export async function POST(request: NextRequest) {
     if (type === 'booking_confirmation') {
       console.log('📤 Invio email conferma prenotazione')
       
-      const { coachName, coachEmail, coacheeName, coacheeEmail, date, time, duration } = data
+      const { coachName, coachEmail, coacheeName, coacheeEmail, date, time, duration, sessionDate } = data
+      
+      // Genera link per Google Calendar
+      // sessionDate deve essere passato come ISO string dal client
+      let googleCalendarUrl = ''
+      let icsDownloadUrl = ''
+      
+      if (sessionDate) {
+        const startDate = new Date(sessionDate)
+        const endDate = new Date(startDate.getTime() + (duration || 30) * 60000)
+        
+        // Formato per Google Calendar
+        const formatForGoogle = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
+        
+        const eventTitle = `Call di coaching con ${coachName}`
+        const eventDescription = `Sessione di coaching su CoachaMi`
+        
+        googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${formatForGoogle(startDate)}/${formatForGoogle(endDate)}&details=${encodeURIComponent(eventDescription)}&location=Videochiamata`
+      }
       
       // Email al coachee
       const coacheeEmailResult = await resend.emails.send({
@@ -278,6 +296,17 @@ export async function POST(request: NextRequest) {
                           </tr>
                         </table>
                         
+                        ${googleCalendarUrl ? `
+                        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+                          <tr>
+                            <td style="padding: 15px; background: #f0f9ff; border-radius: 8px; text-align: center;">
+                              <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Aggiungi al calendario:</p>
+                              <a href="${googleCalendarUrl}" target="_blank" style="display: inline-block; background: #4285F4; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 14px;">📅 Google Calendar</a>
+                            </td>
+                          </tr>
+                        </table>
+                        ` : ''}
+                        
                         <div style="background: #d4edda; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
                           <p style="margin: 0; color: #155724; font-size: 14px;">
                             <strong>✓ Prima call di orientamento gratuita</strong><br>
@@ -288,7 +317,7 @@ export async function POST(request: NextRequest) {
                         <table width="100%" cellpadding="0" cellspacing="0">
                           <tr>
                             <td align="center">
-                              <a href="https://www.coachami.it/sessions" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Vedi le tue sessioni</a>
+                              <a href="https://www.coachami.it/dashboard" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Vedi le tue sessioni</a>
                             </td>
                           </tr>
                         </table>
@@ -355,6 +384,17 @@ export async function POST(request: NextRequest) {
                             </td>
                           </tr>
                         </table>
+                        
+                        ${googleCalendarUrl ? `
+                        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+                          <tr>
+                            <td style="padding: 15px; background: #f0f9ff; border-radius: 8px; text-align: center;">
+                              <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Aggiungi al calendario:</p>
+                              <a href="${googleCalendarUrl.replace(coachName, coacheeName)}" target="_blank" style="display: inline-block; background: #4285F4; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 14px;">📅 Google Calendar</a>
+                            </td>
+                          </tr>
+                        </table>
+                        ` : ''}
                         
                         <div style="background: #fff3cd; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
                           <p style="margin: 0; color: #856404; font-size: 14px;">
