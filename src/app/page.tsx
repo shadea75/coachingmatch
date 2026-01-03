@@ -358,14 +358,14 @@ export default function HomePage() {
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Salute e Vitalità', id: 'health' },
-              { label: 'Finanze', id: 'finances' },
-              { label: 'Carriera/Lavoro', id: 'career' },
-              { label: 'Relazioni', id: 'relationships' },
-              { label: 'Amore', id: 'love' },
-              { label: 'Crescita Personale', id: 'personal_growth' },
-              { label: 'Spiritualità', id: 'spirituality' },
-              { label: 'Divertimento', id: 'fun' },
+              { label: 'Salute e Vitalità', id: 'salute' },
+              { label: 'Finanze', id: 'finanze' },
+              { label: 'Carriera/Lavoro', id: 'carriera' },
+              { label: 'Relazioni', id: 'relazioni' },
+              { label: 'Amore', id: 'amore' },
+              { label: 'Crescita Personale', id: 'crescita' },
+              { label: 'Spiritualità', id: 'spiritualita' },
+              { label: 'Divertimento', id: 'divertimento' },
             ].map((area, index) => {
               const AreaIllustration = AreaIllustrations[area.id]
               return (
