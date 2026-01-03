@@ -8,6 +8,9 @@ import { Mail, Lock, ArrowRight } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 
+// Email admin hardcoded
+const ADMIN_EMAILS = ['debora.carofiglio@gmail.com']
+
 export default function LoginPage() {
   const router = useRouter()
   const { signIn, signInWithGoogle, user } = useAuth()
@@ -18,8 +21,14 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   
   // Funzione per redirect in base al ruolo
-  const redirectByRole = (userRole: string | undefined) => {
-    if (userRole === 'coach' || userRole === 'admin') {
+  const redirectByRole = (userRole: string | undefined, userEmail: string | undefined) => {
+    // Check admin per ruolo O per email
+    const isAdmin = userRole === 'admin' || 
+      (userEmail && ADMIN_EMAILS.includes(userEmail.toLowerCase()))
+    
+    if (isAdmin) {
+      router.push('/admin')
+    } else if (userRole === 'coach') {
       router.push('/coach/dashboard')
     } else {
       router.push('/dashboard')
@@ -52,7 +61,7 @@ export default function LoginPage() {
   // Redirect quando l'utente è loggato
   useEffect(() => {
     if (user) {
-      redirectByRole(user.role)
+      redirectByRole(user.role, user.email)
     }
   }, [user])
   
