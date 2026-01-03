@@ -18,7 +18,8 @@ import {
   Menu,
   X,
   Shield,
-  Gift
+  Gift,
+  FileText
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { LIFE_AREAS } from '@/types'
@@ -42,6 +43,7 @@ export default function DashboardPage() {
     freeTrialDays: 30,
   })
   const [userCalls, setUserCalls] = useState<any[]>([])
+  const [pendingOffersCount, setPendingOffersCount] = useState(0)
   
   // Redirect coach alla loro dashboard, admin alla dashboard admin
   useEffect(() => {
@@ -52,7 +54,7 @@ export default function DashboardPage() {
     }
   }, [user?.role, router])
   
-  // Carica statistiche reali
+  // Carica statistiche reali e offerte pendenti
   useEffect(() => {
     const loadStats = async () => {
       try {
@@ -83,12 +85,23 @@ export default function DashboardPage() {
             freeTrialDays: data.freeTrialDays ?? 30,
           })
         }
+        
+        // Conta offerte pendenti per l'utente
+        if (user?.id) {
+          const offersQuery = query(
+            collection(db, 'offers'),
+            where('coacheeId', '==', user.id),
+            where('status', '==', 'pending')
+          )
+          const offersSnap = await getDocs(offersQuery)
+          setPendingOffersCount(offersSnap.size)
+        }
       } catch (err) {
         console.error('Errore caricamento stats:', err)
       }
     }
     loadStats()
-  }, [])
+  }, [user?.id])
   
   // Calcola se l'utente è nel periodo di prova gratuito (30 giorni dalla registrazione)
   const isInFreeTrial = () => {
@@ -146,6 +159,20 @@ export default function DashboardPage() {
         <Calendar size={20} />
         <span className="font-medium">Le mie call</span>
       </button>
+      
+      {/* NUOVO: Link Offerte */}
+      <Link
+        href="/offers"
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+      >
+        <FileText size={20} />
+        <span className="font-medium">Offerte</span>
+        {pendingOffersCount > 0 && (
+          <span className="ml-auto bg-primary-500 text-white text-xs px-2 py-0.5 rounded-full">
+            {pendingOffersCount}
+          </span>
+        )}
+      </Link>
       
       <button
         onClick={() => setActiveTab('community')}
@@ -217,7 +244,7 @@ export default function DashboardPage() {
           <div className="absolute left-0 top-0 bottom-0 w-64 bg-white p-6" onClick={e => e.stopPropagation()}>
             <div className="mb-6">
               <p className="text-sm text-gray-500">Ciao,</p>
-              <p className="font-semibold text-charcoal">{user?.name || user?.email?.split('@')[0] || 'Utente'}</p>
+              <p className="font-semibold text-charcoal">{user?.name}</p>
             </div>
             <nav className="space-y-2">
               <NavItems />
@@ -234,7 +261,7 @@ export default function DashboardPage() {
         
         <div className="mb-6">
           <p className="text-sm text-gray-500">Ciao,</p>
-          <p className="font-semibold text-charcoal">{user?.name || user?.email?.split('@')[0] || 'Utente'}</p>
+          <p className="font-semibold text-charcoal">{user?.name}</p>
         </div>
         
         <nav className="space-y-2">
@@ -243,7 +270,7 @@ export default function DashboardPage() {
       </aside>
       
       {/* Main Content */}
-      <main className="lg:ml-64 p-4 lg:p-8">
+      <main className="lg:ml-64 p-6 lg:p-8">
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <motion.div
@@ -259,70 +286,44 @@ export default function DashboardPage() {
               {/* Radar Chart */}
               <div className="lg:col-span-2 bg-white rounded-2xl p-6">
                 <h2 className="font-semibold text-charcoal mb-4">Le tue aree della vita</h2>
-                <div className="flex justify-center">
-                  <RadarChart scores={mockScores} size={300} />
-                </div>
+                <RadarChart scores={mockScores} />
                 
-                {/* Area scores */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
-                  {LIFE_AREAS.map(area => (
-                    <div 
-                      key={area.id}
-                      className="p-3 rounded-xl"
-                      style={{ backgroundColor: `${area.color}10` }}
-                    >
-                      <div className="text-xs text-gray-500 mb-1">{area.label.split(' ')[0]}</div>
-                      <div className="text-xl font-bold" style={{ color: area.color }}>
-                        {mockScores[area.id as keyof typeof mockScores] || 0}/10
+                {/* Score Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+                  {Object.entries(mockScores).map(([key, value]) => {
+                    const area = LIFE_AREAS[key as keyof typeof LIFE_AREAS]
+                    if (!area) return null
+                    return (
+                      <div key={key} className="bg-cream rounded-xl p-3">
+                        <p className="text-xs text-gray-500">{area.label}</p>
+                        <p className="text-xl font-bold text-primary-500">{value}/10</p>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
               
-              {/* Upcoming call */}
+              {/* Next Call Card */}
               <div className="bg-white rounded-2xl p-6">
                 <h2 className="font-semibold text-charcoal mb-4">Prossima call</h2>
                 
                 {UPCOMING_CALLS.length > 0 ? (
-                  <div className="space-y-4">
-                    {UPCOMING_CALLS.map(call => (
-                      <div key={call.id} className="bg-cream rounded-xl p-4">
-                        <div className="flex items-center gap-3 mb-3">
-                          <img 
-                            src={call.coachPhoto}
-                            alt={call.coachName}
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
-                          <div>
-                            <p className="font-medium text-charcoal">{call.coachName}</p>
-                            <p className="text-xs text-gray-500">
-                              {call.type === 'free_orientation' ? 'Call gratuita' : 'Sessione'}
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2 text-sm text-gray-600">
-                          <div className="flex items-center gap-2">
-                            <Calendar size={14} />
-                            <span>{format(call.date, "EEEE d MMMM", { locale: it })}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Clock size={14} />
-                            <span>{call.time} • 30 min</span>
-                          </div>
-                        </div>
-                        
-                        <button className="w-full mt-4 btn btn-primary text-sm py-2">
-                          <Video size={16} />
-                          Partecipa
-                        </button>
-                      </div>
-                    ))}
+                  <div className="flex items-center gap-3">
+                    <img 
+                      src={UPCOMING_CALLS[0].coachPhoto}
+                      alt={UPCOMING_CALLS[0].coachName}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                    <div>
+                      <p className="font-medium text-charcoal">{UPCOMING_CALLS[0].coachName}</p>
+                      <p className="text-sm text-gray-500">
+                        {format(UPCOMING_CALLS[0].date, "d MMMM", { locale: it })} alle {UPCOMING_CALLS[0].time}
+                      </p>
+                    </div>
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <div className="text-center py-4">
+                    <Calendar className="w-12 h-12 mx-auto text-gray-300 mb-2" />
                     <p className="text-gray-500 mb-4">Nessuna call in programma</p>
                     <Link href="/matching" className="btn btn-primary text-sm">
                       Trova un coach
