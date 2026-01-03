@@ -44,6 +44,8 @@ export default function BookingPage() {
   const [coach, setCoach] = useState<CoachData | null>(null)
   const [isLoadingCoach, setIsLoadingCoach] = useState(true)
   const [bookedSlots, setBookedSlots] = useState<{date: string, time: string}[]>([])
+  const [blockedDates, setBlockedDates] = useState<string[]>([])
+  const [manualEvents, setManualEvents] = useState<{date: string, startTime: string, endTime: string}[]>([])
   
   const [currentWeekStart, setCurrentWeekStart] = useState(() => 
     startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -107,6 +109,36 @@ export default function BookingPage() {
         })
         setBookedSlots(booked)
         
+        // Carica date bloccate dal coach
+        const blockedQuery = query(
+          collection(db, 'coachBlockedDates'),
+          where('coachId', '==', coachId)
+        )
+        const blockedSnap = await getDocs(blockedQuery)
+        const blocked = blockedSnap.docs.map(doc => {
+          const data = doc.data()
+          const date = data.date?.toDate?.() || new Date(data.date)
+          return format(date, 'yyyy-MM-dd')
+        })
+        setBlockedDates(blocked)
+        
+        // Carica impegni manuali del coach
+        const eventsQuery = query(
+          collection(db, 'coachEvents'),
+          where('coachId', '==', coachId)
+        )
+        const eventsSnap = await getDocs(eventsQuery)
+        const events = eventsSnap.docs.map(doc => {
+          const data = doc.data()
+          const date = data.date?.toDate?.() || new Date(data.date)
+          return {
+            date: format(date, 'yyyy-MM-dd'),
+            startTime: data.startTime,
+            endTime: data.endTime
+          }
+        })
+        setManualEvents(events)
+        
       } catch (err) {
         console.error('Errore caricamento coach:', err)
         setError('Errore nel caricamento dei dati')
@@ -131,11 +163,26 @@ export default function BookingPage() {
     const slots = coach.availability[dayOfWeek] || []
     const dateStr = format(date, 'yyyy-MM-dd')
     
-    // Filter out booked slots and past times
+    // Se la data è bloccata, nessuno slot disponibile
+    if (blockedDates.includes(dateStr)) {
+      return []
+    }
+    
+    // Filter out booked slots, manual events, and past times
     return slots.filter(time => {
+      // Check if slot is booked
       const isBooked = bookedSlots.some(
         slot => slot.date === dateStr && slot.time === time
       )
+      if (isBooked) return false
+      
+      // Check if slot overlaps with manual events
+      const hasConflict = manualEvents.some(event => {
+        if (event.date !== dateStr) return false
+        // Check if the time slot falls within the event
+        return time >= event.startTime && time < event.endTime
+      })
+      if (hasConflict) return false
       
       // If today, filter out past times
       if (isToday(date)) {
@@ -145,7 +192,7 @@ export default function BookingPage() {
         if (isBefore(slotTime, new Date())) return false
       }
       
-      return !isBooked
+      return true
     })
   }
   
