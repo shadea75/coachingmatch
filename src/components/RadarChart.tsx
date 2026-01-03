@@ -8,11 +8,11 @@ interface RadarChartProps {
   size?: number
   animated?: boolean
   showLabels?: boolean
-  compact?: boolean // Nuova prop per versione compatta
+  compact?: boolean
 }
 
-// Label completi per il radar chart
-const SHORT_LABELS: Record<string, string> = {
+// Label per il chart
+const AREA_LABELS: Record<string, string> = {
   'salute': 'Salute',
   'finanze': 'Finanze',
   'carriera': 'Carriera',
@@ -32,10 +32,7 @@ export default function RadarChart({
 }: RadarChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   
-  // Calcola dimensioni in base alla modalità
-  const canvasSize = compact ? Math.min(size, 350) : size
-  const labelPadding = compact ? 50 : 70
-  const fontSize = compact ? 11 : 13
+  const canvasSize = compact ? Math.min(size, 380) : size
   
   useEffect(() => {
     const canvas = canvasRef.current
@@ -44,7 +41,7 @@ export default function RadarChart({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     
-    // Imposta DPI per retina displays
+    // Setup per retina
     const dpr = window.devicePixelRatio || 1
     canvas.width = canvasSize * dpr
     canvas.height = canvasSize * dpr
@@ -54,123 +51,118 @@ export default function RadarChart({
     
     const centerX = canvasSize / 2
     const centerY = canvasSize / 2
-    const radius = (canvasSize / 2) - (labelPadding + 30)
+    const maxRadius = (canvasSize / 2) - (compact ? 70 : 90) // Spazio per le label
     const areas = LIFE_AREAS
     const numAreas = areas.length
     const angleStep = (Math.PI * 2) / numAreas
     
-    // Clear canvas
+    // Clear
     ctx.clearRect(0, 0, canvasSize, canvasSize)
     
-    // Draw background circles
+    // Disegna cerchi guida (sfondo)
     ctx.strokeStyle = '#E5E7EB'
     ctx.lineWidth = 1
-    
     for (let i = 1; i <= 5; i++) {
       ctx.beginPath()
-      ctx.arc(centerX, centerY, (radius / 5) * i, 0, Math.PI * 2)
+      ctx.arc(centerX, centerY, (maxRadius / 5) * i, 0, Math.PI * 2)
       ctx.stroke()
     }
     
-    // Draw axes
+    // Disegna linee radiali
     areas.forEach((_, index) => {
       const angle = angleStep * index - Math.PI / 2
-      const x = centerX + Math.cos(angle) * radius
-      const y = centerY + Math.sin(angle) * radius
-      
       ctx.beginPath()
       ctx.moveTo(centerX, centerY)
-      ctx.lineTo(x, y)
+      ctx.lineTo(
+        centerX + Math.cos(angle) * maxRadius,
+        centerY + Math.sin(angle) * maxRadius
+      )
       ctx.strokeStyle = '#E5E7EB'
       ctx.stroke()
     })
     
-    // Draw data polygon
-    ctx.beginPath()
+    // Disegna gli spicchi colorati (stile Risvelia)
     areas.forEach((area, index) => {
       const score = scores[area.id] || 0
-      const angle = angleStep * index - Math.PI / 2
-      const distance = (score / 10) * radius
-      const x = centerX + Math.cos(angle) * distance
-      const y = centerY + Math.sin(angle) * distance
+      if (score === 0) return
       
-      if (index === 0) {
-        ctx.moveTo(x, y)
-      } else {
-        ctx.lineTo(x, y)
-      }
-    })
-    ctx.closePath()
-    
-    // Fill with gradient
-    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius)
-    gradient.addColorStop(0, 'rgba(236, 119, 17, 0.3)')
-    gradient.addColorStop(1, 'rgba(236, 119, 17, 0.1)')
-    ctx.fillStyle = gradient
-    ctx.fill()
-    
-    // Stroke
-    ctx.strokeStyle = '#EC7711'
-    ctx.lineWidth = 2
-    ctx.stroke()
-    
-    // Draw data points
-    areas.forEach((area, index) => {
-      const score = scores[area.id] || 0
-      const angle = angleStep * index - Math.PI / 2
-      const distance = (score / 10) * radius
-      const x = centerX + Math.cos(angle) * distance
-      const y = centerY + Math.sin(angle) * distance
+      const startAngle = angleStep * index - Math.PI / 2 - angleStep / 2
+      const endAngle = startAngle + angleStep
+      const radius = (score / 10) * maxRadius
       
+      // Disegna lo spicchio
       ctx.beginPath()
-      ctx.arc(x, y, compact ? 5 : 6, 0, Math.PI * 2)
+      ctx.moveTo(centerX, centerY)
+      ctx.arc(centerX, centerY, radius, startAngle, endAngle)
+      ctx.closePath()
       ctx.fillStyle = area.color
       ctx.fill()
+      
+      // Bordo bianco tra spicchi
       ctx.strokeStyle = '#fff'
       ctx.lineWidth = 2
       ctx.stroke()
+      
+      // Scrivi il punteggio dentro lo spicchio
+      if (score > 0) {
+        const midAngle = (startAngle + endAngle) / 2
+        const textRadius = radius * 0.65
+        const textX = centerX + Math.cos(midAngle) * textRadius
+        const textY = centerY + Math.sin(midAngle) * textRadius
+        
+        ctx.font = `bold ${compact ? 14 : 16}px system-ui, sans-serif`
+        ctx.fillStyle = '#fff'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        
+        // Solo se c'è abbastanza spazio
+        if (radius > 25) {
+          ctx.fillText(score.toString(), textX, textY)
+        }
+      }
     })
     
-    // Draw labels
+    // Cerchio centrale (per coprire il punto centrale)
+    ctx.beginPath()
+    ctx.arc(centerX, centerY, 8, 0, Math.PI * 2)
+    ctx.fillStyle = '#fff'
+    ctx.fill()
+    ctx.strokeStyle = '#E5E7EB'
+    ctx.lineWidth = 1
+    ctx.stroke()
+    
+    // Disegna le label esterne
     if (showLabels) {
-      ctx.font = `bold ${fontSize}px system-ui, sans-serif`
-      ctx.fillStyle = '#374151'
+      const labelRadius = maxRadius + (compact ? 45 : 60)
       
       areas.forEach((area, index) => {
         const angle = angleStep * index - Math.PI / 2
-        const labelRadius = radius + labelPadding
-        let x = centerX + Math.cos(angle) * labelRadius
-        let y = centerY + Math.sin(angle) * labelRadius
+        const x = centerX + Math.cos(angle) * labelRadius
+        const y = centerY + Math.sin(angle) * labelRadius
         
-        // Get short label
-        const label = SHORT_LABELS[area.id] || area.label.split(' ')[0]
+        const label = AREA_LABELS[area.id] || area.label
         
-        // Adjust text alignment based on position
-        const normalizedAngle = ((angle + Math.PI / 2) + Math.PI * 2) % (Math.PI * 2)
+        ctx.font = `600 ${compact ? 11 : 13}px system-ui, sans-serif`
+        ctx.fillStyle = '#374151'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
         
-        if (normalizedAngle < 0.3 || normalizedAngle > Math.PI * 2 - 0.3) {
-          // Top
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'bottom'
-        } else if (normalizedAngle > Math.PI - 0.3 && normalizedAngle < Math.PI + 0.3) {
-          // Bottom
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'top'
-        } else if (normalizedAngle < Math.PI) {
-          // Right side
-          ctx.textAlign = 'left'
-          ctx.textBaseline = 'middle'
+        // Per label lunghe, splitta su due righe
+        if (label.length > 10 && !compact) {
+          const words = label.split(' ')
+          if (words.length >= 2) {
+            ctx.fillText(words[0], x, y - 8)
+            ctx.fillText(words.slice(1).join(' '), x, y + 8)
+          } else {
+            ctx.fillText(label, x, y)
+          }
         } else {
-          // Left side
-          ctx.textAlign = 'right'
-          ctx.textBaseline = 'middle'
+          ctx.fillText(label, x, y)
         }
-        
-        ctx.fillText(label, x, y)
       })
     }
     
-  }, [scores, canvasSize, showLabels, labelPadding, fontSize, compact])
+  }, [scores, canvasSize, showLabels, compact])
   
   return (
     <div className="relative flex justify-center items-center">
