@@ -438,6 +438,103 @@ export async function POST(request: NextRequest) {
         coachEmail: coachEmailResult
       })
     }
+    
+    // EMAIL RICHIESTA OFFERTA
+    if (type === 'offer_request') {
+      console.log('📤 Invio email richiesta offerta')
+      
+      const { coachName, coachEmail, coacheeName, coacheeEmail, objectives, budget, notes } = data
+      
+      const coachEmailResult = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: coachEmail,
+        subject: `💼 Nuova richiesta offerta da ${coacheeName} - CoachaMi`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr>
+                <td>
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0;">
+                        <span style="font-size: 28px; font-weight: bold; color: #333;">Coacha</span><span style="font-size: 28px; font-weight: bold; color: #EC7711; font-style: italic;">Mi</span>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                    <tr>
+                      <td style="padding: 30px;">
+                        <h2 style="margin: 0 0 20px 0; color: #333;">💼 Nuova richiesta offerta!</h2>
+                        
+                        <p style="margin: 0 0 25px 0;">Ciao ${coachName}! <strong>${coacheeName}</strong> è interessato/a ai tuoi servizi e ti ha inviato una richiesta di offerta.</p>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0" style="background: #FFF7ED; border-radius: 8px; margin-bottom: 20px;">
+                          <tr>
+                            <td style="padding: 20px;">
+                              <p style="margin: 0 0 10px 0;"><strong>👤 Da:</strong> ${coacheeName}</p>
+                              <p style="margin: 0 0 15px 0;"><strong>📧 Email:</strong> ${coacheeEmail}</p>
+                              
+                              <p style="margin: 0 0 5px 0;"><strong>🎯 Obiettivi:</strong></p>
+                              <p style="margin: 0 0 15px 0; padding: 10px; background: white; border-radius: 6px;">${objectives}</p>
+                              
+                              ${budget ? `<p style="margin: 0 0 10px 0;"><strong>💰 Budget indicativo:</strong> ${budget === 'da_definire' ? 'Da definire insieme' : '€' + budget}</p>` : ''}
+                              
+                              ${notes ? `
+                              <p style="margin: 0 0 5px 0;"><strong>📝 Note:</strong></p>
+                              <p style="margin: 0; padding: 10px; background: white; border-radius: 6px;">${notes}</p>
+                              ` : ''}
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <div style="background: #e8f5e9; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                          <p style="margin: 0; color: #2e7d32; font-size: 14px;">
+                            <strong>💡 Suggerimento:</strong><br>
+                            Rispondi entro 24-48 ore per non perdere questo potenziale cliente. Crea un'offerta personalizzata dalla tua dashboard.
+                          </p>
+                        </div>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td align="center">
+                              <a href="https://www.coachami.it/coach/offers/new?coacheeId=${coacheeEmail}" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Crea offerta</a>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0; color: #666; font-size: 14px;">
+                        <p style="margin: 0;">© 2025 CoachaMi - Tutti i diritti riservati</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `
+      })
+      
+      console.log('✅ Email richiesta offerta inviata:', coachEmailResult)
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Email richiesta offerta inviata',
+        coachEmail: coachEmailResult
+      })
+    }
 
     return NextResponse.json({ error: 'Tipo email non supportato' }, { status: 400 })
 
