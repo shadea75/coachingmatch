@@ -481,16 +481,16 @@ export const SpiritualityIllustration = ({ size = 120, className = '' }: AreaIll
   </svg>
 )
 
-// Mappa per usare le illustrazioni per ID area
+// Mappa per usare le illustrazioni per ID area (ID italiani dal database)
 export const AreaIllustrations: Record<string, React.FC<AreaIllustrationProps>> = {
-  career: CareerIllustration,
-  finances: FinancesIllustration,
-  health: HealthIllustration,
-  relationships: RelationshipsIllustration,  // Amicizie - Hanami
-  love: LoveIllustration,                     // Amore - Kokeshi coppia
-  personal_growth: PersonalGrowthIllustration,
-  fun: FunIllustration,
-  spirituality: SpiritualityIllustration
+  salute: HealthIllustration,
+  finanze: FinancesIllustration,
+  carriera: CareerIllustration,
+  relazioni: RelationshipsIllustration,  // Amicizie - Hanami
+  amore: LoveIllustration,               // Amore - Kokeshi coppia
+  crescita: PersonalGrowthIllustration,
+  spiritualita: SpiritualityIllustration,
+  divertimento: FunIllustration
 }
 
 // Componente helper per ottenere illustrazione per area
