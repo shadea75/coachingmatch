@@ -12,8 +12,10 @@ import {
   Plus,
   X
 } from 'lucide-react'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { collection, addDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { db, auth, storage } from '@/lib/firebase'
 import { LIFE_AREAS, LifeAreaId } from '@/types'
 import Logo from '@/components/Logo'
 
@@ -46,6 +48,7 @@ export default function CoachRegisterPage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
   
   const [formData, setFormData] = useState({
     // Step 1
@@ -53,6 +56,7 @@ export default function CoachRegisterPage() {
     email: '',
     password: '',
     photo: null as File | null,
+    photoPreview: '',
     bio: '',
     
     // Step 2
@@ -121,8 +125,39 @@ export default function CoachRegisterPage() {
       certifications: prev.certifications.filter((_, i) => i !== index)
     }))
   }
+
+  // Handle photo upload
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      updateForm('photo', file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        updateForm('photoPreview', reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
   
   const handleNext = () => {
+    setError('')
+    
+    // Validazione step 1
+    if (currentStep === 0) {
+      if (!formData.name || !formData.email || !formData.password) {
+        setError('Compila tutti i campi obbligatori')
+        return
+      }
+      if (formData.password.length < 8) {
+        setError('La password deve essere di almeno 8 caratteri')
+        return
+      }
+      if (!formData.bio) {
+        setError('Inserisci una breve bio professionale')
+        return
+      }
+    }
+    
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(prev => prev + 1)
     }
@@ -136,30 +171,79 @@ export default function CoachRegisterPage() {
   
   const handleSubmit = async () => {
     setIsSubmitting(true)
+    setError('')
     
     try {
-      // Salva candidatura su Firebase
+      // 1. Crea l'utente in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(
+        auth, 
+        formData.email, 
+        formData.password
+      )
+      const userId = userCredential.user.uid
+      
+      // 2. Aggiorna il profilo con il nome
+      await updateProfile(userCredential.user, {
+        displayName: formData.name
+      })
+      
+      // 3. Upload foto se presente
+      let photoURL = ''
+      if (formData.photo) {
+        try {
+          const photoRef = ref(storage, `profile-photos/${userId}`)
+          await uploadBytes(photoRef, formData.photo)
+          photoURL = await getDownloadURL(photoRef)
+        } catch (photoError) {
+          console.error('Errore upload foto:', photoError)
+          // Continua senza foto
+        }
+      }
+      
+      // 4. Crea documento utente in Firestore
+      await setDoc(doc(db, 'users', userId), {
+        name: formData.name,
+        email: formData.email,
+        photo: photoURL,
+        role: 'coach', // Sarà 'pending_coach' fino all'approvazione? O 'coach' subito?
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+      
+      // 5. Crea la candidatura coach
       const applicationData = {
+        userId: userId, // Link all'utente Firebase Auth
         // Dati personali
         name: formData.name,
         email: formData.email,
+        photo: photoURL,
         bio: formData.bio,
         
         // Esperienza
-        certifications: formData.certifications,
+        certifications: formData.certifications.map(c => ({
+          name: c.name,
+          institution: c.institution,
+          year: c.year
+        })),
         yearsOfExperience: formData.yearsOfExperience,
         languages: formData.languages,
         
         // Specializzazioni
-        lifeArea: formData.lifeAreas[0] || null, // Solo 1 area
+        lifeArea: formData.lifeAreas[0] || null,
+        specializations: {
+          focusTopics: formData.problemsAddressed,
+          targetAudience: formData.clientTypes
+        },
         clientTypes: formData.clientTypes,
         problemsAddressed: formData.problemsAddressed,
         coachingMethod: formData.coachingMethod,
+        style: formData.style,
         
         // Servizio
         sessionMode: formData.sessionMode,
         location: formData.location,
         averagePrice: formData.averagePrice,
+        hourlyRate: formData.averagePrice,
         freeCallAvailable: formData.freeCallAvailable,
         availability: formData.availability,
         
@@ -169,9 +253,10 @@ export default function CoachRegisterPage() {
         createdAt: serverTimestamp(),
       }
       
-      await addDoc(collection(db, 'coachApplications'), applicationData)
+      // Usa lo stesso ID dell'utente per coachApplications
+      await setDoc(doc(db, 'coachApplications', userId), applicationData)
       
-      // Invia email di conferma
+      // 6. Invia email di conferma
       try {
         await fetch('/api/send-email', {
           method: 'POST',
@@ -191,9 +276,18 @@ export default function CoachRegisterPage() {
       }
       
       router.push('/coach/register/success')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Errore durante la registrazione:', error)
-      alert('Errore durante la registrazione. Riprova.')
+      
+      if (error.code === 'auth/email-already-in-use') {
+        setError('Questa email è già registrata. Prova ad accedere.')
+      } else if (error.code === 'auth/weak-password') {
+        setError('La password è troppo debole. Usa almeno 8 caratteri.')
+      } else if (error.code === 'auth/invalid-email') {
+        setError('Email non valida.')
+      } else {
+        setError(error.message || 'Errore durante la registrazione. Riprova.')
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -232,6 +326,7 @@ export default function CoachRegisterPage() {
                 `}>
                   {index < currentStep ? <Check size={16} /> : index + 1}
                 </div>
+                
                 {index < STEPS.length - 1 && (
                   <div className={`
                     flex-1 h-1 mx-2
@@ -241,7 +336,7 @@ export default function CoachRegisterPage() {
               </div>
             ))}
           </div>
-          <p className="text-sm text-gray-600 text-center">
+          <p className="text-center text-sm text-gray-500">
             {STEPS[currentStep]}
           </p>
         </div>
@@ -254,9 +349,15 @@ export default function CoachRegisterPage() {
             key={currentStep}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="bg-white rounded-2xl p-8"
+            className="bg-white rounded-2xl p-6 md:p-8 shadow-sm"
           >
+            {/* Error message */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+                {error}
+              </div>
+            )}
+            
             {/* Step 1: Personal Info */}
             {currentStep === 0 && (
               <div className="space-y-6">
@@ -272,9 +373,11 @@ export default function CoachRegisterPage() {
                       className="input"
                       value={formData.name}
                       onChange={(e) => updateForm('name', e.target.value)}
+                      placeholder="Mario Rossi"
                       required
                     />
                   </div>
+                  
                   <div>
                     <label className="label">Email *</label>
                     <input
@@ -282,6 +385,7 @@ export default function CoachRegisterPage() {
                       className="input"
                       value={formData.email}
                       onChange={(e) => updateForm('email', e.target.value)}
+                      placeholder="mario@email.com"
                       required
                     />
                   </div>
@@ -294,6 +398,7 @@ export default function CoachRegisterPage() {
                     className="input"
                     value={formData.password}
                     onChange={(e) => updateForm('password', e.target.value)}
+                    placeholder="Minimo 8 caratteri"
                     minLength={8}
                     required
                   />
@@ -301,61 +406,50 @@ export default function CoachRegisterPage() {
                 
                 <div>
                   <label className="label">Foto profilo</label>
-                  <label className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 transition-colors cursor-pointer block">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) {
-                          updateForm('photo', file)
-                        }
-                      }}
-                    />
-                    {formData.photo ? (
+                  <div 
+                    className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 transition-colors cursor-pointer"
+                    onClick={() => document.getElementById('photo-input')?.click()}
+                  >
+                    {formData.photoPreview ? (
                       <div className="flex flex-col items-center">
                         <img 
-                          src={URL.createObjectURL(formData.photo)} 
-                          alt="Anteprima" 
-                          className="w-24 h-24 rounded-full object-cover mb-2"
+                          src={formData.photoPreview} 
+                          alt="Preview" 
+                          className="w-24 h-24 rounded-full object-cover mb-3"
                         />
-                        <p className="text-sm text-green-600 font-medium">
-                          ✓ {formData.photo.name}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          Clicca per cambiare
-                        </p>
+                        <p className="text-sm text-gray-500">Clicca per cambiare</p>
                       </div>
                     ) : (
                       <>
-                        <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                        <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
                         <p className="text-sm text-gray-500">
                           Trascina un'immagine o clicca per caricare
                         </p>
                       </>
                     )}
-                  </label>
+                    <input
+                      id="photo-input"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePhotoChange}
+                    />
+                  </div>
                 </div>
                 
                 <div>
-                  <div className="flex items-center justify-between">
-                    <label className="label mb-0">Bio professionale *</label>
-                    <span className={`text-xs ${formData.bio.length > 500 ? 'text-red-500' : 'text-gray-400'}`}>
-                      {formData.bio.length}/500
-                    </span>
-                  </div>
+                  <label className="label">Bio professionale *</label>
                   <textarea
-                    className={`input min-h-[120px] mt-2 ${formData.bio.length > 500 ? 'border-red-500' : ''}`}
+                    className="input min-h-[120px]"
                     value={formData.bio}
                     onChange={(e) => updateForm('bio', e.target.value)}
                     placeholder="Descrivi la tua esperienza e il tuo approccio al coaching..."
-                    maxLength={550}
+                    maxLength={500}
                     required
                   />
-                  {formData.bio.length > 500 && (
-                    <p className="text-red-500 text-xs mt-1">Massimo 500 caratteri</p>
-                  )}
+                  <p className="text-xs text-gray-400 mt-1 text-right">
+                    {formData.bio.length}/500
+                  </p>
                 </div>
               </div>
             )}
@@ -367,148 +461,112 @@ export default function CoachRegisterPage() {
                   La tua esperienza
                 </h2>
                 
-                {/* Certifications */}
                 <div>
                   <label className="label">Certificazioni</label>
                   {formData.certifications.map((cert, index) => (
                     <div key={index} className="bg-gray-50 rounded-xl p-4 mb-3">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                        <div className="md:col-span-1">
-                          <label className="text-xs text-gray-500 mb-1 block">Nome certificazione</label>
-                          <input
-                            type="text"
-                            className="input"
-                            placeholder="Es: ICF PCC, AICP, Life Coach"
-                            value={cert.name}
-                            onChange={(e) => updateCertification(index, 'name', e.target.value)}
-                          />
-                        </div>
-                        <div className="md:col-span-1">
-                          <label className="text-xs text-gray-500 mb-1 block">Ente / Istituzione</label>
-                          <input
-                            type="text"
-                            className="input"
-                            placeholder="Es: ICF Italia, AICP"
-                            value={cert.institution}
-                            onChange={(e) => updateCertification(index, 'institution', e.target.value)}
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <div className="flex-1">
-                            <label className="text-xs text-gray-500 mb-1 block">Anno</label>
-                            <input
-                              type="number"
-                              className="input"
-                              placeholder="2024"
-                              min={1990}
-                              max={2030}
-                              value={cert.year}
-                              onChange={(e) => updateCertification(index, 'year', parseInt(e.target.value))}
-                            />
-                          </div>
-                          {formData.certifications.length > 1 && (
-                            <button
-                              onClick={() => removeCertification(index)}
-                              className="self-end p-3 text-red-500 hover:bg-red-100 rounded-xl transition-colors"
-                              title="Rimuovi certificazione"
-                            >
-                              <X size={20} />
-                            </button>
-                          )}
-                        </div>
+                      <div className="grid md:grid-cols-3 gap-3 mb-3">
+                        <input
+                          type="text"
+                          className="input"
+                          value={cert.name}
+                          onChange={(e) => updateCertification(index, 'name', e.target.value)}
+                          placeholder="Nome certificazione"
+                        />
+                        <input
+                          type="text"
+                          className="input"
+                          value={cert.institution}
+                          onChange={(e) => updateCertification(index, 'institution', e.target.value)}
+                          placeholder="Ente certificatore"
+                        />
+                        <input
+                          type="number"
+                          className="input"
+                          value={cert.year}
+                          onChange={(e) => updateCertification(index, 'year', parseInt(e.target.value))}
+                          placeholder="Anno"
+                        />
                       </div>
-                      
-                      {/* Upload certificazione */}
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Carica certificato (PDF o immagine)</label>
-                        <div className="flex items-center gap-3">
-                          <label className="flex-1 flex items-center gap-2 px-4 py-2 bg-white border border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors">
-                            <Upload size={18} className="text-gray-400" />
-                            <span className="text-sm text-gray-500">
-                              {cert.file ? cert.file.name : 'Scegli file...'}
-                            </span>
-                            <input
-                              type="file"
-                              className="hidden"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0]
-                                if (file) {
-                                  updateCertification(index, 'file', file)
-                                }
-                              }}
-                            />
-                          </label>
-                          {cert.file && (
-                            <button
-                              onClick={() => updateCertification(index, 'file', null)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                            >
-                              <X size={18} />
-                            </button>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-400 mt-1">Max 5MB - PDF, JPG, PNG</p>
-                      </div>
+                      {formData.certifications.length > 1 && (
+                        <button
+                          onClick={() => removeCertification(index)}
+                          className="text-red-500 text-sm hover:underline"
+                        >
+                          Rimuovi
+                        </button>
+                      )}
                     </div>
                   ))}
                   <button
                     onClick={addCertification}
-                    className="flex items-center gap-2 text-primary-500 text-sm font-medium mt-2 hover:text-primary-600 transition-colors"
+                    className="text-primary-500 text-sm font-medium flex items-center gap-1 hover:underline"
                   >
-                    <Plus size={16} />
-                    Aggiungi certificazione
+                    <Plus size={16} /> Aggiungi certificazione
                   </button>
                 </div>
                 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="label">Anni di esperienza *</label>
+                    <label className="label">Anni di esperienza</label>
                     <input
                       type="number"
                       className="input"
-                      min={0}
-                      max={50}
-                      placeholder="Es: 5"
                       value={formData.yearsOfExperience}
                       onChange={(e) => updateForm('yearsOfExperience', parseInt(e.target.value) || 0)}
+                      min={0}
                     />
                   </div>
+                  
                   <div>
-                    <label className="label">Prezzo medio sessione (€) *</label>
+                    <label className="label">Prezzo medio sessione (€)</label>
                     <input
                       type="number"
                       className="input"
-                      min={0}
                       value={formData.averagePrice}
-                      onChange={(e) => updateForm('averagePrice', parseInt(e.target.value))}
+                      onChange={(e) => updateForm('averagePrice', parseInt(e.target.value) || 0)}
+                      min={0}
                     />
                   </div>
                 </div>
                 
                 <div>
-                  <label className="label">Modalità di sessione *</label>
+                  <label className="label">Modalità sessioni</label>
                   <div className="flex gap-3">
-                    {['online', 'presence'].map(mode => (
-                      <button
-                        key={mode}
-                        onClick={() => {
-                          const modes = formData.sessionMode.includes(mode as any)
-                            ? formData.sessionMode.filter(m => m !== mode)
-                            : [...formData.sessionMode, mode]
-                          updateForm('sessionMode', modes)
-                        }}
-                        className={`
-                          px-4 py-2 rounded-xl border transition-all
-                          ${formData.sessionMode.includes(mode as any)
-                            ? 'border-primary-500 bg-primary-50 text-primary-600'
-                            : 'border-gray-200 hover:border-gray-300'
-                          }
-                        `}
-                      >
-                        {mode === 'online' ? 'Online' : 'In presenza'}
-                      </button>
-                    ))}
+                    <button
+                      onClick={() => {
+                        const modes = formData.sessionMode.includes('online')
+                          ? formData.sessionMode.filter(m => m !== 'online')
+                          : [...formData.sessionMode, 'online'] as ('online' | 'presence')[]
+                        updateForm('sessionMode', modes)
+                      }}
+                      className={`
+                        px-4 py-2 rounded-xl text-sm font-medium transition-all
+                        ${formData.sessionMode.includes('online')
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-gray-100 text-gray-600'
+                        }
+                      `}
+                    >
+                      Online
+                    </button>
+                    <button
+                      onClick={() => {
+                        const modes = formData.sessionMode.includes('presence')
+                          ? formData.sessionMode.filter(m => m !== 'presence')
+                          : [...formData.sessionMode, 'presence'] as ('online' | 'presence')[]
+                        updateForm('sessionMode', modes)
+                      }}
+                      className={`
+                        px-4 py-2 rounded-xl text-sm font-medium transition-all
+                        ${formData.sessionMode.includes('presence')
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-gray-100 text-gray-600'
+                        }
+                      `}
+                    >
+                      In presenza
+                    </button>
                   </div>
                 </div>
                 
@@ -555,7 +613,6 @@ export default function CoachRegisterPage() {
                       <button
                         key={area.id}
                         onClick={() => {
-                          // Solo 1 area selezionabile
                           if (formData.lifeAreas.includes(area.id)) {
                             updateForm('lifeAreas', [])
                           } else {
@@ -733,7 +790,7 @@ export default function CoachRegisterPage() {
                   disabled={!formData.acceptTerms || isSubmitting}
                   className="btn btn-primary disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Invio in corso...' : 'Completa registrazione'}
+                  {isSubmitting ? 'Registrazione in corso...' : 'Completa registrazione'}
                 </button>
               )}
             </div>
