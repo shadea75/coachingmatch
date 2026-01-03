@@ -171,7 +171,8 @@ export default function CoachDashboardPage() {
         
         // Carica dati coachee
         const loadedCoachees: CoacheeData[] = []
-        for (const coacheeId of coacheeIds) {
+        const coacheeIdsArray = Array.from(coacheeIds)
+        for (const coacheeId of coacheeIdsArray) {
           const userDoc = await getDoc(doc(db, 'users', coacheeId))
           if (userDoc.exists()) {
             const userData = userDoc.data()
