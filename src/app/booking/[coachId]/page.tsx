@@ -162,6 +162,7 @@ export default function BookingPage() {
       
       try {
         // Controlla se ha già usato call gratuita con questo coach
+        // Escludiamo le sessioni cancelled e rescheduled (non contano come "usate")
         const freeCallWithCoachQuery = query(
           collection(db, 'sessions'),
           where('coacheeId', '==', user.id),
@@ -169,16 +170,26 @@ export default function BookingPage() {
           where('type', '==', 'free_consultation')
         )
         const freeCallWithCoachSnap = await getDocs(freeCallWithCoachQuery)
-        setHasUsedFreeCall(freeCallWithCoachSnap.size > 0)
         
-        // Conta totale call gratuite usate
+        // Filtra solo le sessioni che contano come "usate" (pending, confirmed, completed)
+        const validStatuses = ['pending', 'confirmed', 'completed']
+        const validCallsWithCoach = freeCallWithCoachSnap.docs.filter(doc => 
+          validStatuses.includes(doc.data().status)
+        )
+        setHasUsedFreeCall(validCallsWithCoach.length > 0)
+        
+        // Conta totale call gratuite usate (escludendo cancelled e rescheduled)
         const totalFreeCallsQuery = query(
           collection(db, 'sessions'),
           where('coacheeId', '==', user.id),
           where('type', '==', 'free_consultation')
         )
         const totalFreeCallsSnap = await getDocs(totalFreeCallsQuery)
-        setTotalFreeCallsUsed(totalFreeCallsSnap.size)
+        
+        const validTotalCalls = totalFreeCallsSnap.docs.filter(doc => 
+          validStatuses.includes(doc.data().status)
+        )
+        setTotalFreeCallsUsed(validTotalCalls.length)
       } catch (err) {
         console.error('Errore controllo call gratuite:', err)
       }
