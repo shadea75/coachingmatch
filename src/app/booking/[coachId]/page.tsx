@@ -46,6 +46,9 @@ export default function BookingPage() {
   const [bookedSlots, setBookedSlots] = useState<{date: string, time: string}[]>([])
   const [blockedDates, setBlockedDates] = useState<string[]>([])
   const [manualEvents, setManualEvents] = useState<{date: string, startTime: string, endTime: string}[]>([])
+  const [hasUsedFreeCall, setHasUsedFreeCall] = useState(false)
+  const [totalFreeCallsUsed, setTotalFreeCallsUsed] = useState(0)
+  const MAX_FREE_CALLS = 5
   
   const [currentWeekStart, setCurrentWeekStart] = useState(() => 
     startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -152,6 +155,38 @@ export default function BookingPage() {
     }
   }, [coachId])
   
+  // Controlla call gratuite usate
+  useEffect(() => {
+    const checkFreeCalls = async () => {
+      if (!user?.id) return
+      
+      try {
+        // Controlla se ha già usato call gratuita con questo coach
+        const freeCallWithCoachQuery = query(
+          collection(db, 'sessions'),
+          where('coacheeId', '==', user.id),
+          where('coachId', '==', coachId),
+          where('type', '==', 'free_consultation')
+        )
+        const freeCallWithCoachSnap = await getDocs(freeCallWithCoachQuery)
+        setHasUsedFreeCall(freeCallWithCoachSnap.size > 0)
+        
+        // Conta totale call gratuite usate
+        const totalFreeCallsQuery = query(
+          collection(db, 'sessions'),
+          where('coacheeId', '==', user.id),
+          where('type', '==', 'free_consultation')
+        )
+        const totalFreeCallsSnap = await getDocs(totalFreeCallsQuery)
+        setTotalFreeCallsUsed(totalFreeCallsSnap.size)
+      } catch (err) {
+        console.error('Errore controllo call gratuite:', err)
+      }
+    }
+    
+    checkFreeCalls()
+  }, [user?.id, coachId])
+  
   // Generate week days
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i))
   
@@ -222,7 +257,7 @@ export default function BookingPage() {
         coacheeEmail: user.email,
         scheduledAt: scheduledAt,
         duration: 30,
-        status: 'confirmed',
+        status: 'pending', // In attesa conferma coach
         type: 'free_consultation',
         meetingProvider: 'google_meet',
         notes: 'Prima call di orientamento gratuita',
@@ -356,16 +391,22 @@ END:VCALENDAR`
           animate={{ opacity: 1, scale: 1 }}
           className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-lg"
         >
-          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
-            <Check className="w-8 h-8 text-green-500" strokeWidth={3} />
+          <div className="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-6">
+            <Clock className="w-8 h-8 text-yellow-500" strokeWidth={2} />
           </div>
           
           <h1 className="text-2xl font-display font-bold text-charcoal mb-2">
-            Prenotazione confermata!
+            Richiesta inviata!
           </h1>
           <p className="text-gray-500 mb-6">
-            Riceverai una email di conferma con i dettagli della call
+            Il coach deve confermare la tua prenotazione. Riceverai una email quando sarà confermata.
           </p>
+          
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+            <p className="text-yellow-700 text-sm font-medium">
+              ⏳ In attesa di conferma dal coach
+            </p>
+          </div>
           
           <div className="bg-cream rounded-xl p-4 mb-6 text-left">
             <div className="flex items-center gap-4 mb-4">
@@ -510,6 +551,53 @@ END:VCALENDAR`
             </div>
           </motion.div>
           
+          {/* Blocco se call gratuita già usata o limite raggiunto */}
+          {(hasUsedFreeCall || totalFreeCallsUsed >= MAX_FREE_CALLS) ? (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-2xl p-8 text-center"
+            >
+              <div className="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-8 h-8 text-yellow-500" />
+              </div>
+              
+              {hasUsedFreeCall ? (
+                <>
+                  <h2 className="text-xl font-bold text-charcoal mb-2">
+                    Hai già usato la call gratuita con questo coach
+                  </h2>
+                  <p className="text-gray-500 mb-6">
+                    Puoi prenotare una call gratuita solo una volta per ogni coach.
+                    Per continuare il percorso, chiedi a {coach.name} un'offerta personalizzata.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-xl font-bold text-charcoal mb-2">
+                    Hai raggiunto il limite di call gratuite
+                  </h2>
+                  <p className="text-gray-500 mb-6">
+                    Puoi prenotare massimo {MAX_FREE_CALLS} call gratuite con coach diversi.
+                    Per continuare, scegli uno dei coach con cui hai già parlato.
+                  </p>
+                </>
+              )}
+              
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => router.back()}
+                  className="btn btn-secondary"
+                >
+                  Torna indietro
+                </button>
+                <Link href="/dashboard" className="btn btn-primary">
+                  Vai alla dashboard
+                </Link>
+              </div>
+            </motion.div>
+          ) : (
+          <>
           {/* Calendar */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -675,6 +763,8 @@ END:VCALENDAR`
                 </p>
               )}
             </motion.div>
+          )}
+          </>
           )}
         </div>
       </main>
