@@ -395,42 +395,6 @@ export default function CoachRegisterPage() {
                 </div>
                 
                 <div>
-                  <label className="label">Foto profilo <span className="text-gray-400 font-normal">(opzionale)</span></label>
-                  <div 
-                    className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 transition-colors cursor-pointer"
-                    onClick={() => document.getElementById('photo-input')?.click()}
-                  >
-                    {formData.photoPreview ? (
-                      <div className="flex flex-col items-center">
-                        <img 
-                          src={formData.photoPreview} 
-                          alt="Preview" 
-                          className="w-24 h-24 rounded-full object-cover mb-3"
-                        />
-                        <p className="text-sm text-gray-500">Clicca per cambiare</p>
-                      </div>
-                    ) : (
-                      <>
-                        <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-500">
-                          Trascina un'immagine o clicca per caricare
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          Potrai aggiungere la foto anche dopo dalla dashboard
-                        </p>
-                      </>
-                    )}
-                    <input
-                      id="photo-input"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handlePhotoChange}
-                    />
-                  </div>
-                </div>
-                
-                <div>
                   <label className="label">Bio professionale *</label>
                   <textarea
                     className="input min-h-[120px]"
