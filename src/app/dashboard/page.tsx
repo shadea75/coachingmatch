@@ -28,10 +28,7 @@ import Logo from '@/components/Logo'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { db } from '@/lib/firebase'
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
-
-// Nessuna call mock - verranno caricate da Firebase
-const UPCOMING_CALLS: any[] = []
+import { collection, query, where, getDocs, doc, getDoc, orderBy } from 'firebase/firestore'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -44,6 +41,7 @@ export default function DashboardPage() {
   })
   const [userCalls, setUserCalls] = useState<any[]>([])
   const [pendingOffersCount, setPendingOffersCount] = useState(0)
+  const [isLoadingCalls, setIsLoadingCalls] = useState(true)
   
   // Redirect coach alla loro dashboard, admin alla dashboard admin
   useEffect(() => {
@@ -101,6 +99,53 @@ export default function DashboardPage() {
       }
     }
     loadStats()
+  }, [user?.id])
+  
+  // Carica le sessioni/call dell'utente
+  useEffect(() => {
+    const loadUserCalls = async () => {
+      if (!user?.id) return
+      
+      setIsLoadingCalls(true)
+      try {
+        const sessionsQuery = query(
+          collection(db, 'sessions'),
+          where('coacheeId', '==', user.id),
+          where('status', 'in', ['pending', 'confirmed'])
+        )
+        const sessionsSnap = await getDocs(sessionsQuery)
+        
+        const calls = sessionsSnap.docs.map(doc => {
+          const data = doc.data()
+          const scheduledAt = data.scheduledAt?.toDate?.() || new Date(data.scheduledAt)
+          return {
+            id: doc.id,
+            coachName: data.coachName || 'Coach',
+            coachPhoto: data.coachPhoto || null,
+            date: scheduledAt,
+            time: format(scheduledAt, 'HH:mm'),
+            duration: data.duration || 30,
+            status: data.status,
+            type: data.type,
+            meetingLink: data.meetingLink
+          }
+        })
+        
+        // Ordina per data (prossime prima) e filtra solo le future
+        const now = new Date()
+        const upcomingCalls = calls
+          .filter(call => call.date >= now)
+          .sort((a, b) => a.date.getTime() - b.date.getTime())
+        
+        setUserCalls(upcomingCalls)
+      } catch (err) {
+        console.error('Errore caricamento sessioni:', err)
+      } finally {
+        setIsLoadingCalls(false)
+      }
+    }
+    
+    loadUserCalls()
   }, [user?.id])
   
   // Calcola se l'utente è nel periodo di prova gratuito (30 giorni dalla registrazione)
@@ -307,18 +352,35 @@ export default function DashboardPage() {
               <div className="bg-white rounded-2xl p-6">
                 <h2 className="font-semibold text-charcoal mb-4">Prossima call</h2>
                 
-                {UPCOMING_CALLS.length > 0 ? (
+                {isLoadingCalls ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
+                  </div>
+                ) : userCalls.length > 0 ? (
                   <div className="flex items-center gap-3">
-                    <img 
-                      src={UPCOMING_CALLS[0].coachPhoto}
-                      alt={UPCOMING_CALLS[0].coachName}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
+                    {userCalls[0].coachPhoto ? (
+                      <img 
+                        src={userCalls[0].coachPhoto}
+                        alt={userCalls[0].coachName}
+                        className="w-12 h-12 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center">
+                        <Users className="w-6 h-6 text-primary-500" />
+                      </div>
+                    )}
                     <div>
-                      <p className="font-medium text-charcoal">{UPCOMING_CALLS[0].coachName}</p>
+                      <p className="font-medium text-charcoal">{userCalls[0].coachName}</p>
                       <p className="text-sm text-gray-500">
-                        {format(UPCOMING_CALLS[0].date, "d MMMM", { locale: it })} alle {UPCOMING_CALLS[0].time}
+                        {format(userCalls[0].date, "EEEE d MMMM", { locale: it })} alle {userCalls[0].time}
                       </p>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        userCalls[0].status === 'confirmed' 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {userCalls[0].status === 'confirmed' ? 'Confermata' : 'In attesa'}
+                      </span>
                     </div>
                   </div>
                 ) : (
@@ -394,32 +456,63 @@ export default function DashboardPage() {
             <div className="bg-white rounded-2xl p-6">
               <h2 className="font-semibold text-charcoal mb-4">Prossime call</h2>
               
-              {UPCOMING_CALLS.length > 0 ? (
+              {isLoadingCalls ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
+                  <p className="text-gray-500 mt-2">Caricamento...</p>
+                </div>
+              ) : userCalls.length > 0 ? (
                 <div className="space-y-3">
-                  {UPCOMING_CALLS.map(call => (
+                  {userCalls.map(call => (
                     <div key={call.id} className="flex items-center gap-4 p-4 bg-cream rounded-xl">
-                      <img 
-                        src={call.coachPhoto}
-                        alt={call.coachName}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
+                      {call.coachPhoto ? (
+                        <img 
+                          src={call.coachPhoto}
+                          alt={call.coachName}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center">
+                          <Users className="w-6 h-6 text-primary-500" />
+                        </div>
+                      )}
                       <div className="flex-1">
                         <p className="font-medium text-charcoal">{call.coachName}</p>
                         <p className="text-sm text-gray-500">
-                          {format(call.date, "d MMMM", { locale: it })} alle {call.time}
+                          {format(call.date, "EEEE d MMMM", { locale: it })} alle {call.time}
                         </p>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          call.status === 'confirmed' 
+                            ? 'bg-green-100 text-green-700' 
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {call.status === 'confirmed' ? 'Confermata' : 'In attesa'}
+                        </span>
                       </div>
-                      <button className="btn btn-primary text-sm py-2">
-                        <Video size={16} />
-                        Partecipa
-                      </button>
+                      {call.meetingLink && (
+                        <a 
+                          href={call.meetingLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-primary text-sm py-2"
+                        >
+                          <Video size={16} />
+                          Partecipa
+                        </a>
+                      )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-8">
-                  Nessuna call in programma
-                </p>
+                <div className="text-center py-8">
+                  <Calendar size={48} className="mx-auto text-gray-300 mb-4" />
+                  <p className="text-gray-500 mb-4">
+                    Nessuna call in programma
+                  </p>
+                  <Link href="/matching" className="btn btn-primary">
+                    Prenota una call
+                  </Link>
+                </div>
               )}
             </div>
           </motion.div>
