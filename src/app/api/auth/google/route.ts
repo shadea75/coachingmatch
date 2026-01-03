@@ -7,6 +7,8 @@ const REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL + '/api/auth/google/callbac
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/calendar.events',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/userinfo.profile',
 ].join(' ')
 
 export async function GET(request: NextRequest) {
