@@ -236,7 +236,7 @@ export default function OnboardingPage() {
               className="max-w-5xl mx-auto"
             >
               <div className="flex flex-col lg:flex-row gap-8 items-center">
-                {/* Left: Radar Chart (priorità visiva) */}
+                {/* Left: Radar Chart (priorità visiva) - DESKTOP */}
                 <div className="hidden lg:block flex-shrink-0 order-1 lg:order-2">
                   <div className="bg-white rounded-2xl p-4 shadow-sm">
                     <h3 className="text-center text-sm font-medium text-gray-500 mb-2">
@@ -292,6 +292,24 @@ export default function OnboardingPage() {
                     onChange={handleScoreSelect}
                     color={currentArea.color}
                   />
+                </div>
+                
+                {/* Radar Chart - MOBILE (sotto la domanda) */}
+                <div className="lg:hidden order-3 w-full">
+                  <div className="bg-white rounded-2xl p-4 shadow-sm">
+                    <h3 className="text-center text-sm font-medium text-gray-500 mb-2">
+                      La tua Ruota della Vita
+                    </h3>
+                    <RadarChart 
+                      scores={state.areaScores} 
+                      size={300}
+                      showLabels={true}
+                      compact={true}
+                    />
+                    <div className="mt-2 text-center text-xs text-gray-400">
+                      {Object.keys(state.areaScores).length} di {LIFE_AREAS.length} aree completate
+                    </div>
+                  </div>
                 </div>
               </div>
             </motion.div>
