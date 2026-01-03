@@ -233,13 +233,31 @@ export default function OnboardingPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="max-w-4xl mx-auto"
+              className="max-w-5xl mx-auto"
             >
-              <div className="grid md:grid-cols-2 gap-8 items-start">
-                {/* Left: Question */}
-                <div>
+              <div className="flex flex-col lg:flex-row gap-8 items-center">
+                {/* Left: Radar Chart (priorità visiva) */}
+                <div className="hidden lg:block flex-shrink-0 order-1 lg:order-2">
+                  <div className="bg-white rounded-2xl p-4 shadow-sm">
+                    <h3 className="text-center text-sm font-medium text-gray-500 mb-2">
+                      La tua Ruota della Vita
+                    </h3>
+                    <RadarChart 
+                      scores={state.areaScores} 
+                      size={380}
+                      showLabels={true}
+                      compact={true}
+                    />
+                    <div className="mt-2 text-center text-xs text-gray-400">
+                      {Object.keys(state.areaScores).length} di {LIFE_AREAS.length} aree completate
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Right: Question */}
+                <div className="flex-1 order-2 lg:order-1 max-w-md">
                   {/* Area indicator */}
-                  <div className="text-center md:text-left mb-8">
+                  <div className="text-center lg:text-left mb-8">
                     <div 
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-4"
                       style={{ 
@@ -274,23 +292,6 @@ export default function OnboardingPage() {
                     onChange={handleScoreSelect}
                     color={currentArea.color}
                   />
-                </div>
-                
-                {/* Right: Radar Chart */}
-                <div className="hidden md:flex flex-col items-center justify-center">
-                  <div className="bg-white rounded-2xl p-6 shadow-sm">
-                    <h3 className="text-center text-sm font-medium text-gray-500 mb-4">
-                      La tua Ruota della Vita
-                    </h3>
-                    <RadarChart 
-                      scores={state.areaScores} 
-                      size={280}
-                      showLabels={true}
-                    />
-                    <div className="mt-4 text-center text-xs text-gray-400">
-                      {Object.keys(state.areaScores).length} di {LIFE_AREAS.length} aree completate
-                    </div>
-                  </div>
                 </div>
               </div>
             </motion.div>
