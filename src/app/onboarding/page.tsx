@@ -300,7 +300,7 @@ export default function OnboardingPage() {
               
               <ObjectivesSelector
                 area={state.areasToImprove[currentObjectiveAreaIndex]}
-                objectives={OBJECTIVES_BY_AREA[state.areasToImprove[currentObjectiveAreaIndex]] || []}
+                currentScore={state.areaScores[state.areasToImprove[currentObjectiveAreaIndex]] || 0}
                 selectedObjectives={state.selectedObjectives[state.areasToImprove[currentObjectiveAreaIndex]] || []}
                 onChange={(objectives) => setObjectives(state.areasToImprove[currentObjectiveAreaIndex], objectives)}
               />
