@@ -20,7 +20,8 @@ import {
   Flame,
   Crown,
   Star,
-  Sparkles
+  Sparkles,
+  Trash2
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -59,8 +60,13 @@ export default function CommunityPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set())
   const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set())
+  const [deletingPost, setDeletingPost] = useState<string | null>(null)
 
   const userRole = user?.role || 'coachee'
+  
+  // Check se l'utente è admin
+  const ADMIN_EMAILS = ['debora.carofiglio@gmail.com']
+  const isAdmin = user?.role === 'admin' || (user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()))
 
   // Carica post reali da Firebase
   useEffect(() => {
@@ -162,6 +168,24 @@ export default function CommunityPage() {
       setPosts(posts.map(p => p.id === postId ? { ...p, saveCount: p.saveCount + 1 } : p))
     }
     setSavedPosts(newSaved)
+  }
+
+  // Elimina post (solo admin)
+  const handleDelete = async (postId: string) => {
+    if (!isAdmin) return
+    
+    if (!confirm('Sei sicuro di voler eliminare questo post?')) return
+    
+    setDeletingPost(postId)
+    try {
+      await deleteDoc(doc(db, 'communityPosts', postId))
+      setPosts(posts.filter(p => p.id !== postId))
+    } catch (err) {
+      console.error('Errore eliminazione post:', err)
+      alert('Errore durante l\'eliminazione del post')
+    } finally {
+      setDeletingPost(null)
+    }
   }
 
   // Formatta data
@@ -369,6 +393,21 @@ export default function CommunityPage() {
                           <span className="text-xs bg-primary-100 text-primary-600 px-2 py-1 rounded-full flex items-center gap-1">
                             <Pin size={12} /> Fissato
                           </span>
+                        )}
+                        {/* Pulsante elimina per admin */}
+                        {isAdmin && (
+                          <button 
+                            onClick={() => handleDelete(post.id)}
+                            disabled={deletingPost === post.id}
+                            className="p-1.5 hover:bg-red-100 rounded-lg text-gray-400 hover:text-red-500 transition-colors"
+                            title="Elimina post"
+                          >
+                            {deletingPost === post.id ? (
+                              <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Trash2 size={18} />
+                            )}
+                          </button>
                         )}
                         <button className="p-1.5 hover:bg-gray-100 rounded-lg">
                           <MoreHorizontal size={18} className="text-gray-400" />
