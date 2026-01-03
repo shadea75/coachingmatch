@@ -64,7 +64,7 @@ export default function AdminUsersPage() {
     }
   }
 
-  async function updateUserRole(userId: string, newRole: UserRole) {
+  async function updateUserRole(userId: string, newRole: string) {
     try {
       await updateDoc(doc(db, 'users', userId), {
         role: newRole,
@@ -73,7 +73,7 @@ export default function AdminUsersPage() {
       
       // Aggiorna stato locale
       setUsers(prev => prev.map(u => 
-        u.id === userId ? { ...u, role: newRole } : u
+        u.id === userId ? { ...u, role: newRole as UserRole } : u
       ))
       
       setShowRoleMenu(null)
@@ -142,7 +142,7 @@ export default function AdminUsersPage() {
     return matchesSearch && matchesRole
   })
 
-  const roleOptions: string[] = ['admin', 'moderator', 'coach', 'pending_coach', 'coachee']
+  const roleOptions = ['admin', 'moderator', 'coach', 'pending_coach', 'coachee'] as const
 
   return (
     <AdminLayout>
