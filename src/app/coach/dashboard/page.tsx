@@ -40,6 +40,10 @@ export default function CoachDashboardPage() {
   // ADMIN_EMAILS - redirect forzato per admin
   const ADMIN_EMAILS = ['debora.carofiglio@gmail.com']
   
+  // Check se è admin (per email o ruolo)
+  const isAdminUser = user?.role === 'admin' || 
+    (user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()))
+  
   // Redirect se non loggato o se admin
   useEffect(() => {
     // Se ancora caricando, aspetta
@@ -51,17 +55,29 @@ export default function CoachDashboardPage() {
       return
     }
     
-    // Check sia per ruolo che per email admin
-    if (user.role === 'admin' || (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase()))) {
+    // Se admin (per ruolo o email), vai alla dashboard admin
+    if (isAdminUser) {
       router.replace('/admin')
       return
     }
-  }, [user, loading, router])
+  }, [user, loading, router, isAdminUser])
   
   // Handler logout con redirect
   const handleSignOut = async () => {
     await signOut()
     router.replace('/login')
+  }
+  
+  // Se è admin, mostra loading mentre fa redirect
+  if (isAdminUser) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-4"></div>
+          <p className="text-gray-500">Reindirizzamento al pannello admin...</p>
+        </div>
+      </div>
+    )
   }
   
   // Stats

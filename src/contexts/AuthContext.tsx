@@ -63,9 +63,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const emailRole = getRoleByEmail(fbUser.email || '')
           const currentRole = userData.role
           
-          // Se l'email è admin/moderator ma il ruolo nel DB è diverso, aggiorna
-          if ((emailRole === 'admin' || emailRole === 'moderator') && currentRole !== emailRole) {
-            await setDoc(doc(db, 'users', fbUser.uid), { role: emailRole }, { merge: true })
+          // Se l'email è admin/moderator ma il ruolo nel DB è diverso, FORZA aggiornamento
+          if (emailRole === 'admin' || emailRole === 'moderator') {
+            if (currentRole !== emailRole) {
+              await setDoc(doc(db, 'users', fbUser.uid), { role: emailRole }, { merge: true })
+              console.log(`Ruolo aggiornato da ${currentRole} a ${emailRole}`)
+            }
             setUser({ id: fbUser.uid, ...userData, role: emailRole } as User)
           } else {
             setUser({ id: fbUser.uid, ...userData } as User)
