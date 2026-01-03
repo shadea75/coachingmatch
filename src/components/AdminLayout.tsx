@@ -13,7 +13,9 @@ import {
   CreditCard,
   MessageSquare,
   ShoppingBag,
-  TrendingUp
+  TrendingUp,
+  ExternalLink,
+  PenSquare
 } from 'lucide-react'
 import Logo from '@/components/Logo'
 import AdminGuard from '@/components/AdminGuard'
@@ -92,6 +94,27 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   </Link>
                 )
               })}
+              
+              {/* Separatore */}
+              <div className="border-t border-gray-200 my-3"></div>
+              
+              {/* Link alla Community pubblica */}
+              <Link
+                href="/community"
+                className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                <ExternalLink size={20} />
+                <span>Vai alla Community</span>
+              </Link>
+              
+              {/* Link per creare nuovo post */}
+              <Link
+                href="/community/new"
+                className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-primary-600 hover:bg-primary-50 transition-colors"
+              >
+                <PenSquare size={20} />
+                <span>Scrivi un Post</span>
+              </Link>
             </nav>
             
             {/* User info & logout */}
