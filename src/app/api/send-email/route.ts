@@ -535,6 +535,214 @@ export async function POST(request: NextRequest) {
         coachEmail: coachEmailResult
       })
     }
+    
+    // EMAIL SESSIONE CONFERMATA DAL COACH
+    if (type === 'session_confirmed') {
+      console.log('📤 Invio email sessione confermata')
+      
+      const { coachName, coachEmail, coacheeName, coacheeEmail, date, time, duration, sessionDate, type: sessionType } = data
+      
+      // Genera link per Google Calendar
+      let googleCalendarUrl = ''
+      if (sessionDate) {
+        const startDate = new Date(sessionDate)
+        const endDate = new Date(startDate.getTime() + (duration || 30) * 60000)
+        const formatForGoogle = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
+        const eventTitle = `Call di coaching - ${coachName} & ${coacheeName}`
+        const eventDescription = `Sessione di coaching su CoachaMi`
+        googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${formatForGoogle(startDate)}/${formatForGoogle(endDate)}&details=${encodeURIComponent(eventDescription)}&location=Videochiamata`
+      }
+      
+      // Email al COACHEE
+      const coacheeEmailResult = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: coacheeEmail,
+        subject: `✅ Sessione confermata con ${coachName} - CoachaMi`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr>
+                <td>
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0;">
+                        <span style="font-size: 28px; font-weight: bold; color: #333;">Coacha</span><span style="font-size: 28px; font-weight: bold; color: #EC7711; font-style: italic;">Mi</span>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                    <tr>
+                      <td style="padding: 30px;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                          <div style="width: 60px; height: 60px; background: #d4edda; border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
+                            <span style="font-size: 30px;">✓</span>
+                          </div>
+                        </div>
+                        
+                        <h2 style="margin: 0 0 20px 0; color: #333; text-align: center;">Sessione confermata!</h2>
+                        
+                        <p style="margin: 0 0 25px 0;">Ciao ${coacheeName}! <strong>${coachName}</strong> ha confermato la tua sessione.</p>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0" style="background: #FFF7ED; border-radius: 8px; margin-bottom: 20px;">
+                          <tr>
+                            <td style="padding: 20px;">
+                              <p style="margin: 0 0 10px 0;"><strong>📅 Data:</strong> ${date}</p>
+                              <p style="margin: 0 0 10px 0;"><strong>🕐 Ora:</strong> ${time}</p>
+                              <p style="margin: 0 0 10px 0;"><strong>⏱️ Durata:</strong> ${duration} minuti</p>
+                              <p style="margin: 0;"><strong>📹 Modalità:</strong> Videochiamata</p>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        ${googleCalendarUrl ? `
+                        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+                          <tr>
+                            <td style="padding: 15px; background: #f0f9ff; border-radius: 8px; text-align: center;">
+                              <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Aggiungi al calendario:</p>
+                              <a href="${googleCalendarUrl}" target="_blank" style="display: inline-block; background: #4285F4; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 14px;">📅 Google Calendar</a>
+                            </td>
+                          </tr>
+                        </table>
+                        ` : ''}
+                        
+                        <div style="background: #d4edda; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                          <p style="margin: 0; color: #155724; font-size: 14px;">
+                            <strong>✓ ${sessionType === 'free_consultation' ? 'Call di orientamento gratuita' : 'Sessione confermata'}</strong><br>
+                            Il coach ti invierà il link alla videochiamata prima della sessione.
+                          </p>
+                        </div>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td align="center">
+                              <a href="https://www.coachami.it/dashboard" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Vai alla Dashboard</a>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0; color: #666; font-size: 14px;">
+                        <p style="margin: 0;">© 2025 CoachaMi - Tutti i diritti riservati</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `
+      })
+      
+      console.log('✅ Email coachee (conferma) inviata:', coacheeEmailResult)
+      
+      // Email al COACH (promemoria con link calendario)
+      const coachEmailResult = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: coachEmail,
+        subject: `📅 Sessione confermata con ${coacheeName} - CoachaMi`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr>
+                <td>
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0;">
+                        <span style="font-size: 28px; font-weight: bold; color: #333;">Coacha</span><span style="font-size: 28px; font-weight: bold; color: #EC7711; font-style: italic;">Mi</span>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                    <tr>
+                      <td style="padding: 30px;">
+                        <h2 style="margin: 0 0 20px 0; color: #333;">📅 Sessione confermata!</h2>
+                        
+                        <p style="margin: 0 0 25px 0;">Ciao ${coachName}! Hai confermato la sessione con <strong>${coacheeName}</strong>.</p>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0" style="background: #FFF7ED; border-radius: 8px; margin-bottom: 20px;">
+                          <tr>
+                            <td style="padding: 20px;">
+                              <p style="margin: 0 0 10px 0;"><strong>👤 Coachee:</strong> ${coacheeName}</p>
+                              <p style="margin: 0 0 10px 0;"><strong>📧 Email:</strong> ${coacheeEmail}</p>
+                              <p style="margin: 0 0 10px 0;"><strong>📅 Data:</strong> ${date}</p>
+                              <p style="margin: 0 0 10px 0;"><strong>🕐 Ora:</strong> ${time}</p>
+                              <p style="margin: 0;"><strong>⏱️ Durata:</strong> ${duration} minuti</p>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        ${googleCalendarUrl ? `
+                        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+                          <tr>
+                            <td style="padding: 15px; background: #f0f9ff; border-radius: 8px; text-align: center;">
+                              <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Aggiungi al calendario:</p>
+                              <a href="${googleCalendarUrl}" target="_blank" style="display: inline-block; background: #4285F4; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 14px;">📅 Google Calendar</a>
+                            </td>
+                          </tr>
+                        </table>
+                        ` : ''}
+                        
+                        <div style="background: #fff3cd; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                          <p style="margin: 0; color: #856404; font-size: 14px;">
+                            <strong>⚠️ Ricorda:</strong><br>
+                            Invia il link alla videochiamata al coachee prima della sessione.
+                          </p>
+                        </div>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td align="center">
+                              <a href="https://www.coachami.it/coach/sessions" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Gestisci Sessioni</a>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0; color: #666; font-size: 14px;">
+                        <p style="margin: 0;">© 2025 CoachaMi - Tutti i diritti riservati</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `
+      })
+      
+      console.log('✅ Email coach (conferma) inviata:', coachEmailResult)
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Email di conferma sessione inviate',
+        coacheeEmail: coacheeEmailResult,
+        coachEmail: coachEmailResult
+      })
+    }
 
     return NextResponse.json({ error: 'Tipo email non supportato' }, { status: 400 })
 
