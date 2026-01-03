@@ -21,16 +21,21 @@ import {
   Target,
   TrendingUp,
   Clock,
-  Mail
+  Mail,
+  Check,
+  Video,
+  AlertCircle
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import StarRating from '@/components/StarRating'
 import RadarChart from '@/components/RadarChart'
 import { db } from '@/lib/firebase'
-import { collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { LEVELS_CONFIG, getLevelFromPoints } from '@/types/community'
 import { LIFE_AREAS, LifeAreaId } from '@/types'
+import { format } from 'date-fns'
+import { it } from 'date-fns/locale'
 
 // ADMIN_EMAILS - redirect forzato per admin
 const ADMIN_EMAILS = ['debora.carofiglio@gmail.com']
@@ -64,10 +69,13 @@ export default function CoachDashboardPage() {
     currentLevel: 'rookie' as string,
     totalSessions: 0,
     upcomingSessions: 0,
-    activeCoachees: 0
+    activeCoachees: 0,
+    pendingSessions: 0
   })
   const [recentReviews, setRecentReviews] = useState<any[]>([])
   const [coachees, setCoachees] = useState<CoacheeData[]>([])
+  const [pendingSessions, setPendingSessions] = useState<any[]>([])
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [selectedCoachee, setSelectedCoachee] = useState<CoacheeData | null>(null)
   const [showCoacheeModal, setShowCoacheeModal] = useState(false)
   
@@ -194,15 +202,40 @@ export default function CoachDashboardPage() {
         
         setCoachees(loadedCoachees)
         
+        // Carica sessioni pendenti e upcoming
+        const sessionsQuery = query(
+          collection(db, 'sessions'),
+          where('coachId', '==', user.id),
+          where('status', 'in', ['pending', 'confirmed']),
+          orderBy('scheduledAt', 'asc')
+        )
+        const sessionsSnap = await getDocs(sessionsQuery)
+        
+        const now = new Date()
+        const sessions = sessionsSnap.docs.map(doc => {
+          const data = doc.data()
+          return {
+            id: doc.id,
+            ...data,
+            scheduledAt: data.scheduledAt?.toDate?.() || new Date(data.scheduledAt)
+          }
+        })
+        
+        const pending = sessions.filter(s => s.status === 'pending')
+        const upcoming = sessions.filter(s => s.status === 'confirmed' && s.scheduledAt > now)
+        
+        setPendingSessions(pending)
+        
         setStats({
           totalReviews,
           averageRating: avgRating,
-          pendingReviews: pending,
+          pendingReviews: pending.length > 0 ? pending.length : 0,
           totalPoints: points,
           currentLevel: level,
-          totalSessions: 0,
-          upcomingSessions: 0,
-          activeCoachees: loadedCoachees.length
+          totalSessions: sessions.length,
+          upcomingSessions: upcoming.length,
+          activeCoachees: loadedCoachees.length,
+          pendingSessions: pending.length
         })
       } catch (err) {
         console.error('Errore caricamento dati:', err)
@@ -213,6 +246,58 @@ export default function CoachDashboardPage() {
     
     loadData()
   }, [user?.id, isAdminUser])
+  
+  // Conferma sessione
+  const handleConfirmSession = async (sessionId: string) => {
+    setActionLoading(sessionId)
+    try {
+      await updateDoc(doc(db, 'sessions', sessionId), {
+        status: 'confirmed',
+        confirmedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+      
+      setPendingSessions(prev => prev.filter(s => s.id !== sessionId))
+      setStats(prev => ({
+        ...prev,
+        pendingSessions: prev.pendingSessions - 1,
+        upcomingSessions: prev.upcomingSessions + 1
+      }))
+      
+      // TODO: Invia email al coachee
+    } catch (err) {
+      console.error('Errore conferma:', err)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+  
+  // Rifiuta sessione
+  const handleRejectSession = async (sessionId: string) => {
+    if (!confirm('Sei sicuro di voler rifiutare questa prenotazione?')) return
+    
+    setActionLoading(sessionId)
+    try {
+      await updateDoc(doc(db, 'sessions', sessionId), {
+        status: 'cancelled',
+        cancelledBy: 'coach',
+        cancelledAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+      
+      setPendingSessions(prev => prev.filter(s => s.id !== sessionId))
+      setStats(prev => ({
+        ...prev,
+        pendingSessions: prev.pendingSessions - 1
+      }))
+      
+      // TODO: Invia email al coachee
+    } catch (err) {
+      console.error('Errore rifiuto:', err)
+    } finally {
+      setActionLoading(null)
+    }
+  }
   
   // Handler logout
   const handleSignOut = async () => {
@@ -254,6 +339,19 @@ export default function CoachDashboardPage() {
       >
         <BarChart3 size={20} />
         <span className="font-medium">Dashboard</span>
+      </Link>
+      
+      <Link
+        href="/coach/sessions"
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+      >
+        <Video size={20} />
+        <span className="font-medium">Sessioni</span>
+        {stats.pendingSessions > 0 && (
+          <span className="ml-auto bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">
+            {stats.pendingSessions}
+          </span>
+        )}
       </Link>
       
       <Link
@@ -460,6 +558,87 @@ export default function CoachDashboardPage() {
                 <p className="text-sm text-gray-500">attivi</p>
               </motion.div>
             </div>
+            
+            {/* Sessioni in attesa di conferma */}
+            {pendingSessions.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white rounded-2xl p-6 shadow-sm border-l-4 border-yellow-500"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-charcoal flex items-center gap-2">
+                    <AlertCircle size={20} className="text-yellow-500" />
+                    Sessioni in attesa di conferma
+                  </h2>
+                  <Link 
+                    href="/coach/sessions"
+                    className="text-sm text-primary-500 hover:underline"
+                  >
+                    Vedi tutte
+                  </Link>
+                </div>
+                
+                <div className="space-y-3">
+                  {pendingSessions.slice(0, 3).map(session => (
+                    <div 
+                      key={session.id} 
+                      className="flex items-center gap-4 p-4 bg-yellow-50 rounded-xl border border-yellow-100"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                        <span className="text-yellow-600 font-semibold">
+                          {session.coacheeName?.charAt(0)?.toUpperCase() || '?'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-charcoal truncate">{session.coacheeName}</p>
+                        <p className="text-sm text-gray-500">
+                          {format(session.scheduledAt, "EEE d MMM 'alle' HH:mm", { locale: it })}
+                        </p>
+                        {session.type === 'free_consultation' && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                            Call gratuita
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => handleConfirmSession(session.id)}
+                          disabled={actionLoading === session.id}
+                          className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+                          title="Conferma"
+                        >
+                          {actionLoading === session.id ? (
+                            <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Check size={20} />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleRejectSession(session.id)}
+                          disabled={actionLoading === session.id}
+                          className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
+                          title="Rifiuta"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {pendingSessions.length > 3 && (
+                  <Link 
+                    href="/coach/sessions"
+                    className="block mt-4 text-center text-sm text-primary-500 hover:underline"
+                  >
+                    + altre {pendingSessions.length - 3} sessioni in attesa
+                  </Link>
+                )}
+              </motion.div>
+            )}
             
             {/* I Miei Coachee */}
             {coachees.length > 0 && (
