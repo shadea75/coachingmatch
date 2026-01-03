@@ -20,7 +20,8 @@ import {
   Eye,
   Target,
   TrendingUp,
-  Clock
+  Clock,
+  Mail
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -771,9 +772,40 @@ export default function CoachDashboardPage() {
                   )}
                 </>
               ) : (
-                <div className="text-center py-12 text-gray-500">
-                  <Target size={48} className="mx-auto mb-4 opacity-30" />
-                  <p>Questo coachee non ha ancora compilato la Ruota della Vita</p>
+                <div className="text-center py-8">
+                  <Target size={48} className="mx-auto mb-4 text-gray-300" />
+                  <p className="text-gray-500 mb-6">Questo coachee non ha ancora compilato la Ruota della Vita</p>
+                  
+                  <div className="bg-primary-50 rounded-xl p-4 mb-4">
+                    <p className="text-sm text-gray-600 mb-3">
+                      Invita <strong>{selectedCoachee.name}</strong> a compilare la Ruota della Vita per capire meglio i suoi obiettivi prima della sessione.
+                    </p>
+                    <button
+                      onClick={() => {
+                        const subject = encodeURIComponent('Completa la tua Ruota della Vita su CoachaMi')
+                        const body = encodeURIComponent(
+`Ciao ${selectedCoachee.name},
+
+Per prepararci al meglio alla nostra sessione, ti invito a completare la Ruota della Vita su CoachaMi.
+
+Bastano 5 minuti e mi aiuterà a capire meglio le aree su cui vorresti lavorare.
+
+Clicca qui per iniziare: https://www.coachami.it/onboarding
+
+A presto!
+${user?.name || 'Il tuo Coach'}`)
+                        window.open(`mailto:${selectedCoachee.email}?subject=${subject}&body=${body}`, '_blank')
+                      }}
+                      className="w-full btn btn-primary justify-center"
+                    >
+                      <Mail size={18} />
+                      Invia invito via email
+                    </button>
+                  </div>
+                  
+                  <p className="text-xs text-gray-400">
+                    Oppure condividi il link: <span className="font-mono text-primary-500">coachami.it/onboarding</span>
+                  </p>
                 </div>
               )}
             </div>
