@@ -19,6 +19,7 @@ import {
 import { format, addDays, startOfWeek, isSameDay, isToday, isBefore, addWeeks } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { useAuth } from '@/contexts/AuthContext'
+import { LIFE_AREAS } from '@/types'
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
 import { doc, getDoc, addDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore'
@@ -28,6 +29,7 @@ interface CoachData {
   name: string
   email: string
   photo: string | null
+  lifeArea: string | null
   specialization: string
   bio: string
   availability: Record<number, string[]>
@@ -77,7 +79,10 @@ export default function BookingPage() {
             name: data.name || 'Coach',
             email: data.email || '',
             photo: data.photo || null,
-            specialization: data.specializations?.focusTopics?.[0] || 'Life Coach',
+            lifeArea: data.lifeArea || null,
+            specialization: data.lifeArea 
+              ? (LIFE_AREAS.find(a => a.id === data.lifeArea)?.label || 'Life Coach')
+              : (data.specializations?.focusTopics?.[0] || 'Life Coach'),
             bio: data.bio || data.motivation || '',
             availability: data.availability || defaultAvailability
           })
@@ -366,7 +371,14 @@ export default function BookingPage() {
             )}
             <div>
               <h2 className="text-xl font-semibold text-charcoal">{coach.name}</h2>
-              <p className="text-gray-500">{coach.specialization}</p>
+              {(() => {
+                const area = coach.lifeArea ? LIFE_AREAS.find(a => a.id === coach.lifeArea) : null
+                return area ? (
+                  <p className="font-medium" style={{ color: area.color }}>{area.label}</p>
+                ) : (
+                  <p className="text-gray-500">{coach.specialization}</p>
+                )
+              })()}
             </div>
           </motion.div>
           
