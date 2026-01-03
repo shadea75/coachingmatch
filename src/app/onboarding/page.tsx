@@ -233,44 +233,66 @@ export default function OnboardingPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="max-w-xl mx-auto"
+              className="max-w-4xl mx-auto"
             >
-              {/* Area indicator */}
-              <div className="text-center mb-8">
-                <div 
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-4"
-                  style={{ 
-                    backgroundColor: `${currentArea.color}15`,
-                    color: currentArea.color 
-                  }}
-                >
-                  {(() => {
-                    const Icon = AREA_ICONS[currentArea.id]
-                    return <Icon size={18} />
-                  })()}
-                  {state.currentAreaIndex + 1} di {LIFE_AREAS.length}
+              <div className="grid md:grid-cols-2 gap-8 items-start">
+                {/* Left: Question */}
+                <div>
+                  {/* Area indicator */}
+                  <div className="text-center md:text-left mb-8">
+                    <div 
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-4"
+                      style={{ 
+                        backgroundColor: `${currentArea.color}15`,
+                        color: currentArea.color 
+                      }}
+                    >
+                      {(() => {
+                        const Icon = AREA_ICONS[currentArea.id]
+                        return <Icon size={18} />
+                      })()}
+                      {state.currentAreaIndex + 1} di {LIFE_AREAS.length}
+                    </div>
+                    
+                    <h1 className="text-2xl md:text-3xl font-display font-bold text-charcoal mb-2">
+                      {currentArea.label}
+                    </h1>
+                    
+                    <p className="text-sm text-gray-400 italic mb-4">
+                      {getAreaSubtitle(currentArea.id)}
+                    </p>
+                    
+                    <p className="text-gray-500 text-lg">
+                      Come valuteresti quest'area della tua vita in questo momento?
+                    </p>
+                  </div>
+                  
+                  {/* Score selector */}
+                  <ScoreSelector
+                    areaId={currentArea.id}
+                    value={state.areaScores[currentArea.id]}
+                    onChange={handleScoreSelect}
+                    color={currentArea.color}
+                  />
                 </div>
                 
-                <h1 className="text-2xl md:text-3xl font-display font-bold text-charcoal mb-2">
-                  {currentArea.label}
-                </h1>
-                
-                <p className="text-sm text-gray-400 italic mb-4">
-                  {getAreaSubtitle(currentArea.id)}
-                </p>
-                
-                <p className="text-gray-500 text-lg">
-                  Come valuteresti quest'area della tua vita in questo momento?
-                </p>
+                {/* Right: Radar Chart */}
+                <div className="hidden md:flex flex-col items-center justify-center">
+                  <div className="bg-white rounded-2xl p-6 shadow-sm">
+                    <h3 className="text-center text-sm font-medium text-gray-500 mb-4">
+                      La tua Ruota della Vita
+                    </h3>
+                    <RadarChart 
+                      scores={state.areaScores} 
+                      size={280}
+                      showLabels={true}
+                    />
+                    <div className="mt-4 text-center text-xs text-gray-400">
+                      {Object.keys(state.areaScores).length} di {LIFE_AREAS.length} aree completate
+                    </div>
+                  </div>
+                </div>
               </div>
-              
-              {/* Score selector */}
-              <ScoreSelector
-                areaId={currentArea.id}
-                value={state.areaScores[currentArea.id]}
-                onChange={handleScoreSelect}
-                color={currentArea.color}
-              />
             </motion.div>
           )}
 
