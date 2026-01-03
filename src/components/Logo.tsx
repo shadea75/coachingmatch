@@ -1,5 +1,7 @@
 'use client'
 
+import { useId } from 'react'
+
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg'
   showText?: boolean
@@ -7,6 +9,8 @@ interface LogoProps {
 }
 
 export default function Logo({ size = 'md', showText = true, className = '' }: LogoProps) {
+  const gradientId = useId()
+  
   const sizes = {
     sm: { icon: 28, text: 'text-lg' },
     md: { icon: 36, text: 'text-xl' },
@@ -27,7 +31,7 @@ export default function Logo({ size = 'md', showText = true, className = '' }: L
         className="flex-shrink-0"
       >
         {/* Background rounded square */}
-        <rect x="0" y="0" width="40" height="40" rx="10" fill="url(#logoGradient)" />
+        <rect x="0" y="0" width="40" height="40" rx="10" fill={`url(#${gradientId})`} />
         
         {/* Heart shape */}
         <path 
@@ -43,7 +47,7 @@ export default function Logo({ size = 'md', showText = true, className = '' }: L
         
         {/* Gradient definition */}
         <defs>
-          <linearGradient id="logoGradient" x1="0" y1="0" x2="40" y2="40">
+          <linearGradient id={gradientId} x1="0" y1="0" x2="40" y2="40">
             <stop offset="0%" stopColor="#EC7711" />
             <stop offset="100%" stopColor="#D4650F" />
           </linearGradient>
