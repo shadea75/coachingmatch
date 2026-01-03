@@ -209,7 +209,7 @@ export default function DashboardPage() {
           <div className="absolute left-0 top-0 bottom-0 w-64 bg-white p-6" onClick={e => e.stopPropagation()}>
             <div className="mb-6">
               <p className="text-sm text-gray-500">Ciao,</p>
-              <p className="font-semibold text-charcoal">{user?.name || 'Utente'}</p>
+              <p className="font-semibold text-charcoal">{user?.name || user?.email?.split('@')[0] || 'Utente'}</p>
             </div>
             <nav className="space-y-2">
               <NavItems />
@@ -226,7 +226,7 @@ export default function DashboardPage() {
         
         <div className="mb-6">
           <p className="text-sm text-gray-500">Ciao,</p>
-          <p className="font-semibold text-charcoal">{user?.name || 'Utente'}</p>
+          <p className="font-semibold text-charcoal">{user?.name || user?.email?.split('@')[0] || 'Utente'}</p>
         </div>
         
         <nav className="space-y-2">

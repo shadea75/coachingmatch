@@ -179,7 +179,7 @@ export default function SessionsPage() {
             </div>
             {!isCoach && (
               <Link
-                href="/coaches"
+                href="/matching"
                 className="btn bg-primary-500 text-white hover:bg-primary-600"
               >
                 <Plus size={18} />
