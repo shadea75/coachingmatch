@@ -366,7 +366,7 @@ export default function CoachPublicProfilePage() {
               )}
               
               {/* Curriculum */}
-              {(coach.experience.certifications.length > 0 || coach.education.length > 0) && (
+              {((coach.experience.certifications && coach.experience.certifications.length > 0) || (coach.education && coach.education.length > 0)) && (
                 <div className="border-b border-gray-100">
                   <button
                     onClick={() => toggleSection('curriculum')}
@@ -377,7 +377,7 @@ export default function CoachPublicProfilePage() {
                   </button>
                   {expanded.curriculum && (
                     <div className="px-6 pb-6 space-y-4">
-                      {coach.experience.certifications.length > 0 && (
+                      {coach.experience.certifications && Array.isArray(coach.experience.certifications) && coach.experience.certifications.length > 0 && (
                         <div>
                           <p className="text-sm font-medium text-gray-500 mb-2">Certificazioni:</p>
                           <ul className="space-y-2">
@@ -390,7 +390,7 @@ export default function CoachPublicProfilePage() {
                           </ul>
                         </div>
                       )}
-                      {coach.education.length > 0 && (
+                      {coach.education && Array.isArray(coach.education) && coach.education.length > 0 && (
                         <div>
                           <p className="text-sm font-medium text-gray-500 mb-2">Formazione:</p>
                           <ul className="space-y-2">
