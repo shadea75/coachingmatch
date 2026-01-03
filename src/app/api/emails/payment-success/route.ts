@@ -1,8 +1,5 @@
 // src/app/api/emails/payment-success/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
-
-const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +15,16 @@ export async function POST(request: NextRequest) {
       amountPaid,
       offerId
     } = body
+
+    // Inizializza Resend solo quando serve
+    const apiKey = process.env.RESEND_API_KEY
+    if (!apiKey) {
+      console.error('RESEND_API_KEY non configurata')
+      return NextResponse.json({ error: 'Email service not configured' }, { status: 500 })
+    }
+
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.coachami.it'
     const emails = []
@@ -58,25 +65,24 @@ export async function POST(request: NextRequest) {
                   <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 12px; padding: 20px; margin: 20px 0;">
                     <h3 style="color: #166534; margin: 0 0 15px 0;">Riepilogo</h3>
                     
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                      <span style="color: #6B7280;">Percorso:</span>
-                      <strong style="color: #1F2937;">${offerTitle}</strong>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                      <span style="color: #6B7280;">Coach:</span>
-                      <strong style="color: #1F2937;">${coachName}</strong>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                      <span style="color: #6B7280;">Sessione:</span>
-                      <strong style="color: #1F2937;">#${sessionNumber} di ${totalSessions}</strong>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid #BBF7D0;">
-                      <span style="color: #6B7280;">Importo pagato:</span>
-                      <strong style="color: #166534; font-size: 18px;">€${amountPaid?.toFixed(2)}</strong>
-                    </div>
+                    <table style="width: 100%; border-collapse: collapse;">
+                      <tr>
+                        <td style="color: #6B7280; padding: 5px 0;">Percorso:</td>
+                        <td style="color: #1F2937; font-weight: bold; text-align: right;">${offerTitle}</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #6B7280; padding: 5px 0;">Coach:</td>
+                        <td style="color: #1F2937; font-weight: bold; text-align: right;">${coachName}</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #6B7280; padding: 5px 0;">Sessione:</td>
+                        <td style="color: #1F2937; font-weight: bold; text-align: right;">#${sessionNumber} di ${totalSessions}</td>
+                      </tr>
+                      <tr style="border-top: 1px solid #BBF7D0;">
+                        <td style="color: #6B7280; padding: 10px 0 5px 0;">Importo pagato:</td>
+                        <td style="color: #166534; font-weight: bold; font-size: 18px; text-align: right; padding-top: 10px;">€${amountPaid?.toFixed(2)}</td>
+                      </tr>
+                    </table>
                   </div>
                   
                   <p style="color: #6B7280; font-size: 14px; line-height: 1.6;">
@@ -140,15 +146,16 @@ export async function POST(request: NextRequest) {
                   
                   <!-- Info Box -->
                   <div style="background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 12px; padding: 20px; margin: 20px 0;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                      <span style="color: #6B7280;">Sessione:</span>
-                      <strong style="color: #1F2937;">#${sessionNumber} di ${totalSessions}</strong>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid #FED7AA;">
-                      <span style="color: #6B7280;">Il tuo guadagno:</span>
-                      <strong style="color: #EA580C; font-size: 18px;">€${(amountPaid * 0.7 / 1.22).toFixed(2)}</strong>
-                    </div>
+                    <table style="width: 100%; border-collapse: collapse;">
+                      <tr>
+                        <td style="color: #6B7280; padding: 5px 0;">Sessione:</td>
+                        <td style="color: #1F2937; font-weight: bold; text-align: right;">#${sessionNumber} di ${totalSessions}</td>
+                      </tr>
+                      <tr style="border-top: 1px solid #FED7AA;">
+                        <td style="color: #6B7280; padding: 10px 0 5px 0;">Il tuo guadagno:</td>
+                        <td style="color: #EA580C; font-weight: bold; font-size: 18px; text-align: right; padding-top: 10px;">€${(amountPaid * 0.7 / 1.22).toFixed(2)}</td>
+                      </tr>
+                    </table>
                     <p style="color: #9CA3AF; font-size: 11px; margin: 5px 0 0 0;">
                       (70% dopo IVA - il pagamento sarà trasferito sul tuo account Stripe)
                     </p>

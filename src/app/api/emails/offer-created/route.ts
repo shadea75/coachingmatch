@@ -1,8 +1,5 @@
 // src/app/api/emails/offer-created/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
-
-const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +19,16 @@ export async function POST(request: NextRequest) {
     if (!coacheeEmail) {
       return NextResponse.json({ error: 'Email coachee mancante' }, { status: 400 })
     }
+
+    // Inizializza Resend solo quando serve
+    const apiKey = process.env.RESEND_API_KEY
+    if (!apiKey) {
+      console.error('RESEND_API_KEY non configurata')
+      return NextResponse.json({ error: 'Email service not configured' }, { status: 500 })
+    }
+
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.coachami.it'
 
@@ -59,25 +66,24 @@ export async function POST(request: NextRequest) {
               <div style="background: #F9FAFB; border-radius: 12px; padding: 20px; margin: 20px 0;">
                 <h3 style="color: #1F2937; margin: 0 0 15px 0;">${offerTitle}</h3>
                 
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                  <span style="color: #6B7280;">Sessioni:</span>
-                  <strong style="color: #1F2937;">${totalSessions}</strong>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                  <span style="color: #6B7280;">Durata sessione:</span>
-                  <strong style="color: #1F2937;">${sessionDuration} min</strong>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                  <span style="color: #6B7280;">Prezzo totale:</span>
-                  <strong style="color: #F97316;">€${priceTotal?.toFixed(2)}</strong>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid #E5E7EB;">
-                  <span style="color: #6B7280;">Pagamento a rate:</span>
-                  <strong style="color: #1F2937;">€${pricePerSession?.toFixed(2)}/sessione</strong>
-                </div>
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="color: #6B7280; padding: 5px 0;">Sessioni:</td>
+                    <td style="color: #1F2937; font-weight: bold; text-align: right;">${totalSessions}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #6B7280; padding: 5px 0;">Durata sessione:</td>
+                    <td style="color: #1F2937; font-weight: bold; text-align: right;">${sessionDuration} min</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #6B7280; padding: 5px 0;">Prezzo totale:</td>
+                    <td style="color: #F97316; font-weight: bold; text-align: right;">€${priceTotal?.toFixed(2)}</td>
+                  </tr>
+                  <tr style="border-top: 1px solid #E5E7EB;">
+                    <td style="color: #6B7280; padding: 10px 0 5px 0;">Pagamento a rate:</td>
+                    <td style="color: #1F2937; font-weight: bold; text-align: right; padding-top: 10px;">€${pricePerSession?.toFixed(2)}/sessione</td>
+                  </tr>
+                </table>
               </div>
               
               <p style="color: #6B7280; font-size: 14px; line-height: 1.6;">
