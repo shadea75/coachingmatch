@@ -81,6 +81,7 @@ export default function AdminOffersPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'offers' | 'sessions'>('offers')
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [sessionFilterStatus, setSessionFilterStatus] = useState<string>('all')
   const [expandedOffer, setExpandedOffer] = useState<string | null>(null)
 
   useEffect(() => {
@@ -181,6 +182,10 @@ export default function AdminOffersPage() {
   const filteredOffers = filterStatus === 'all' 
     ? offers 
     : offers.filter(o => o.status === filterStatus)
+
+  const filteredSessions = sessionFilterStatus === 'all'
+    ? sessions
+    : sessions.filter(s => s.status === sessionFilterStatus)
 
   // Calcola statistiche avanzate
   const stats = {
@@ -518,12 +523,37 @@ export default function AdminOffersPage() {
             </>
           ) : (
             /* Tab Sessioni */
-            sessions.length === 0 ? (
-              <div className="p-12 text-center text-gray-500">
-                <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>Nessuna sessione</p>
+            <>
+              {/* Filtri Sessioni */}
+              <div className="p-4 border-b border-gray-100 flex flex-wrap gap-2">
+                {[
+                  { value: 'all', label: 'Tutte', count: sessions.length },
+                  { value: 'pending', label: 'In attesa', count: sessions.filter(s => s.status === 'pending').length },
+                  { value: 'confirmed', label: 'Confermate', count: sessions.filter(s => s.status === 'confirmed').length },
+                  { value: 'completed', label: 'Completate', count: sessions.filter(s => s.status === 'completed').length },
+                  { value: 'cancelled', label: 'Annullate', count: sessions.filter(s => s.status === 'cancelled').length },
+                  { value: 'rescheduled', label: 'Rimandate', count: sessions.filter(s => s.status === 'rescheduled').length },
+                ].map(filter => (
+                  <button
+                    key={filter.value}
+                    onClick={() => setSessionFilterStatus(filter.value)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      sessionFilterStatus === filter.value
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {filter.label} ({filter.count})
+                  </button>
+                ))}
               </div>
-            ) : (
+              
+              {filteredSessions.length === 0 ? (
+                <div className="p-12 text-center text-gray-500">
+                  <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Nessuna sessione {sessionFilterStatus !== 'all' ? 'con questo stato' : ''}</p>
+                </div>
+              ) : (
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
                   <tr>
@@ -536,7 +566,7 @@ export default function AdminOffersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {sessions.map(session => (
+                  {filteredSessions.map(session => (
                     <tr key={session.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <p className="font-medium text-charcoal">
@@ -557,7 +587,8 @@ export default function AdminOffersPage() {
                   ))}
                 </tbody>
               </table>
-            )
+              )}
+            </>
           )}
         </div>
       </div>
