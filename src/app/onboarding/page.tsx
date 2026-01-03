@@ -266,6 +266,7 @@ export default function OnboardingPage() {
               
               {/* Score selector */}
               <ScoreSelector
+                areaId={currentArea.id}
                 value={state.areaScores[currentArea.id]}
                 onChange={handleScoreSelect}
                 color={currentArea.color}
