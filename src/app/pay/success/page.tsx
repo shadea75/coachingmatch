@@ -314,18 +314,16 @@ function PaySuccessContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: 'booking_pending',
-            coacheeEmail: user.email || offer.coacheeEmail,
-            coacheeName: user.name || offer.coacheeName,
-            coachEmail: coach.email,
-            coachName: coach.name,
-            date: format(scheduledAt, "EEEE d MMMM yyyy", { locale: it }),
-            time: selectedTime,
-            duration: offer.sessionDuration || 60,
-            sessionType: 'paid_session',
-            offerTitle: offer.title,
-            sessionNumber: parseInt(sessionNumber || '1'),
-            totalSessions: offer.totalSessions,
-            coachId: offer.coachId
+            data: {
+              coacheeEmail: user.email || offer.coacheeEmail,
+              coacheeName: user.name || offer.coacheeName,
+              coachEmail: coach.email,
+              coachName: coach.name,
+              date: format(scheduledAt, "EEEE d MMMM yyyy", { locale: it }),
+              time: selectedTime,
+              duration: offer.sessionDuration || 60,
+              coachId: offer.coachId
+            }
           })
         })
       } catch (emailErr) {
