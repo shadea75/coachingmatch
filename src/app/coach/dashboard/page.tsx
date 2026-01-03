@@ -33,21 +33,36 @@ import { LEVELS_CONFIG, getLevelFromPoints } from '@/types/community'
 
 export default function CoachDashboardPage() {
   const router = useRouter()
-  const { user, signOut, canAccessAdmin } = useAuth()
+  const { user, signOut, canAccessAdmin, loading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   
   // ADMIN_EMAILS - redirect forzato per admin
   const ADMIN_EMAILS = ['debora.carofiglio@gmail.com']
   
-  // Redirect admin alla loro dashboard
+  // Redirect se non loggato o se admin
   useEffect(() => {
+    // Se ancora caricando, aspetta
+    if (loading) return
+    
+    // Se non loggato, vai al login
+    if (!user) {
+      router.replace('/login')
+      return
+    }
+    
     // Check sia per ruolo che per email admin
-    if (user?.role === 'admin' || (user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()))) {
+    if (user.role === 'admin' || (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase()))) {
       router.replace('/admin')
       return
     }
-  }, [user?.role, user?.email, router])
+  }, [user, loading, router])
+  
+  // Handler logout con redirect
+  const handleSignOut = async () => {
+    await signOut()
+    router.replace('/login')
+  }
   
   // Stats
   const [stats, setStats] = useState({
@@ -201,7 +216,7 @@ export default function CoachDashboardPage() {
       </Link>
       
       <button
-        onClick={() => signOut()}
+        onClick={handleSignOut}
         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
       >
         <LogOut size={20} />
@@ -210,7 +225,16 @@ export default function CoachDashboardPage() {
     </>
   )
   
-  if (!user || (user.role !== 'coach' && user.role !== 'admin')) {
+  // Se sta ancora caricando o redirect in corso
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+      </div>
+    )
+  }
+  
+  if (user.role !== 'coach' && user.role !== 'admin') {
     return null
   }
   
