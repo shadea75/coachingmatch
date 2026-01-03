@@ -1,285 +1,795 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Mail, Lock, User, ArrowRight } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
+import { 
+  ArrowRight, 
+  ArrowLeft,
+  Upload,
+  Check,
+  Plus,
+  X
+} from 'lucide-react'
+import { collection, addDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { db, auth, storage } from '@/lib/firebase'
+import { LIFE_AREAS, LifeAreaId } from '@/types'
 import Logo from '@/components/Logo'
 
-export default function RegisterPage() {
+const STEPS = [
+  'Informazioni personali',
+  'Esperienza',
+  'Specializzazioni',
+  'Disponibilità'
+]
+
+const CLIENT_TYPES = [
+  'Manager', 'Professionisti', 'Imprenditori', 'Freelance', 
+  'Startup founder', 'Individui', 'Coppie', 'Team'
+]
+
+const PROBLEMS = [
+  'Crescita professionale', 'Leadership', 'Work-life balance',
+  'Stress e burnout', 'Comunicazione', 'Decision making',
+  'Produttività', 'Relazioni', 'Autostima', 'Transizione di carriera'
+]
+
+const METHODS = [
+  'Coaching ontologico', 'PNL', 'Mindfulness', 'Coaching sistemico',
+  'Business coaching', 'Goal setting', 'Comunicazione non violenta'
+]
+
+const STYLES = ['diretto', 'empatico', 'strutturato', 'esplorativo'] as const
+
+export default function CoachRegisterPage() {
   const router = useRouter()
-  const { signUp, signInWithGoogle, user, loading } = useAuth()
-  
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [acceptTerms, setAcceptTerms] = useState(false)
+  const [currentStep, setCurrentStep] = useState(0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  
+  const [formData, setFormData] = useState({
+    // Step 1
+    name: '',
+    email: '',
+    password: '',
+    photo: null as File | null,
+    photoPreview: '',
+    bio: '',
+    
+    // Step 2
+    certifications: [{ name: '', institution: '', year: new Date().getFullYear(), file: null as File | null }],
+    certificationFiles: [] as File[],
+    yearsOfExperience: 0,
+    languages: ['Italiano'],
+    sessionMode: ['online'] as ('online' | 'presence')[],
+    location: '',
+    averagePrice: 100,
+    freeCallAvailable: true,
+    
+    // Step 3
+    lifeAreas: [] as LifeAreaId[],
+    clientTypes: [] as string[],
+    problemsAddressed: [] as string[],
+    coachingMethod: [] as string[],
+    style: [] as string[],
+    
+    // Step 4
+    availability: {
+      monday: true,
+      tuesday: true,
+      wednesday: true,
+      thursday: true,
+      friday: true,
+      saturday: false,
+      sunday: false
+    },
+    
+    acceptTerms: false
+  })
+  
+  const updateForm = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
+  
+  const toggleArrayItem = (field: string, item: string) => {
+    setFormData(prev => {
+      const arr = prev[field as keyof typeof prev] as string[]
+      const newArr = arr.includes(item) 
+        ? arr.filter(i => i !== item)
+        : [...arr, item]
+      return { ...prev, [field]: newArr }
+    })
+  }
+  
+  const addCertification = () => {
+    setFormData(prev => ({
+      ...prev,
+      certifications: [...prev.certifications, { name: '', institution: '', year: new Date().getFullYear(), file: null }]
+    }))
+  }
+  
+  const updateCertification = (index: number, field: string, value: any) => {
+    setFormData(prev => {
+      const certs = [...prev.certifications]
+      certs[index] = { ...certs[index], [field]: value }
+      return { ...prev, certifications: certs }
+    })
+  }
+  
+  const removeCertification = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      certifications: prev.certifications.filter((_, i) => i !== index)
+    }))
+  }
 
-  // Se già loggato, redirect alla dashboard
-  useEffect(() => {
-    if (!loading && user) {
-      if (user.role === 'coach') {
-        router.push('/coach/dashboard')
-      } else {
-        router.push('/dashboard')
+  // Handle photo upload
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      updateForm('photo', file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        updateForm('photoPreview', reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+  
+  const handleNext = () => {
+    setError('')
+    
+    // Validazione step 1
+    if (currentStep === 0) {
+      if (!formData.name || !formData.email || !formData.password) {
+        setError('Compila tutti i campi obbligatori')
+        return
+      }
+      if (formData.password.length < 8) {
+        setError('La password deve essere di almeno 8 caratteri')
+        return
+      }
+      if (!formData.bio) {
+        setError('Inserisci una breve bio professionale')
+        return
       }
     }
-  }, [user, loading, router])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    
+    if (currentStep < STEPS.length - 1) {
+      setCurrentStep(prev => prev + 1)
+    }
+  }
+  
+  const handleBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep(prev => prev - 1)
+    }
+  }
+  
+  const handleSubmit = async () => {
+    setIsSubmitting(true)
     setError('')
-
-    // Validazioni
-    if (password !== confirmPassword) {
-      setError('Le password non coincidono')
-      return
-    }
-
-    if (password.length < 8) {
-      setError('La password deve essere di almeno 8 caratteri')
-      return
-    }
-
-    if (!acceptTerms) {
-      setError('Devi accettare i termini di servizio')
-      return
-    }
-
-    setIsLoading(true)
-
+    
     try {
-      await signUp(email, password, name)
-      // Redirect alla dashboard dopo registrazione
-      router.push('/dashboard')
-    } catch (err: any) {
-      if (err.code === 'auth/email-already-in-use') {
+      // 1. Crea l'utente in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(
+        auth, 
+        formData.email, 
+        formData.password
+      )
+      const userId = userCredential.user.uid
+      
+      // 2. Aggiorna il profilo con il nome
+      await updateProfile(userCredential.user, {
+        displayName: formData.name
+      })
+      
+      // 3. Foto sarà caricata dopo dalle impostazioni (evita errori CORS)
+      let photoURL = ''
+      
+      // 4. Crea documento utente in Firestore
+      await setDoc(doc(db, 'users', userId), {
+        name: formData.name,
+        email: formData.email,
+        photo: photoURL,
+        role: 'coach',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+      
+      // 5. Crea la candidatura coach
+      const applicationData = {
+        userId: userId, // Link all'utente Firebase Auth
+        // Dati personali
+        name: formData.name,
+        email: formData.email,
+        photo: photoURL,
+        bio: formData.bio,
+        
+        // Esperienza
+        certifications: formData.certifications.map(c => ({
+          name: c.name,
+          institution: c.institution,
+          year: c.year
+        })),
+        yearsOfExperience: formData.yearsOfExperience,
+        languages: formData.languages,
+        
+        // Specializzazioni
+        lifeArea: formData.lifeAreas[0] || null,
+        specializations: {
+          focusTopics: formData.problemsAddressed,
+          targetAudience: formData.clientTypes
+        },
+        clientTypes: formData.clientTypes,
+        problemsAddressed: formData.problemsAddressed,
+        coachingMethod: formData.coachingMethod,
+        style: formData.style,
+        
+        // Servizio
+        sessionMode: formData.sessionMode,
+        location: formData.location,
+        averagePrice: formData.averagePrice,
+        hourlyRate: formData.averagePrice,
+        freeCallAvailable: formData.freeCallAvailable,
+        availability: formData.availability,
+        
+        // Status
+        status: 'pending',
+        submittedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      }
+      
+      // Usa lo stesso ID dell'utente per coachApplications
+      await setDoc(doc(db, 'coachApplications', userId), applicationData)
+      
+      // 6. Invia email di conferma
+      try {
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'coach_registration',
+            data: {
+              name: formData.name,
+              email: formData.email,
+              lifeAreas: formData.lifeAreas,
+              yearsOfExperience: formData.yearsOfExperience,
+            }
+          })
+        })
+      } catch (emailError) {
+        console.error('Errore invio email:', emailError)
+      }
+      
+      router.push('/coach/register/success')
+    } catch (error: any) {
+      console.error('Errore durante la registrazione:', error)
+      
+      if (error.code === 'auth/email-already-in-use') {
         setError('Questa email è già registrata. Prova ad accedere.')
+      } else if (error.code === 'auth/weak-password') {
+        setError('La password è troppo debole. Usa almeno 8 caratteri.')
+      } else if (error.code === 'auth/invalid-email') {
+        setError('Email non valida.')
       } else {
-        setError(err.message || 'Errore durante la registrazione')
+        setError(error.message || 'Errore durante la registrazione. Riprova.')
       }
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
-
-  const handleGoogleSignIn = async () => {
-    setError('')
-    setIsLoading(true)
-
-    try {
-      await signInWithGoogle()
-      // Redirect gestito da useEffect
-    } catch (err: any) {
-      setError(err.message || 'Errore durante la registrazione con Google')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Se sta caricando auth, mostra loading
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
-      </div>
-    )
-  }
-
+  
   return (
-    <div className="min-h-screen bg-cream flex flex-col items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-block">
-            <Logo size="lg" />
+    <div className="min-h-screen bg-cream">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-100 py-4 px-4">
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <Link href="/">
+            <Logo size="sm" />
           </Link>
-          <h1 className="mt-6 text-2xl font-semibold text-gray-900">
-            Crea il tuo account
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Inizia il tuo percorso di crescita personale
+          
+          <span className="text-sm text-gray-500">
+            Registrazione Coach
+          </span>
+        </div>
+      </header>
+      
+      {/* Progress */}
+      <div className="bg-white border-b border-gray-100 py-4 px-4">
+        <div className="max-w-3xl mx-auto">
+          <div className="flex items-center justify-between mb-2">
+            {STEPS.map((step, index) => (
+              <div 
+                key={step}
+                className={`flex items-center ${index < STEPS.length - 1 ? 'flex-1' : ''}`}
+              >
+                <div className={`
+                  w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                  ${index <= currentStep 
+                    ? 'bg-primary-500 text-white' 
+                    : 'bg-gray-200 text-gray-500'
+                  }
+                `}>
+                  {index < currentStep ? <Check size={16} /> : index + 1}
+                </div>
+                
+                {index < STEPS.length - 1 && (
+                  <div className={`
+                    flex-1 h-1 mx-2
+                    ${index < currentStep ? 'bg-primary-500' : 'bg-gray-200'}
+                  `} />
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-sm text-gray-500">
+            {STEPS[currentStep]}
           </p>
         </div>
-
-        {/* Form */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nome
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Il tuo nome"
-                  required
-                />
+      </div>
+      
+      {/* Form */}
+      <main className="py-8 px-4">
+        <div className="max-w-2xl mx-auto">
+          <motion.div
+            key={currentStep}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="bg-white rounded-2xl p-6 md:p-8 shadow-sm"
+          >
+            {/* Error message */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+                {error}
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="nome@email.com"
-                  required
-                />
+            )}
+            
+            {/* Step 1: Personal Info */}
+            {currentStep === 0 && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-display font-bold text-charcoal mb-6">
+                  Raccontaci di te
+                </h2>
+                
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Nome e cognome *</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={formData.name}
+                      onChange={(e) => updateForm('name', e.target.value)}
+                      placeholder="Mario Rossi"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="label">Email *</label>
+                    <input
+                      type="email"
+                      className="input"
+                      value={formData.email}
+                      onChange={(e) => updateForm('email', e.target.value)}
+                      placeholder="mario@email.com"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="label">Password *</label>
+                  <input
+                    type="password"
+                    className="input"
+                    value={formData.password}
+                    onChange={(e) => updateForm('password', e.target.value)}
+                    placeholder="Minimo 8 caratteri"
+                    minLength={8}
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="label">Foto profilo <span className="text-gray-400 font-normal">(opzionale)</span></label>
+                  <div 
+                    className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 transition-colors cursor-pointer"
+                    onClick={() => document.getElementById('photo-input')?.click()}
+                  >
+                    {formData.photoPreview ? (
+                      <div className="flex flex-col items-center">
+                        <img 
+                          src={formData.photoPreview} 
+                          alt="Preview" 
+                          className="w-24 h-24 rounded-full object-cover mb-3"
+                        />
+                        <p className="text-sm text-gray-500">Clicca per cambiare</p>
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                        <p className="text-sm text-gray-500">
+                          Trascina un'immagine o clicca per caricare
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Potrai aggiungere la foto anche dopo dalla dashboard
+                        </p>
+                      </>
+                    )}
+                    <input
+                      id="photo-input"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePhotoChange}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="label">Bio professionale *</label>
+                  <textarea
+                    className="input min-h-[120px]"
+                    value={formData.bio}
+                    onChange={(e) => updateForm('bio', e.target.value)}
+                    placeholder="Descrivi la tua esperienza e il tuo approccio al coaching..."
+                    maxLength={500}
+                    required
+                  />
+                  <p className="text-xs text-gray-400 mt-1 text-right">
+                    {formData.bio.length}/500
+                  </p>
+                </div>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Minimo 8 caratteri"
-                  minLength={8}
-                  required
-                />
+            )}
+            
+            {/* Step 2: Experience */}
+            {currentStep === 1 && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-display font-bold text-charcoal mb-6">
+                  La tua esperienza
+                </h2>
+                
+                <div>
+                  <label className="label">Certificazioni</label>
+                  {formData.certifications.map((cert, index) => (
+                    <div key={index} className="bg-gray-50 rounded-xl p-4 mb-3">
+                      <div className="grid md:grid-cols-3 gap-3 mb-3">
+                        <input
+                          type="text"
+                          className="input"
+                          value={cert.name}
+                          onChange={(e) => updateCertification(index, 'name', e.target.value)}
+                          placeholder="Nome certificazione"
+                        />
+                        <input
+                          type="text"
+                          className="input"
+                          value={cert.institution}
+                          onChange={(e) => updateCertification(index, 'institution', e.target.value)}
+                          placeholder="Ente certificatore"
+                        />
+                        <input
+                          type="number"
+                          className="input"
+                          value={cert.year}
+                          onChange={(e) => updateCertification(index, 'year', parseInt(e.target.value))}
+                          placeholder="Anno"
+                        />
+                      </div>
+                      {formData.certifications.length > 1 && (
+                        <button
+                          onClick={() => removeCertification(index)}
+                          className="text-red-500 text-sm hover:underline"
+                        >
+                          Rimuovi
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={addCertification}
+                    className="text-primary-500 text-sm font-medium flex items-center gap-1 hover:underline"
+                  >
+                    <Plus size={16} /> Aggiungi certificazione
+                  </button>
+                </div>
+                
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Anni di esperienza</label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={formData.yearsOfExperience}
+                      onChange={(e) => updateForm('yearsOfExperience', parseInt(e.target.value) || 0)}
+                      min={0}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="label">Prezzo medio sessione (€)</label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={formData.averagePrice}
+                      onChange={(e) => updateForm('averagePrice', parseInt(e.target.value) || 0)}
+                      min={0}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="label">Modalità sessioni</label>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        const modes = formData.sessionMode.includes('online')
+                          ? formData.sessionMode.filter(m => m !== 'online')
+                          : [...formData.sessionMode, 'online'] as ('online' | 'presence')[]
+                        updateForm('sessionMode', modes)
+                      }}
+                      className={`
+                        px-4 py-2 rounded-xl text-sm font-medium transition-all
+                        ${formData.sessionMode.includes('online')
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-gray-100 text-gray-600'
+                        }
+                      `}
+                    >
+                      Online
+                    </button>
+                    <button
+                      onClick={() => {
+                        const modes = formData.sessionMode.includes('presence')
+                          ? formData.sessionMode.filter(m => m !== 'presence')
+                          : [...formData.sessionMode, 'presence'] as ('online' | 'presence')[]
+                        updateForm('sessionMode', modes)
+                      }}
+                      className={`
+                        px-4 py-2 rounded-xl text-sm font-medium transition-all
+                        ${formData.sessionMode.includes('presence')
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-gray-100 text-gray-600'
+                        }
+                      `}
+                    >
+                      In presenza
+                    </button>
+                  </div>
+                </div>
+                
+                {formData.sessionMode.includes('presence') && (
+                  <div>
+                    <label className="label">Città</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={formData.location}
+                      onChange={(e) => updateForm('location', e.target.value)}
+                      placeholder="Es: Milano"
+                    />
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="freeCall"
+                    checked={formData.freeCallAvailable}
+                    onChange={(e) => updateForm('freeCallAvailable', e.target.checked)}
+                    className="w-5 h-5 rounded border-gray-300 text-primary-500"
+                  />
+                  <label htmlFor="freeCall" className="text-charcoal">
+                    Offro una prima call gratuita di orientamento
+                  </label>
+                </div>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Conferma Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Ripeti la password"
-                  minLength={8}
-                  required
-                />
+            )}
+            
+            {/* Step 3: Specializations */}
+            {currentStep === 2 && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-display font-bold text-charcoal mb-6">
+                  Le tue specializzazioni
+                </h2>
+                
+                <div>
+                  <label className="label">Area di specializzazione * <span className="text-gray-400 font-normal">(scegli 1 area)</span></label>
+                  <p className="text-sm text-gray-500 mb-3">Seleziona l'area in cui sei più specializzato/a</p>
+                  <div className="flex flex-wrap gap-2">
+                    {LIFE_AREAS.map(area => (
+                      <button
+                        key={area.id}
+                        onClick={() => {
+                          if (formData.lifeAreas.includes(area.id)) {
+                            updateForm('lifeAreas', [])
+                          } else {
+                            updateForm('lifeAreas', [area.id])
+                          }
+                        }}
+                        className={`
+                          px-4 py-2 rounded-full text-sm font-medium transition-all
+                          ${formData.lifeAreas.includes(area.id)
+                            ? 'text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }
+                        `}
+                        style={{
+                          backgroundColor: formData.lifeAreas.includes(area.id) ? area.color : undefined
+                        }}
+                      >
+                        {area.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="label">Tipologia clienti</label>
+                  <div className="flex flex-wrap gap-2">
+                    {CLIENT_TYPES.map(type => (
+                      <button
+                        key={type}
+                        onClick={() => toggleArrayItem('clientTypes', type)}
+                        className={`
+                          px-4 py-2 rounded-full text-sm font-medium transition-all
+                          ${formData.clientTypes.includes(type)
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }
+                        `}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="label">Problemi che tratti</label>
+                  <div className="flex flex-wrap gap-2">
+                    {PROBLEMS.map(problem => (
+                      <button
+                        key={problem}
+                        onClick={() => toggleArrayItem('problemsAddressed', problem)}
+                        className={`
+                          px-4 py-2 rounded-full text-sm font-medium transition-all
+                          ${formData.problemsAddressed.includes(problem)
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }
+                        `}
+                      >
+                        {problem}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="label">Stile di coaching *</label>
+                  <div className="flex flex-wrap gap-2">
+                    {STYLES.map(style => (
+                      <button
+                        key={style}
+                        onClick={() => toggleArrayItem('style', style)}
+                        className={`
+                          px-4 py-2 rounded-full text-sm font-medium transition-all capitalize
+                          ${formData.style.includes(style)
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }
+                        `}
+                      >
+                        {style}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                id="terms"
-                checked={acceptTerms}
-                onChange={(e) => setAcceptTerms(e.target.checked)}
-                className="mt-1 w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
-              />
-              <label htmlFor="terms" className="text-sm text-gray-600">
-                Accetto i{' '}
-                <Link href="/terms" className="text-primary-500 hover:underline">
-                  Termini di Servizio
-                </Link>{' '}
-                e la{' '}
-                <Link href="/privacy" className="text-primary-500 hover:underline">
-                  Privacy Policy
-                </Link>
-              </label>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+            )}
+            
+            {/* Step 4: Availability */}
+            {currentStep === 3 && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-display font-bold text-charcoal mb-6">
+                  La tua disponibilità
+                </h2>
+                
+                <div>
+                  <label className="label">Giorni disponibili</label>
+                  <div className="grid grid-cols-7 gap-2">
+                    {Object.entries(formData.availability).map(([day, available]) => (
+                      <button
+                        key={day}
+                        onClick={() => updateForm('availability', {
+                          ...formData.availability,
+                          [day]: !available
+                        })}
+                        className={`
+                          p-3 rounded-xl text-center transition-all
+                          ${available
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-gray-100 text-gray-500'
+                          }
+                        `}
+                      >
+                        <span className="text-xs uppercase">
+                          {day.slice(0, 3)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="bg-cream rounded-xl p-4">
+                  <p className="text-sm text-gray-600">
+                    💡 Potrai configurare gli orari specifici dalla tua dashboard dopo la registrazione.
+                  </p>
+                </div>
+                
+                <div className="border-t border-gray-100 pt-6">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="terms"
+                      checked={formData.acceptTerms}
+                      onChange={(e) => updateForm('acceptTerms', e.target.checked)}
+                      className="mt-1 w-5 h-5 rounded border-gray-300 text-primary-500"
+                    />
+                    <label htmlFor="terms" className="text-sm text-gray-600">
+                      Accetto i{' '}
+                      <a href="/terms" className="text-primary-500 hover:underline">
+                        Termini di Servizio
+                      </a>{' '}
+                      e la{' '}
+                      <a href="/privacy" className="text-primary-500 hover:underline">
+                        Privacy Policy
+                      </a>
+                      . Comprendo che la piattaforma tratterrà una commissione del 30% sulle sessioni prenotate.
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Navigation */}
+            <div className="flex justify-between mt-8 pt-6 border-t border-gray-100">
+              <button
+                onClick={handleBack}
+                disabled={currentStep === 0}
+                className="btn btn-ghost disabled:opacity-50"
+              >
+                <ArrowLeft size={18} />
+                Indietro
+              </button>
+              
+              {currentStep < STEPS.length - 1 ? (
+                <button
+                  onClick={handleNext}
+                  className="btn btn-primary"
+                >
+                  Continua
+                  <ArrowRight size={18} />
+                </button>
               ) : (
-                <>
-                  Registrati
-                  <ArrowRight className="h-5 w-5" />
-                </>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!formData.acceptTerms || isSubmitting}
+                  className="btn btn-primary disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Registrazione in corso...' : 'Completa registrazione'}
+                </button>
               )}
-            </button>
-          </form>
-
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Oppure</span>
-              </div>
             </div>
-
-            <button
-              onClick={handleGoogleSignIn}
-              disabled={isLoading}
-              className="mt-4 w-full py-3 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              Continua con Google
-            </button>
-          </div>
+          </motion.div>
         </div>
-
-        {/* Link login */}
-        <p className="mt-6 text-center text-gray-600">
-          Hai già un account?{' '}
-          <Link href="/login" className="text-primary-500 hover:text-primary-600 font-medium">
-            Accedi
-          </Link>
-        </p>
-
-        {/* Link coach */}
-        <p className="mt-3 text-center text-sm text-gray-500">
-          Sei un coach?{' '}
-          <Link href="/coach/register" className="text-primary-500 hover:text-primary-600">
-            Registrati come Coach
-          </Link>
-        </p>
-      </motion.div>
+      </main>
     </div>
   )
 }
