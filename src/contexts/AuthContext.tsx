@@ -128,6 +128,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await firebaseSignOut(auth)
     setUser(null)
+    // Redirect alla pagina login dopo logout
+    window.location.href = '/login'
   }
 
   const updateUserProfile = async (data: Partial<User>) => {
