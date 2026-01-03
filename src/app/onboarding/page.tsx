@@ -149,9 +149,7 @@ export default function OnboardingPage() {
         await updateUserProfile({
           areaScores: state.areaScores as Record<LifeAreaId, number>,
           selectedObjectives: state.selectedObjectives as Record<LifeAreaId, string[]>,
-          areasToImprove: state.areasToImprove,
           onboardingCompleted: true,
-          wheelCompletedAt: new Date(),
           // Nuovi campi
           age: formData.age ? parseInt(formData.age) : null,
           gender: (formData.gender || null) as 'M' | 'F' | 'other' | 'prefer_not' | null,
