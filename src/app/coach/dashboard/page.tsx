@@ -50,9 +50,8 @@ export default function CoachDashboardPage() {
   useEffect(() => {
     // Se l'utente è caricato e è admin, redirect SUBITO
     if (user && isAdminUser) {
-      console.log('Admin detected, redirecting to /admin...')
       setShouldRedirect(true)
-      window.location.href = '/admin' // Forza redirect con window.location
+      window.location.href = '/admin'
     }
   }, [user, isAdminUser])
   

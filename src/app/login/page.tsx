@@ -26,16 +26,11 @@ export default function LoginPage() {
     const isAdmin = userRole === 'admin' || 
       (userEmail && ADMIN_EMAILS.includes(userEmail.toLowerCase()))
     
-    console.log('Redirect check:', { userRole, userEmail, isAdmin })
-    
     if (isAdmin) {
-      console.log('Redirecting to /admin')
       window.location.href = '/admin'
     } else if (userRole === 'coach') {
-      console.log('Redirecting to /coach/dashboard')
       window.location.href = '/coach/dashboard'
     } else {
-      console.log('Redirecting to /dashboard')
       window.location.href = '/dashboard'
     }
   }
