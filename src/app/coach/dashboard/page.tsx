@@ -37,6 +37,18 @@ export default function CoachDashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   
+  // ADMIN_EMAILS - redirect forzato per admin
+  const ADMIN_EMAILS = ['debora.carofiglio@gmail.com']
+  
+  // Redirect admin alla loro dashboard
+  useEffect(() => {
+    // Check sia per ruolo che per email admin
+    if (user?.role === 'admin' || (user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()))) {
+      router.replace('/admin')
+      return
+    }
+  }, [user?.role, user?.email, router])
+  
   // Stats
   const [stats, setStats] = useState({
     totalReviews: 0,

@@ -43,9 +43,11 @@ export default function DashboardPage() {
   })
   const [userCalls, setUserCalls] = useState<any[]>([])
   
-  // Redirect coach/admin alla loro dashboard
+  // Redirect coach alla loro dashboard, admin alla dashboard admin
   useEffect(() => {
-    if (user?.role === 'coach' || user?.role === 'admin') {
+    if (user?.role === 'admin') {
+      router.push('/admin')
+    } else if (user?.role === 'coach') {
       router.push('/coach/dashboard')
     }
   }, [user?.role, router])
