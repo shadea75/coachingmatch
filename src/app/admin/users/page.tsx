@@ -23,10 +23,11 @@ import {
   AlertTriangle
 } from 'lucide-react'
 
-const ROLE_CONFIG: Record<UserRole, { label: string; color: string; bgColor: string; icon: any }> = {
+const ROLE_CONFIG: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
   admin: { label: 'Admin', color: 'text-red-700', bgColor: 'bg-red-100', icon: ShieldCheck },
   moderator: { label: 'Moderatore', color: 'text-purple-700', bgColor: 'bg-purple-100', icon: Shield },
   coach: { label: 'Coach', color: 'text-blue-700', bgColor: 'bg-blue-100', icon: UserCheck },
+  pending_coach: { label: 'Coach (attesa)', color: 'text-yellow-700', bgColor: 'bg-yellow-100', icon: UserCheck },
   coachee: { label: 'Coachee', color: 'text-green-700', bgColor: 'bg-green-100', icon: UserIcon },
 }
 
@@ -141,7 +142,7 @@ export default function AdminUsersPage() {
     return matchesSearch && matchesRole
   })
 
-  const roleOptions: UserRole[] = ['admin', 'moderator', 'coach', 'coachee']
+  const roleOptions: string[] = ['admin', 'moderator', 'coach', 'pending_coach', 'coachee']
 
   return (
     <AdminLayout>
@@ -181,8 +182,9 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Users Table */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full">
+        <div className="bg-white rounded-xl border border-gray-200">
+          <div className="overflow-x-auto">
+            <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -217,7 +219,7 @@ export default function AdminUsersPage() {
                 </tr>
               ) : (
                 filteredUsers.map((user) => {
-                  const roleConfig = ROLE_CONFIG[user.role]
+                  const roleConfig = ROLE_CONFIG[user.role] || ROLE_CONFIG.coachee
                   const RoleIcon = roleConfig.icon
                   const isCurrentUser = user.id === currentUser?.id
                   
@@ -265,7 +267,7 @@ export default function AdminUsersPage() {
                           
                           {/* Role dropdown */}
                           {showRoleMenu === user.id && isAdmin && !isCurrentUser && (
-                            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1 min-w-[150px]">
+                            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 min-w-[150px]">
                               {roleOptions.map((role) => {
                                 const config = ROLE_CONFIG[role]
                                 const Icon = config.icon
@@ -342,6 +344,7 @@ export default function AdminUsersPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
