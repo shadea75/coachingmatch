@@ -28,6 +28,7 @@ import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
 import { useAuth } from '@/contexts/AuthContext'
+import { LIFE_AREAS } from '@/types'
 
 interface CoachProfile {
   id: string
@@ -36,6 +37,7 @@ interface CoachProfile {
   photo: string | null
   bio: string
   motivation: string
+  lifeArea: string | null
   specializations: {
     focusTopics: string[]
     targetAudience: string[]
@@ -96,22 +98,23 @@ export default function CoachPublicProfilePage() {
             photo: data.photo || null,
             bio: data.bio || '',
             motivation: data.motivation || '',
+            lifeArea: data.lifeArea || null,
             specializations: {
-              focusTopics: data.specializations?.focusTopics || [],
-              targetAudience: data.specializations?.targetAudience || [],
+              focusTopics: data.specializations?.focusTopics || data.problemsAddressed || [],
+              targetAudience: data.specializations?.targetAudience || data.clientTypes || [],
               sessionFormats: data.specializations?.sessionFormats || ['video']
             },
             experience: {
-              yearsCoaching: data.experience?.yearsCoaching || 0,
+              yearsCoaching: data.experience?.yearsCoaching || data.yearsOfExperience || 0,
               totalSessions: data.experience?.totalSessions || 0,
-              certifications: data.experience?.certifications || data.certifications || []
+              certifications: data.experience?.certifications || data.certifications?.map((c: any) => c.name || c) || []
             },
             education: data.education || [],
             languages: data.languages || ['Italiano'],
             location: data.location || 'Italia',
             rating: data.rating || 5.0,
             reviewCount: data.reviewCount || 0,
-            hourlyRate: data.hourlyRate || 80,
+            hourlyRate: data.hourlyRate || data.averagePrice || 80,
             availability: data.availability || {}
           })
         } else {
@@ -215,9 +218,19 @@ export default function CoachPublicProfilePage() {
               {/* Info base */}
               <div className="p-6">
                 <h1 className="text-2xl font-bold text-charcoal mb-1">{coach.name}</h1>
-                <p className="text-primary-600 font-medium mb-4">
-                  {coach.specializations.focusTopics[0] || 'Life Coach'}
-                </p>
+                {coach.lifeArea && (() => {
+                  const area = LIFE_AREAS.find(a => a.id === coach.lifeArea)
+                  return area ? (
+                    <p className="font-medium mb-4" style={{ color: area.color }}>
+                      {area.label}
+                    </p>
+                  ) : (
+                    <p className="text-primary-600 font-medium mb-4">Life Coach</p>
+                  )
+                })()}
+                {!coach.lifeArea && (
+                  <p className="text-primary-600 font-medium mb-4">Life Coach</p>
+                )}
                 
                 {/* Rating */}
                 {coach.reviewCount > 0 && (
