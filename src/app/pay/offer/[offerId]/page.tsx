@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -18,19 +18,17 @@ import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
-import { loadStripe } from '@stripe/stripe-js'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(amount)
 }
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 interface Offer {
   id: string
   coachId: string
   coachName: string
   coacheeId: string
+  coacheeEmail: string
   title: string
   totalSessions: number
   sessionDuration: number
@@ -38,9 +36,10 @@ interface Offer {
   paidInstallments: number
   status: string
   installments: Array<{ sessionNumber: number; amount: number; status: string }>
+  coachStripeAccountId?: string
 }
 
-export default function PayOfferPage() {
+function PayOfferContent() {
   const params = useParams()
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
@@ -64,18 +63,32 @@ export default function PayOfferPage() {
           return
         }
         const data = offerDoc.data()
+        
+        // Carica anche l'account Stripe del coach se esiste
+        let coachStripeAccountId = undefined
+        try {
+          const stripeDoc = await getDoc(doc(db, 'coachStripeAccounts', data.coachId))
+          if (stripeDoc.exists()) {
+            coachStripeAccountId = stripeDoc.data().stripeAccountId
+          }
+        } catch (e) {
+          console.log('Coach non ha Stripe Connect')
+        }
+        
         setOffer({
           id: offerDoc.id,
           coachId: data.coachId,
           coachName: data.coachName || 'Coach',
           coacheeId: data.coacheeId,
+          coacheeEmail: data.coacheeEmail || '',
           title: data.title || 'Offerta',
           totalSessions: data.totalSessions || 1,
           sessionDuration: data.sessionDuration || 60,
           pricePerSession: data.pricePerSession || 0,
           paidInstallments: data.paidInstallments || 0,
           status: data.status || 'pending',
-          installments: data.installments || []
+          installments: data.installments || [],
+          coachStripeAccountId
         })
       } catch (err) {
         console.error('Errore:', err)
@@ -91,7 +104,7 @@ export default function PayOfferPage() {
   const nextInstallmentNumber = nextInstallment?.sessionNumber || 1
   
   const handlePayment = async () => {
-    if (!user || !offer) return
+    if (!user || !offer || !nextInstallment) return
     setIsProcessing(true)
     setError('')
     
@@ -102,7 +115,15 @@ export default function PayOfferPage() {
         body: JSON.stringify({
           offerId: offer.id,
           installmentNumber: nextInstallmentNumber,
-          userId: user.id
+          userId: user.id,
+          // Passa i dati necessari per evitare firebase-admin
+          amount: nextInstallment.amount,
+          coachName: offer.coachName,
+          coacheeEmail: offer.coacheeEmail || user.email,
+          sessionDuration: offer.sessionDuration,
+          totalSessions: offer.totalSessions,
+          title: offer.title,
+          coachStripeAccountId: offer.coachStripeAccountId
         })
       })
       
@@ -285,5 +306,17 @@ export default function PayOfferPage() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function PayOfferPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <Loader2 className="animate-spin text-primary-500" size={32} />
+      </div>
+    }>
+      <PayOfferContent />
+    </Suspense>
   )
 }
