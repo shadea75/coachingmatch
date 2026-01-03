@@ -82,7 +82,7 @@ export default function NewPostPage() {
 
     try {
       // Crea il post
-      await addDoc(collection(db, 'communityPosts'), {
+      const postData = {
         authorId: user?.id,
         authorName: user?.name || 'Utente',
         authorPhoto: user?.photo || null,
@@ -98,12 +98,18 @@ export default function NewPostPage() {
         isHighlighted: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      })
+      }
+      
+      await addDoc(collection(db, 'communityPosts'), postData)
 
-      // Se è un coach, aggiungi punti
+      // Se è un coach (non admin), aggiungi punti
       if (userRole === 'coach' && user?.id) {
-        await addPoints(user.id, 'POST_CREATED')
-        await incrementMonthlyPosts(user.id)
+        try {
+          await addPoints(user.id, 'POST_CREATED')
+          await incrementMonthlyPosts(user.id)
+        } catch (pointsError) {
+          console.log('Punti non aggiunti (documento coachPoints potrebbe non esistere)')
+        }
       }
 
       router.push('/community')
