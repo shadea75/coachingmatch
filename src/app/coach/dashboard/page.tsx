@@ -259,10 +259,45 @@ export default function CoachDashboardPage() {
   const handleConfirmSession = async (sessionId: string) => {
     setActionLoading(sessionId)
     try {
+      // Recupera i dati della sessione
+      const sessionDoc = await getDoc(doc(db, 'sessions', sessionId))
+      if (!sessionDoc.exists()) {
+        throw new Error('Sessione non trovata')
+      }
+      const sessionData = sessionDoc.data()
+      
+      // Aggiorna stato
       await updateDoc(doc(db, 'sessions', sessionId), {
         status: 'confirmed',
         confirmedAt: serverTimestamp(),
         updatedAt: serverTimestamp()
+      })
+      
+      // Prepara dati per email
+      const scheduledAt = sessionData.scheduledAt?.toDate?.() || new Date(sessionData.scheduledAt)
+      const emailData = {
+        type: 'session_confirmed',
+        data: {
+          sessionId,
+          coachId: user?.id,
+          coachName: user?.name || 'Coach',
+          coachEmail: user?.email,
+          coacheeId: sessionData.coacheeId,
+          coacheeName: sessionData.coacheeName || 'Coachee',
+          coacheeEmail: sessionData.coacheeEmail,
+          date: format(scheduledAt, "EEEE d MMMM yyyy", { locale: it }),
+          time: format(scheduledAt, "HH:mm"),
+          duration: sessionData.duration || 30,
+          sessionDate: scheduledAt.toISOString(),
+          type: sessionData.type
+        }
+      }
+      
+      // Invia email
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailData)
       })
       
       setPendingSessions(prev => prev.filter(s => s.id !== sessionId))
@@ -272,7 +307,6 @@ export default function CoachDashboardPage() {
         upcomingSessions: prev.upcomingSessions + 1
       }))
       
-      // TODO: Invia email al coachee
     } catch (err) {
       console.error('Errore conferma:', err)
     } finally {
