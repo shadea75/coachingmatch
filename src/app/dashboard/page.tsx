@@ -40,7 +40,6 @@ export default function DashboardPage() {
   const [stats, setStats] = useState({ activeCoaches: 0, totalCoachees: 0 })
   const [communitySettings, setCommunitySettings] = useState({ 
     freeTrialDays: 30,
-    openAccessEnabled: true // Impostazione admin: se true, tutti accedono
   })
   const [userCalls, setUserCalls] = useState<any[]>([])
   
@@ -80,7 +79,6 @@ export default function DashboardPage() {
           const data = settingsDoc.data()
           setCommunitySettings({
             freeTrialDays: data.freeTrialDays ?? 30,
-            openAccessEnabled: data.openAccessEnabled !== false // Default true
           })
         }
       } catch (err) {
@@ -90,7 +88,7 @@ export default function DashboardPage() {
     loadStats()
   }, [])
   
-  // Calcola se l'utente è nel periodo di prova gratuito
+  // Calcola se l'utente è nel periodo di prova gratuito (30 giorni dalla registrazione)
   const isInFreeTrial = () => {
     if (!user?.createdAt) return false
     const createdAt = user.createdAt instanceof Date ? user.createdAt : new Date(user.createdAt)
@@ -99,19 +97,15 @@ export default function DashboardPage() {
   }
   
   const daysLeftInTrial = () => {
-    if (!user?.createdAt) return communitySettings.freeTrialDays
+    if (!user?.createdAt) return 0
     const createdAt = user.createdAt instanceof Date ? user.createdAt : new Date(user.createdAt)
     const trialEndDate = new Date(createdAt.getTime() + communitySettings.freeTrialDays * 24 * 60 * 60 * 1000)
     const daysLeft = Math.ceil((trialEndDate.getTime() - new Date().getTime()) / (24 * 60 * 60 * 1000))
     return Math.max(0, daysLeft)
   }
   
-  // Accesso community controllato da admin
-  // Se openAccessEnabled = true → tutti accedono
-  // Altrimenti serve abbonamento o periodo di prova
-  const canAccessCommunity = communitySettings.openAccessEnabled || 
-    user?.membershipStatus === 'active' || 
-    isInFreeTrial()
+  // Accesso community: abbonamento attivo O periodo di prova (30 giorni)
+  const canAccessCommunity = user?.membershipStatus === 'active' || isInFreeTrial()
   
   // Mock area scores
   const mockScores = user?.areaScores || {
@@ -503,7 +497,28 @@ export default function DashboardPage() {
                   </ul>
                 </div>
                 
-                <button className="btn btn-primary w-full">
+                <button 
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/community-subscription', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          userId: user?.id,
+                          userEmail: user?.email,
+                          userName: user?.name || user?.email?.split('@')[0]
+                        })
+                      })
+                      const data = await res.json()
+                      if (data.url) {
+                        window.location.href = data.url
+                      }
+                    } catch (err) {
+                      console.error('Errore abbonamento:', err)
+                    }
+                  }}
+                  className="btn btn-primary w-full"
+                >
                   Abbonati a €29/mese
                 </button>
                 <p className="text-xs text-gray-400 mt-2">

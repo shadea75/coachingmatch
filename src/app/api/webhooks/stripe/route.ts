@@ -34,7 +34,47 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
-        await handleCheckoutCompleted(session)
+        
+        // Controlla se è una subscription community
+        if (session.metadata?.type === 'community_subscription') {
+          await handleCommunitySubscriptionCreated(session)
+        } else {
+          await handleCheckoutCompleted(session)
+        }
+        break
+      }
+      
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription
+        if (subscription.metadata?.type === 'community_subscription') {
+          await handleSubscriptionUpdated(subscription)
+        }
+        break
+      }
+      
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription
+        if (subscription.metadata?.type === 'community_subscription') {
+          await handleSubscriptionCancelled(subscription)
+        }
+        break
+      }
+      
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice
+        // Rinnovo subscription
+        if (invoice.subscription) {
+          console.log(`Invoice paid for subscription: ${invoice.subscription}`)
+        }
+        break
+      }
+      
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice
+        if (invoice.subscription) {
+          await handleSubscriptionPaymentFailed(invoice)
+        }
         break
       }
       
@@ -240,4 +280,72 @@ async function updateCoachEarnings(coachId: string, amount: number) {
       updatedAt: serverTimestamp()
     })
   }
+}
+
+// ============= COMMUNITY SUBSCRIPTION HANDLERS =============
+
+// Gestisce creazione subscription community
+async function handleCommunitySubscriptionCreated(session: Stripe.Checkout.Session) {
+  const userId = session.metadata?.userId
+  
+  if (!userId) {
+    console.error('No userId in subscription session metadata')
+    return
+  }
+  
+  // Aggiorna utente con membership attiva
+  await updateDoc(doc(db, 'users', userId), {
+    membershipStatus: 'active',
+    membershipType: 'community',
+    stripeCustomerId: session.customer,
+    stripeSubscriptionId: session.subscription,
+    membershipStartDate: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  })
+  
+  console.log(`Community subscription created for user ${userId}`)
+  
+  // TODO: Invia email di benvenuto community
+}
+
+// Gestisce aggiornamento subscription
+async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+  const userId = subscription.metadata?.userId
+  
+  if (!userId) return
+  
+  const status = subscription.status === 'active' ? 'active' : 'inactive'
+  
+  await updateDoc(doc(db, 'users', userId), {
+    membershipStatus: status,
+    stripeSubscriptionStatus: subscription.status,
+    updatedAt: serverTimestamp()
+  })
+  
+  console.log(`Subscription updated for user ${userId}: ${status}`)
+}
+
+// Gestisce cancellazione subscription
+async function handleSubscriptionCancelled(subscription: Stripe.Subscription) {
+  const userId = subscription.metadata?.userId
+  
+  if (!userId) return
+  
+  await updateDoc(doc(db, 'users', userId), {
+    membershipStatus: 'cancelled',
+    membershipEndDate: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  })
+  
+  console.log(`Subscription cancelled for user ${userId}`)
+  
+  // TODO: Invia email di conferma cancellazione
+}
+
+// Gestisce pagamento subscription fallito
+async function handleSubscriptionPaymentFailed(invoice: Stripe.Invoice) {
+  // Trova utente dal customer
+  console.log(`Subscription payment failed for customer: ${invoice.customer}`)
+  
+  // TODO: Invia email di avviso pagamento fallito
 }
