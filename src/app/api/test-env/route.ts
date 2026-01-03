@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 
 export async function GET() {
-  // Mostra TUTTE le variabili d'ambiente che iniziano con G
-  const allEnvKeys = Object.keys(process.env).filter(k => k.startsWith('G') || k.startsWith('NEXT'))
+  const allKeys = Object.keys(process.env).sort()
   
   return NextResponse.json({
-    allEnvKeys,
-    totalEnvVars: Object.keys(process.env).length
+    totalEnvVars: allKeys.length,
+    hasGCAL: allKeys.filter(k => k.includes('GCAL')),
+    hasGOOGLE: allKeys.filter(k => k.includes('GOOGLE')),
+    // Mostra le ultime 20 variabili aggiunte (alfabeticamente)
+    lastKeys: allKeys.slice(-20)
   })
 }
