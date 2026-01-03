@@ -206,14 +206,16 @@ export default function CoachDashboardPage() {
         const sessionsQuery = query(
           collection(db, 'sessions'),
           where('coachId', '==', user.id),
-          where('status', 'in', ['pending', 'confirmed']),
-          orderBy('scheduledAt', 'asc')
+          where('status', 'in', ['pending', 'confirmed'])
         )
         const sessionsSnap = await getDocs(sessionsQuery)
+        
+        console.log('Sessioni trovate:', sessionsSnap.size) // Debug
         
         const now = new Date()
         const sessions = sessionsSnap.docs.map(doc => {
           const data = doc.data()
+          console.log('Sessione:', doc.id, data) // Debug
           return {
             id: doc.id,
             coacheeName: data.coacheeName || 'Coachee',
@@ -223,6 +225,9 @@ export default function CoachDashboardPage() {
             scheduledAt: data.scheduledAt?.toDate?.() || new Date(data.scheduledAt)
           }
         })
+        
+        // Ordina per data (ascending)
+        sessions.sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())
         
         const pendingSessionsList = sessions.filter(s => s.status === 'pending')
         const upcoming = sessions.filter(s => s.status === 'confirmed' && s.scheduledAt > now)
