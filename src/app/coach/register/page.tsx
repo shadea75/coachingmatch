@@ -187,19 +187,8 @@ export default function CoachRegisterPage() {
         displayName: formData.name
       })
       
-      // 3. Upload foto se presente
+      // 3. Foto sarà caricata dopo dalle impostazioni (evita errori CORS)
       let photoURL = ''
-      if (formData.photo) {
-        try {
-          const photoRef = ref(storage, `profile-photos/${userId}`)
-          await uploadBytes(photoRef, formData.photo)
-          photoURL = await getDownloadURL(photoRef)
-        } catch (photoError: any) {
-          console.warn('Upload foto fallito, continuo senza:', photoError?.message || photoError)
-          // NON blocchiamo la registrazione per la foto
-          photoURL = ''
-        }
-      }
       
       // 4. Crea documento utente in Firestore
       await setDoc(doc(db, 'users', userId), {
@@ -406,7 +395,7 @@ export default function CoachRegisterPage() {
                 </div>
                 
                 <div>
-                  <label className="label">Foto profilo</label>
+                  <label className="label">Foto profilo <span className="text-gray-400 font-normal">(opzionale)</span></label>
                   <div 
                     className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 transition-colors cursor-pointer"
                     onClick={() => document.getElementById('photo-input')?.click()}
@@ -425,6 +414,9 @@ export default function CoachRegisterPage() {
                         <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
                         <p className="text-sm text-gray-500">
                           Trascina un'immagine o clicca per caricare
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Potrai aggiungere la foto anche dopo dalla dashboard
                         </p>
                       </>
                     )}
