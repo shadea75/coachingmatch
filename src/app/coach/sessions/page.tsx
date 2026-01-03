@@ -195,6 +195,13 @@ export default function CoachSessionsPage() {
     
     setActionLoading(sessionId)
     try {
+      // Recupera i dati della sessione
+      const sessionDoc = await getDoc(doc(db, 'sessions', sessionId))
+      if (!sessionDoc.exists()) {
+        throw new Error('Sessione non trovata')
+      }
+      const sessionData = sessionDoc.data()
+      
       await updateDoc(doc(db, 'sessions', sessionId), {
         status: 'cancelled',
         cancelledBy: 'coach',
@@ -202,12 +209,30 @@ export default function CoachSessionsPage() {
         updatedAt: serverTimestamp()
       })
       
+      // Prepara e invia email
+      const scheduledAt = sessionData.scheduledAt?.toDate?.() || new Date(sessionData.scheduledAt)
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'session_cancelled_by_coach',
+          data: {
+            coachName: user?.name || 'Coach',
+            coachEmail: user?.email,
+            coacheeName: sessionData.coacheeName || 'Coachee',
+            coacheeEmail: sessionData.coacheeEmail,
+            date: format(scheduledAt, "EEEE d MMMM yyyy", { locale: it }),
+            time: format(scheduledAt, "HH:mm"),
+            reason: 'rejected'
+          }
+        })
+      })
+      
       setSessions(prev => prev.map(s => 
         s.id === sessionId ? { ...s, status: 'cancelled' as const } : s
       ))
       setPendingCount(prev => prev - 1)
       
-      // TODO: Invia email al coachee
     } catch (err) {
       console.error('Errore rifiuto:', err)
     } finally {
@@ -220,6 +245,13 @@ export default function CoachSessionsPage() {
     
     setActionLoading(sessionId)
     try {
+      // Recupera i dati della sessione
+      const sessionDoc = await getDoc(doc(db, 'sessions', sessionId))
+      if (!sessionDoc.exists()) {
+        throw new Error('Sessione non trovata')
+      }
+      const sessionData = sessionDoc.data()
+      
       await updateDoc(doc(db, 'sessions', sessionId), {
         status: 'cancelled',
         cancelledBy: 'coach',
@@ -227,11 +259,29 @@ export default function CoachSessionsPage() {
         updatedAt: serverTimestamp()
       })
       
+      // Prepara e invia email
+      const scheduledAt = sessionData.scheduledAt?.toDate?.() || new Date(sessionData.scheduledAt)
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'session_cancelled_by_coach',
+          data: {
+            coachName: user?.name || 'Coach',
+            coachEmail: user?.email,
+            coacheeName: sessionData.coacheeName || 'Coachee',
+            coacheeEmail: sessionData.coacheeEmail,
+            date: format(scheduledAt, "EEEE d MMMM yyyy", { locale: it }),
+            time: format(scheduledAt, "HH:mm"),
+            reason: 'cancelled'
+          }
+        })
+      })
+      
       setSessions(prev => prev.map(s => 
         s.id === sessionId ? { ...s, status: 'cancelled' as const } : s
       ))
       
-      // TODO: Invia email al coachee
     } catch (err) {
       console.error('Errore annullamento:', err)
     } finally {
@@ -675,12 +725,29 @@ export default function CoachSessionsPage() {
                       updatedAt: serverTimestamp()
                     })
                     
+                    // Invia email al coachee
+                    await fetch('/api/send-email', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        type: 'session_rescheduled_by_coach',
+                        data: {
+                          coachName: user?.name || 'Coach',
+                          coachEmail: user?.email,
+                          coacheeName: selectedSession.coacheeName,
+                          coacheeEmail: selectedSession.coacheeEmail,
+                          date: format(selectedSession.scheduledAt, "EEEE d MMMM yyyy", { locale: it }),
+                          time: format(selectedSession.scheduledAt, "HH:mm"),
+                          coachId: user?.id
+                        }
+                      })
+                    })
+                    
                     setSessions(prev => prev.map(s => 
                       s.id === selectedSession.id ? { ...s, status: 'rescheduled' as const } : s
                     ))
                     
                     setShowRescheduleModal(false)
-                    // TODO: Invia email al coachee
                   } catch (err) {
                     console.error('Errore rimando:', err)
                   } finally {
