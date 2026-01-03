@@ -51,16 +51,18 @@ export default function CoachRegisterPage() {
   const [error, setError] = useState('')
   
   const [formData, setFormData] = useState({
-    // Step 1
+    // Step 1 - Info personali
     name: '',
     email: '',
     password: '',
     photo: null as File | null,
     photoPreview: '',
-    bio: '',
+    bio: '', // "La mia storia, la mia missione"
+    motivation: '', // "Il mio scopo"
     
-    // Step 2
+    // Step 2 - Esperienza
     certifications: [{ name: '', institution: '', year: new Date().getFullYear(), file: null as File | null }],
+    education: [''], // Formazione/studi
     certificationFiles: [] as File[],
     yearsOfExperience: 0,
     languages: ['Italiano'],
@@ -69,14 +71,14 @@ export default function CoachRegisterPage() {
     averagePrice: 100,
     freeCallAvailable: true,
     
-    // Step 3
+    // Step 3 - Specializzazioni
     lifeAreas: [] as LifeAreaId[],
     clientTypes: [] as string[],
     problemsAddressed: [] as string[],
     coachingMethod: [] as string[],
     style: [] as string[],
     
-    // Step 4
+    // Step 4 - Disponibilità
     availability: {
       monday: true,
       tuesday: true,
@@ -195,26 +197,32 @@ export default function CoachRegisterPage() {
         name: formData.name,
         email: formData.email,
         photo: photoURL,
-        role: 'coach',
+        role: 'pending_coach', // In attesa di approvazione admin
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       })
       
       // 5. Crea la candidatura coach
       const applicationData = {
-        userId: userId, // Link all'utente Firebase Auth
+        userId: userId,
         // Dati personali
         name: formData.name,
         email: formData.email,
         photo: photoURL,
-        bio: formData.bio,
+        bio: formData.bio, // La mia storia
+        motivation: formData.motivation, // Il mio scopo
         
-        // Esperienza
+        // Esperienza e formazione
         certifications: formData.certifications.map(c => ({
           name: c.name,
           institution: c.institution,
           year: c.year
         })),
+        education: formData.education.filter(e => e.trim() !== ''), // Formazione/studi
+        experience: {
+          yearsCoaching: formData.yearsOfExperience,
+          certifications: formData.certifications.map(c => c.name).filter(n => n)
+        },
         yearsOfExperience: formData.yearsOfExperience,
         languages: formData.languages,
         
@@ -395,17 +403,33 @@ export default function CoachRegisterPage() {
                 </div>
                 
                 <div>
-                  <label className="label">Bio professionale *</label>
+                  <label className="label">La mia storia, la mia missione *</label>
+                  <p className="text-xs text-gray-500 mb-2">Racconta chi sei, il tuo percorso e cosa ti ha portato a diventare coach</p>
                   <textarea
                     className="input min-h-[120px]"
                     value={formData.bio}
                     onChange={(e) => updateForm('bio', e.target.value)}
-                    placeholder="Descrivi la tua esperienza e il tuo approccio al coaching..."
-                    maxLength={500}
+                    placeholder="La mia passione per il coaching nasce da..."
+                    maxLength={1000}
                     required
                   />
                   <p className="text-xs text-gray-400 mt-1 text-right">
-                    {formData.bio.length}/500
+                    {formData.bio.length}/1000
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="label">Il mio scopo</label>
+                  <p className="text-xs text-gray-500 mb-2">Qual è la tua missione? Cosa vuoi aiutare le persone a raggiungere?</p>
+                  <textarea
+                    className="input min-h-[100px]"
+                    value={formData.motivation}
+                    onChange={(e) => updateForm('motivation', e.target.value)}
+                    placeholder="Il mio scopo è aiutare le persone a..."
+                    maxLength={500}
+                  />
+                  <p className="text-xs text-gray-400 mt-1 text-right">
+                    {formData.motivation.length}/500
                   </p>
                 </div>
               </div>
@@ -419,7 +443,7 @@ export default function CoachRegisterPage() {
                 </h2>
                 
                 <div>
-                  <label className="label">Certificazioni</label>
+                  <label className="label">Certificazioni di coaching</label>
                   {formData.certifications.map((cert, index) => (
                     <div key={index} className="bg-gray-50 rounded-xl p-4 mb-3">
                       <div className="grid md:grid-cols-3 gap-3 mb-3">
@@ -460,6 +484,43 @@ export default function CoachRegisterPage() {
                     className="text-primary-500 text-sm font-medium flex items-center gap-1 hover:underline"
                   >
                     <Plus size={16} /> Aggiungi certificazione
+                  </button>
+                </div>
+                
+                <div>
+                  <label className="label">Formazione e studi</label>
+                  <p className="text-xs text-gray-500 mb-2">Lauree, master, corsi rilevanti</p>
+                  {formData.education.map((edu, index) => (
+                    <div key={index} className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        className="input flex-1"
+                        value={edu}
+                        onChange={(e) => {
+                          const newEdu = [...formData.education]
+                          newEdu[index] = e.target.value
+                          updateForm('education', newEdu)
+                        }}
+                        placeholder="Es: Laurea in Psicologia - Università di Milano"
+                      />
+                      {formData.education.length > 1 && (
+                        <button
+                          onClick={() => {
+                            const newEdu = formData.education.filter((_, i) => i !== index)
+                            updateForm('education', newEdu)
+                          }}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                        >
+                          <X size={18} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => updateForm('education', [...formData.education, ''])}
+                    className="text-primary-500 text-sm font-medium flex items-center gap-1 hover:underline"
+                  >
+                    <Plus size={16} /> Aggiungi formazione
                   </button>
                 </div>
                 
