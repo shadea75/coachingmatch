@@ -77,12 +77,14 @@ export default function CoachSessionsPage() {
       
       setIsLoading(true)
       try {
+        // Query senza orderBy per evitare indici compositi
         const sessionsQuery = query(
           collection(db, 'sessions'),
-          where('coachId', '==', user.id),
-          orderBy('scheduledAt', 'asc')
+          where('coachId', '==', user.id)
         )
         const snap = await getDocs(sessionsQuery)
+        
+        console.log('Sessioni trovate in /coach/sessions:', snap.size) // Debug
         
         const loadedSessions: Session[] = snap.docs.map(doc => {
           const data = doc.data()
@@ -100,6 +102,9 @@ export default function CoachSessionsPage() {
             createdAt: data.createdAt?.toDate?.() || new Date()
           }
         })
+        
+        // Ordina per data (ascending)
+        loadedSessions.sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())
         
         setSessions(loadedSessions)
         setPendingCount(loadedSessions.filter(s => s.status === 'pending').length)
