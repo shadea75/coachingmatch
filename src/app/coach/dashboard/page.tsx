@@ -286,6 +286,14 @@ export default function CoachDashboardPage() {
       </Link>
       
       <Link
+        href="/coach/availability"
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+      >
+        <Calendar size={20} />
+        <span className="font-medium">Disponibilità</span>
+      </Link>
+      
+      <Link
         href="/community"
         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
       >
