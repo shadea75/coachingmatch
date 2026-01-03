@@ -1,426 +1,890 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
-  ArrowLeft, 
-  Clock, 
-  Save,
-  Plus,
-  Trash2,
-  Loader2,
-  AlertCircle,
-  CheckCircle,
+  ArrowLeft,
   Calendar,
-  Settings
+  Clock,
+  Plus,
+  X,
+  Check,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Save,
+  Ban,
+  User
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
-import { 
-  CoachAvailability,
-  DailyAvailability,
-  TimeSlot,
-  DAYS_OF_WEEK,
-  generateTimeOptions,
-  createDefaultAvailability
-} from '@/types/sessions'
 import { db } from '@/lib/firebase'
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, collection, query, where, getDocs, addDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
+import { format, addDays, startOfWeek, endOfWeek, isSameDay, addWeeks, isBefore, startOfDay } from 'date-fns'
+import { it } from 'date-fns/locale'
+
+interface WeeklyAvailability {
+  [day: number]: string[] // 0 = Domenica, 1 = Lunedì, etc.
+}
+
+interface ManualEvent {
+  id: string
+  title: string
+  date: Date
+  startTime: string
+  endTime: string
+  type: 'blocked' | 'external' | 'internal'
+  notes?: string
+}
+
+interface BlockedDate {
+  id: string
+  date: Date
+  reason?: string
+}
+
+const DEFAULT_AVAILABILITY: WeeklyAvailability = {
+  1: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'], // Lunedì
+  2: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'], // Martedì
+  3: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'], // Mercoledì
+  4: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'], // Giovedì
+  5: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'], // Venerdì
+}
+
+const TIME_SLOTS = [
+  '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
+  '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'
+]
+
+const DAYS_OF_WEEK = [
+  { id: 1, name: 'Lunedì', short: 'Lun' },
+  { id: 2, name: 'Martedì', short: 'Mar' },
+  { id: 3, name: 'Mercoledì', short: 'Mer' },
+  { id: 4, name: 'Giovedì', short: 'Gio' },
+  { id: 5, name: 'Venerdì', short: 'Ven' },
+  { id: 6, name: 'Sabato', short: 'Sab' },
+  { id: 0, name: 'Domenica', short: 'Dom' },
+]
 
 export default function CoachAvailabilityPage() {
-  const { user } = useAuth()
+  const router = useRouter()
+  const { user, loading } = useAuth()
+  
+  const [activeTab, setActiveTab] = useState<'weekly' | 'calendar' | 'events'>('calendar')
+  const [weeklyAvailability, setWeeklyAvailability] = useState<WeeklyAvailability>(DEFAULT_AVAILABILITY)
+  const [manualEvents, setManualEvents] = useState<ManualEvent[]>([])
+  const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([])
+  const [bookedSessions, setBookedSessions] = useState<any[]>([])
+  
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => 
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  )
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
-  const [error, setError] = useState('')
   
-  const [availability, setAvailability] = useState<CoachAvailability | null>(null)
+  // Modal states
+  const [showEventModal, setShowEventModal] = useState(false)
+  const [showBlockModal, setShowBlockModal] = useState(false)
+  const [newEvent, setNewEvent] = useState({
+    title: '',
+    date: new Date(),
+    startTime: '09:00',
+    endTime: '10:00',
+    type: 'external' as 'blocked' | 'external' | 'internal',
+    notes: ''
+  })
+  const [blockReason, setBlockReason] = useState('')
   
-  const timeOptions = generateTimeOptions()
-  
-  // Carica disponibilità
+  // Redirect se non loggato
   useEffect(() => {
-    const loadAvailability = async () => {
+    if (!loading && !user) {
+      router.replace('/login')
+    }
+  }, [user, loading, router])
+  
+  // Carica dati
+  useEffect(() => {
+    const loadData = async () => {
       if (!user?.id) return
       
       setIsLoading(true)
       try {
+        // Carica disponibilità settimanale
         const availDoc = await getDoc(doc(db, 'coachAvailability', user.id))
-        
         if (availDoc.exists()) {
-          setAvailability(availDoc.data() as CoachAvailability)
-        } else {
-          // Crea disponibilità di default
-          const defaultAvail = createDefaultAvailability(user.id)
-          setAvailability(defaultAvail)
+          const data = availDoc.data()
+          if (data.weeklySlots) {
+            setWeeklyAvailability(data.weeklySlots)
+          }
         }
+        
+        // Carica eventi manuali
+        const eventsQuery = query(
+          collection(db, 'coachEvents'),
+          where('coachId', '==', user.id)
+        )
+        const eventsSnap = await getDocs(eventsQuery)
+        const events = eventsSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          date: doc.data().date?.toDate?.() || new Date(doc.data().date)
+        })) as ManualEvent[]
+        setManualEvents(events)
+        
+        // Carica date bloccate
+        const blockedQuery = query(
+          collection(db, 'coachBlockedDates'),
+          where('coachId', '==', user.id)
+        )
+        const blockedSnap = await getDocs(blockedQuery)
+        const blocked = blockedSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          date: doc.data().date?.toDate?.() || new Date(doc.data().date)
+        })) as BlockedDate[]
+        setBlockedDates(blocked)
+        
+        // Carica sessioni prenotate
+        const sessionsQuery = query(
+          collection(db, 'sessions'),
+          where('coachId', '==', user.id),
+          where('status', 'in', ['pending', 'confirmed'])
+        )
+        const sessionsSnap = await getDocs(sessionsQuery)
+        const sessions = sessionsSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          scheduledAt: doc.data().scheduledAt?.toDate?.() || new Date(doc.data().scheduledAt)
+        }))
+        setBookedSessions(sessions)
+        
       } catch (err) {
-        console.error('Errore caricamento disponibilità:', err)
-        setError('Errore nel caricamento')
+        console.error('Errore caricamento dati:', err)
       } finally {
         setIsLoading(false)
       }
     }
     
-    loadAvailability()
+    loadData()
   }, [user?.id])
   
-  // Toggle giorno
-  const toggleDay = (dayOfWeek: number) => {
-    if (!availability) return
-    
-    setAvailability({
-      ...availability,
-      weeklySchedule: availability.weeklySchedule.map(day => 
-        day.dayOfWeek === dayOfWeek 
-          ? { 
-              ...day, 
-              enabled: !day.enabled,
-              slots: !day.enabled ? [{ start: '09:00', end: '18:00' }] : day.slots
-            }
-          : day
-      )
-    })
-  }
-  
-  // Aggiorna slot
-  const updateSlot = (dayOfWeek: number, slotIndex: number, field: 'start' | 'end', value: string) => {
-    if (!availability) return
-    
-    setAvailability({
-      ...availability,
-      weeklySchedule: availability.weeklySchedule.map(day => {
-        if (day.dayOfWeek !== dayOfWeek) return day
-        
-        const newSlots = [...day.slots]
-        newSlots[slotIndex] = { ...newSlots[slotIndex], [field]: value }
-        return { ...day, slots: newSlots }
-      })
-    })
-  }
-  
-  // Aggiungi slot
-  const addSlot = (dayOfWeek: number) => {
-    if (!availability) return
-    
-    setAvailability({
-      ...availability,
-      weeklySchedule: availability.weeklySchedule.map(day => {
-        if (day.dayOfWeek !== dayOfWeek) return day
-        
-        const lastSlot = day.slots[day.slots.length - 1]
-        const newStart = lastSlot ? lastSlot.end : '14:00'
-        const newEnd = '18:00'
-        
-        return { ...day, slots: [...day.slots, { start: newStart, end: newEnd }] }
-      })
-    })
-  }
-  
-  // Rimuovi slot
-  const removeSlot = (dayOfWeek: number, slotIndex: number) => {
-    if (!availability) return
-    
-    setAvailability({
-      ...availability,
-      weeklySchedule: availability.weeklySchedule.map(day => {
-        if (day.dayOfWeek !== dayOfWeek) return day
-        
-        return { ...day, slots: day.slots.filter((_, i) => i !== slotIndex) }
-      })
-    })
-  }
-  
-  // Salva
-  const handleSave = async () => {
-    if (!availability || !user?.id) return
+  // Salva disponibilità settimanale
+  const saveWeeklyAvailability = async () => {
+    if (!user?.id) return
     
     setIsSaving(true)
-    setError('')
-    setSaveSuccess(false)
-    
     try {
       await setDoc(doc(db, 'coachAvailability', user.id), {
-        ...availability,
+        coachId: user.id,
+        weeklySlots: weeklyAvailability,
         updatedAt: serverTimestamp()
-      })
+      }, { merge: true })
+      
+      // Aggiorna anche coachApplications per compatibilità
+      await setDoc(doc(db, 'coachApplications', user.id), {
+        availability: weeklyAvailability,
+        updatedAt: serverTimestamp()
+      }, { merge: true })
       
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 3000)
     } catch (err) {
       console.error('Errore salvataggio:', err)
-      setError('Errore durante il salvataggio')
+      alert('Errore nel salvataggio')
     } finally {
       setIsSaving(false)
     }
   }
   
-  if (!user || user.role !== 'coach') {
+  // Toggle slot disponibilità
+  const toggleSlot = (day: number, time: string) => {
+    setWeeklyAvailability(prev => {
+      const daySlots = prev[day] || []
+      if (daySlots.includes(time)) {
+        return { ...prev, [day]: daySlots.filter(t => t !== time) }
+      } else {
+        return { ...prev, [day]: [...daySlots, time].sort() }
+      }
+    })
+  }
+  
+  // Aggiungi evento manuale
+  const addManualEvent = async () => {
+    if (!user?.id || !newEvent.title) return
+    
+    try {
+      const eventRef = await addDoc(collection(db, 'coachEvents'), {
+        coachId: user.id,
+        title: newEvent.title,
+        date: newEvent.date,
+        startTime: newEvent.startTime,
+        endTime: newEvent.endTime,
+        type: newEvent.type,
+        notes: newEvent.notes,
+        createdAt: serverTimestamp()
+      })
+      
+      setManualEvents(prev => [...prev, {
+        id: eventRef.id,
+        ...newEvent
+      }])
+      
+      setShowEventModal(false)
+      setNewEvent({
+        title: '',
+        date: selectedDate || new Date(),
+        startTime: '09:00',
+        endTime: '10:00',
+        type: 'external',
+        notes: ''
+      })
+    } catch (err) {
+      console.error('Errore aggiunta evento:', err)
+      alert('Errore nell\'aggiunta evento')
+    }
+  }
+  
+  // Blocca data
+  const blockDate = async () => {
+    if (!user?.id || !selectedDate) return
+    
+    try {
+      const blockRef = await addDoc(collection(db, 'coachBlockedDates'), {
+        coachId: user.id,
+        date: selectedDate,
+        reason: blockReason,
+        createdAt: serverTimestamp()
+      })
+      
+      setBlockedDates(prev => [...prev, {
+        id: blockRef.id,
+        date: selectedDate,
+        reason: blockReason
+      }])
+      
+      setShowBlockModal(false)
+      setBlockReason('')
+    } catch (err) {
+      console.error('Errore blocco data:', err)
+    }
+  }
+  
+  // Sblocca data
+  const unblockDate = async (blockId: string) => {
+    try {
+      await deleteDoc(doc(db, 'coachBlockedDates', blockId))
+      setBlockedDates(prev => prev.filter(b => b.id !== blockId))
+    } catch (err) {
+      console.error('Errore sblocco data:', err)
+    }
+  }
+  
+  // Elimina evento manuale
+  const deleteEvent = async (eventId: string) => {
+    try {
+      await deleteDoc(doc(db, 'coachEvents', eventId))
+      setManualEvents(prev => prev.filter(e => e.id !== eventId))
+    } catch (err) {
+      console.error('Errore eliminazione evento:', err)
+    }
+  }
+  
+  // Genera giorni della settimana
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i))
+  
+  // Verifica se una data è bloccata
+  const isDateBlocked = (date: Date) => {
+    return blockedDates.some(b => isSameDay(b.date, date))
+  }
+  
+  // Ottieni eventi per una data
+  const getEventsForDate = (date: Date) => {
+    const events: any[] = []
+    
+    // Eventi manuali
+    manualEvents.forEach(e => {
+      if (isSameDay(e.date, date)) {
+        events.push({ ...e, source: 'manual' })
+      }
+    })
+    
+    // Sessioni prenotate
+    bookedSessions.forEach(s => {
+      if (isSameDay(s.scheduledAt, date)) {
+        events.push({
+          id: s.id,
+          title: `Sessione con ${s.coacheeName}`,
+          date: s.scheduledAt,
+          startTime: format(s.scheduledAt, 'HH:mm'),
+          endTime: format(new Date(s.scheduledAt.getTime() + (s.duration || 30) * 60000), 'HH:mm'),
+          type: 'session',
+          source: 'booking'
+        })
+      }
+    })
+    
+    return events.sort((a, b) => a.startTime.localeCompare(b.startTime))
+  }
+  
+  if (loading || isLoading) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
-        <p className="text-gray-500">Accesso riservato ai coach</p>
+        <Loader2 className="animate-spin text-primary-500" size={40} />
       </div>
     )
   }
   
+  if (!user) return null
+  
   return (
     <div className="min-h-screen bg-cream">
       {/* Header */}
-      <header className="bg-white border-b border-gray-100">
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link 
-                href="/coach/dashboard"
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft size={20} />
-              </Link>
-              <div>
-                <h1 className="text-xl font-semibold text-charcoal">Disponibilità</h1>
-                <p className="text-sm text-gray-500">Imposta i tuoi orari</p>
-              </div>
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.back()}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div className="flex items-center gap-2">
+              <Calendar size={20} className="text-primary-500" />
+              <span className="font-semibold text-charcoal">Gestione Disponibilità</span>
             </div>
-            <Logo size="sm" />
           </div>
+          <Logo size="sm" />
         </div>
       </header>
       
-      <main className="max-w-3xl mx-auto px-4 py-6">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="animate-spin text-primary-500" size={32} />
+      {/* Tabs */}
+      <div className="bg-white border-b border-gray-100">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="flex gap-1">
+            {[
+              { id: 'calendar', label: 'Calendario', icon: Calendar },
+              { id: 'weekly', label: 'Orari Settimanali', icon: Clock },
+              { id: 'events', label: 'I Miei Impegni', icon: User },
+            ].map(tab => {
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center gap-2 px-4 py-3 font-medium border-b-2 transition-colors ${
+                    activeTab === tab.id
+                      ? 'border-primary-500 text-primary-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Icon size={18} />
+                  {tab.label}
+                </button>
+              )
+            })}
           </div>
-        ) : availability ? (
-          <div className="space-y-6">
-            {/* Info */}
-            <div className="bg-blue-50 rounded-xl p-4 flex items-start gap-3">
-              <Calendar className="text-blue-500 flex-shrink-0 mt-0.5" size={20} />
-              <p className="text-sm text-blue-700">
-                Imposta gli orari in cui sei disponibile per le sessioni. 
-                I coachee potranno prenotare solo negli slot che indichi.
-              </p>
+        </div>
+      </div>
+      
+      <main className="max-w-6xl mx-auto px-4 py-6">
+        {/* Tab: Calendario */}
+        {activeTab === 'calendar' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-6"
+          >
+            {/* Navigazione settimana */}
+            <div className="bg-white rounded-2xl p-4 flex items-center justify-between">
+              <button
+                onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, -1))}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <h2 className="font-semibold text-charcoal">
+                {format(currentWeekStart, "d MMM", { locale: it })} - {format(addDays(currentWeekStart, 6), "d MMM yyyy", { locale: it })}
+              </h2>
+              <button
+                onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, 1))}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ChevronRight size={20} />
+              </button>
             </div>
             
-            {/* Giorni della settimana */}
-            <div className="space-y-4">
-              {availability.weeklySchedule.map((day, index) => (
-                <motion.div
-                  key={day.dayOfWeek}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="bg-white rounded-xl p-5 shadow-sm"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => toggleDay(day.dayOfWeek)}
-                        className={`w-12 h-6 rounded-full transition-colors relative ${
-                          day.enabled ? 'bg-primary-500' : 'bg-gray-300'
-                        }`}
-                      >
-                        <span 
-                          className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                            day.enabled ? 'left-7' : 'left-1'
-                          }`}
-                        />
-                      </button>
-                      <span className={`font-medium ${day.enabled ? 'text-charcoal' : 'text-gray-400'}`}>
-                        {DAYS_OF_WEEK[day.dayOfWeek]}
-                      </span>
-                    </div>
-                    
-                    {day.enabled && (
-                      <button
-                        onClick={() => addSlot(day.dayOfWeek)}
-                        className="text-sm text-primary-500 hover:underline flex items-center gap-1"
-                      >
-                        <Plus size={14} />
-                        Aggiungi fascia
-                      </button>
-                    )}
-                  </div>
+            {/* Griglia calendario */}
+            <div className="bg-white rounded-2xl overflow-hidden">
+              <div className="grid grid-cols-7 border-b border-gray-100">
+                {weekDays.map(day => {
+                  const isToday = isSameDay(day, new Date())
+                  const isPast = isBefore(day, startOfDay(new Date()))
+                  const blocked = isDateBlocked(day)
+                  const events = getEventsForDate(day)
                   
-                  {day.enabled && (
-                    <div className="space-y-3">
-                      {day.slots.map((slot, slotIndex) => (
-                        <div key={slotIndex} className="flex items-center gap-3">
-                          <Clock size={16} className="text-gray-400" />
-                          <select
-                            value={slot.start}
-                            onChange={(e) => updateSlot(day.dayOfWeek, slotIndex, 'start', e.target.value)}
-                            className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      className={`p-3 border-r border-gray-100 last:border-r-0 ${
+                        isPast ? 'bg-gray-50' : blocked ? 'bg-red-50' : ''
+                      }`}
+                    >
+                      <div className="text-center mb-2">
+                        <div className="text-xs text-gray-500 uppercase">
+                          {format(day, 'EEE', { locale: it })}
+                        </div>
+                        <div className={`text-lg font-semibold ${
+                          isToday ? 'w-8 h-8 rounded-full bg-primary-500 text-white flex items-center justify-center mx-auto' : ''
+                        }`}>
+                          {format(day, 'd')}
+                        </div>
+                      </div>
+                      
+                      {/* Eventi del giorno */}
+                      <div className="space-y-1 min-h-[100px]">
+                        {blocked && (
+                          <div className="text-xs bg-red-100 text-red-700 rounded px-2 py-1 flex items-center gap-1">
+                            <Ban size={12} />
+                            Bloccato
+                          </div>
+                        )}
+                        {events.slice(0, 3).map(event => (
+                          <div
+                            key={event.id}
+                            className={`text-xs rounded px-2 py-1 truncate ${
+                              event.source === 'booking'
+                                ? 'bg-green-100 text-green-700'
+                                : event.type === 'external'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-gray-100 text-gray-700'
+                            }`}
+                            title={event.title}
                           >
-                            {timeOptions.map(time => (
-                              <option key={time} value={time}>{time}</option>
-                            ))}
-                          </select>
-                          <span className="text-gray-400">-</span>
-                          <select
-                            value={slot.end}
-                            onChange={(e) => updateSlot(day.dayOfWeek, slotIndex, 'end', e.target.value)}
-                            className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            {event.startTime} {event.title}
+                          </div>
+                        ))}
+                        {events.length > 3 && (
+                          <div className="text-xs text-gray-500 px-2">
+                            +{events.length - 3} altri
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Azioni */}
+                      {!isPast && (
+                        <div className="mt-2 flex gap-1">
+                          <button
+                            onClick={() => {
+                              setSelectedDate(day)
+                              setNewEvent(prev => ({ ...prev, date: day }))
+                              setShowEventModal(true)
+                            }}
+                            className="flex-1 text-xs bg-primary-50 text-primary-600 rounded py-1 hover:bg-primary-100"
                           >
-                            {timeOptions.map(time => (
-                              <option key={time} value={time}>{time}</option>
-                            ))}
-                          </select>
-                          {day.slots.length > 1 && (
+                            <Plus size={12} className="inline" />
+                          </button>
+                          {!blocked ? (
                             <button
-                              onClick={() => removeSlot(day.dayOfWeek, slotIndex)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              onClick={() => {
+                                setSelectedDate(day)
+                                setShowBlockModal(true)
+                              }}
+                              className="flex-1 text-xs bg-red-50 text-red-600 rounded py-1 hover:bg-red-100"
                             >
-                              <Trash2 size={16} />
+                              <Ban size={12} className="inline" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                const block = blockedDates.find(b => isSameDay(b.date, day))
+                                if (block) unblockDate(block.id)
+                              }}
+                              className="flex-1 text-xs bg-green-50 text-green-600 rounded py-1 hover:bg-green-100"
+                            >
+                              <Check size={12} className="inline" />
                             </button>
                           )}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
-                  
-                  {!day.enabled && (
-                    <p className="text-sm text-gray-400">Non disponibile</p>
-                  )}
-                </motion.div>
-              ))}
+                  )
+                })}
+              </div>
             </div>
             
-            {/* Impostazioni avanzate */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="bg-white rounded-xl p-5 shadow-sm"
-            >
-              <h3 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
-                <Settings size={18} className="text-gray-400" />
-                Impostazioni
-              </h3>
+            {/* Legenda */}
+            <div className="flex flex-wrap gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-green-100"></div>
+                <span className="text-gray-600">Sessioni prenotate</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-blue-100"></div>
+                <span className="text-gray-600">Impegni esterni</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-red-100"></div>
+                <span className="text-gray-600">Giorni bloccati</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+        
+        {/* Tab: Orari Settimanali */}
+        {activeTab === 'weekly' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-6"
+          >
+            <div className="bg-white rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-charcoal">Disponibilità Settimanale</h2>
+                  <p className="text-sm text-gray-500">Seleziona gli orari in cui sei disponibile ogni settimana</p>
+                </div>
+                <button
+                  onClick={saveWeeklyAvailability}
+                  disabled={isSaving}
+                  className="btn btn-primary"
+                >
+                  {isSaving ? (
+                    <Loader2 className="animate-spin" size={18} />
+                  ) : saveSuccess ? (
+                    <>
+                      <Check size={18} />
+                      Salvato!
+                    </>
+                  ) : (
+                    <>
+                      <Save size={18} />
+                      Salva
+                    </>
+                  )}
+                </button>
+              </div>
               
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Durata sessioni
-                  </label>
-                  <select
-                    value={availability.sessionDurations[0]}
-                    onChange={(e) => setAvailability({
-                      ...availability,
-                      sessionDurations: [parseInt(e.target.value)]
-                    })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value={30}>30 minuti</option>
-                    <option value={45}>45 minuti</option>
-                    <option value={60}>60 minuti</option>
-                    <option value={90}>90 minuti</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Pausa tra sessioni
-                  </label>
-                  <select
-                    value={availability.bufferBetweenSessions}
-                    onChange={(e) => setAvailability({
-                      ...availability,
-                      bufferBetweenSessions: parseInt(e.target.value)
-                    })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value={0}>Nessuna</option>
-                    <option value={15}>15 minuti</option>
-                    <option value={30}>30 minuti</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Prenotazione anticipata max
-                  </label>
-                  <select
-                    value={availability.advanceBookingDays}
-                    onChange={(e) => setAvailability({
-                      ...availability,
-                      advanceBookingDays: parseInt(e.target.value)
-                    })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value={7}>1 settimana</option>
-                    <option value={14}>2 settimane</option>
-                    <option value={30}>1 mese</option>
-                    <option value={60}>2 mesi</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Preavviso minimo
-                  </label>
-                  <select
-                    value={availability.minimumNotice}
-                    onChange={(e) => setAvailability({
-                      ...availability,
-                      minimumNotice: parseInt(e.target.value)
-                    })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value={2}>2 ore</option>
-                    <option value={6}>6 ore</option>
-                    <option value={12}>12 ore</option>
-                    <option value={24}>24 ore</option>
-                    <option value={48}>48 ore</option>
-                  </select>
-                </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr>
+                      <th className="text-left py-2 px-3 text-sm text-gray-500 font-medium">Orario</th>
+                      {DAYS_OF_WEEK.map(day => (
+                        <th key={day.id} className="py-2 px-3 text-sm text-gray-500 font-medium text-center">
+                          {day.short}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {TIME_SLOTS.map(time => (
+                      <tr key={time} className="border-t border-gray-100">
+                        <td className="py-2 px-3 text-sm text-gray-600">{time}</td>
+                        {DAYS_OF_WEEK.map(day => {
+                          const isAvailable = weeklyAvailability[day.id]?.includes(time)
+                          return (
+                            <td key={day.id} className="py-2 px-3 text-center">
+                              <button
+                                onClick={() => toggleSlot(day.id, time)}
+                                className={`w-8 h-8 rounded-lg transition-colors ${
+                                  isAvailable
+                                    ? 'bg-primary-500 text-white'
+                                    : 'bg-gray-100 hover:bg-gray-200 text-gray-400'
+                                }`}
+                              >
+                                {isAvailable && <Check size={16} className="mx-auto" />}
+                              </button>
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </motion.div>
-            
-            {/* Error */}
-            {error && (
-              <div className="bg-red-50 rounded-xl p-4 flex items-center gap-2 text-red-600">
-                <AlertCircle size={18} />
-                {error}
+            </div>
+          </motion.div>
+        )}
+        
+        {/* Tab: I Miei Impegni */}
+        {activeTab === 'events' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-6"
+          >
+            <div className="bg-white rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-charcoal">I Miei Impegni</h2>
+                  <p className="text-sm text-gray-500">Gestisci appuntamenti e impegni esterni</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setNewEvent({
+                      title: '',
+                      date: new Date(),
+                      startTime: '09:00',
+                      endTime: '10:00',
+                      type: 'external',
+                      notes: ''
+                    })
+                    setShowEventModal(true)
+                  }}
+                  className="btn btn-primary"
+                >
+                  <Plus size={18} />
+                  Aggiungi Impegno
+                </button>
               </div>
-            )}
-            
-            {/* Success */}
-            {saveSuccess && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-green-50 rounded-xl p-4 flex items-center gap-2 text-green-600"
-              >
-                <CheckCircle size={18} />
-                Disponibilità salvata con successo!
-              </motion.div>
-            )}
-            
-            {/* Save button */}
-            <div className="flex justify-end">
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 disabled:opacity-50 flex items-center gap-2 transition-colors"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    Salvataggio...
-                  </>
+              
+              {/* Lista impegni */}
+              <div className="space-y-3">
+                {manualEvents.length === 0 && bookedSessions.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <Calendar size={48} className="mx-auto mb-4 opacity-50" />
+                    <p>Nessun impegno programmato</p>
+                  </div>
                 ) : (
                   <>
-                    <Save size={18} />
-                    Salva disponibilità
+                    {/* Sessioni prenotate */}
+                    {bookedSessions
+                      .filter(s => !isBefore(s.scheduledAt, startOfDay(new Date())))
+                      .sort((a, b) => a.scheduledAt - b.scheduledAt)
+                      .map(session => (
+                        <div
+                          key={session.id}
+                          className="flex items-center justify-between p-4 bg-green-50 rounded-xl"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                              <User className="text-green-600" size={20} />
+                            </div>
+                            <div>
+                              <p className="font-medium text-charcoal">
+                                Sessione con {session.coacheeName}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {format(session.scheduledAt, "EEEE d MMMM 'alle' HH:mm", { locale: it })}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-xs bg-green-200 text-green-700 px-2 py-1 rounded-full">
+                            Prenotata
+                          </span>
+                        </div>
+                      ))}
+                    
+                    {/* Eventi manuali */}
+                    {manualEvents
+                      .filter(e => !isBefore(e.date, startOfDay(new Date())))
+                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                      .map(event => (
+                        <div
+                          key={event.id}
+                          className={`flex items-center justify-between p-4 rounded-xl ${
+                            event.type === 'external' ? 'bg-blue-50' : 'bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                              event.type === 'external' ? 'bg-blue-100' : 'bg-gray-200'
+                            }`}>
+                              <Clock className={
+                                event.type === 'external' ? 'text-blue-600' : 'text-gray-600'
+                              } size={20} />
+                            </div>
+                            <div>
+                              <p className="font-medium text-charcoal">{event.title}</p>
+                              <p className="text-sm text-gray-500">
+                                {format(new Date(event.date), "EEEE d MMMM", { locale: it })} • {event.startTime} - {event.endTime}
+                              </p>
+                              {event.notes && (
+                                <p className="text-xs text-gray-400 mt-1">{event.notes}</p>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => deleteEvent(event.id)}
+                            className="p-2 text-red-500 hover:bg-red-100 rounded-lg"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      ))}
                   </>
                 )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </main>
+      
+      {/* Modal: Aggiungi Evento */}
+      {showEventModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl max-w-md w-full p-6"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold">Nuovo Impegno</h3>
+              <button
+                onClick={() => setShowEventModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X size={20} />
               </button>
             </div>
-          </div>
-        ) : null}
-      </main>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Titolo *
+                </label>
+                <input
+                  type="text"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                  placeholder="Es: Riunione, Visita medica..."
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Data
+                </label>
+                <input
+                  type="date"
+                  value={format(newEvent.date, 'yyyy-MM-dd')}
+                  onChange={(e) => setNewEvent({ ...newEvent, date: new Date(e.target.value) })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Ora inizio
+                  </label>
+                  <select
+                    value={newEvent.startTime}
+                    onChange={(e) => setNewEvent({ ...newEvent, startTime: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    {TIME_SLOTS.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Ora fine
+                  </label>
+                  <select
+                    value={newEvent.endTime}
+                    onChange={(e) => setNewEvent({ ...newEvent, endTime: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    {TIME_SLOTS.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Note (opzionale)
+                </label>
+                <textarea
+                  value={newEvent.notes}
+                  onChange={(e) => setNewEvent({ ...newEvent, notes: e.target.value })}
+                  rows={2}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowEventModal(false)}
+                className="flex-1 btn btn-secondary"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={addManualEvent}
+                disabled={!newEvent.title}
+                className="flex-1 btn btn-primary disabled:opacity-50"
+              >
+                Aggiungi
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+      
+      {/* Modal: Blocca Data */}
+      {showBlockModal && selectedDate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl max-w-md w-full p-6"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold">Blocca Giornata</h3>
+              <button
+                onClick={() => setShowBlockModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <p className="text-gray-600 mb-4">
+              Stai per bloccare <strong>{format(selectedDate, "EEEE d MMMM yyyy", { locale: it })}</strong>. 
+              Non saranno disponibili prenotazioni per questa data.
+            </p>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Motivo (opzionale)
+              </label>
+              <input
+                type="text"
+                value={blockReason}
+                onChange={(e) => setBlockReason(e.target.value)}
+                placeholder="Es: Ferie, Impegno personale..."
+                className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBlockModal(false)}
+                className="flex-1 btn btn-secondary"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={blockDate}
+                className="flex-1 btn bg-red-500 hover:bg-red-600 text-white"
+              >
+                <Ban size={18} />
+                Blocca Data
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }
