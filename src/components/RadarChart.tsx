@@ -8,6 +8,7 @@ interface RadarChartProps {
   size?: number
   animated?: boolean
   showLabels?: boolean
+  compact?: boolean // Nuova prop per versione compatta
 }
 
 // Label completi per il radar chart
@@ -24,11 +25,17 @@ const SHORT_LABELS: Record<string, string> = {
 
 export default function RadarChart({ 
   scores, 
-  size = 480, // Ancora più grande per i label completi
+  size = 400,
   animated = true,
-  showLabels = true 
+  showLabels = true,
+  compact = false
 }: RadarChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  
+  // Calcola dimensioni in base alla modalità
+  const canvasSize = compact ? Math.min(size, 350) : size
+  const labelPadding = compact ? 50 : 70
+  const fontSize = compact ? 11 : 13
   
   useEffect(() => {
     const canvas = canvasRef.current
@@ -37,15 +44,23 @@ export default function RadarChart({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     
-    const centerX = size / 2
-    const centerY = size / 2
-    const radius = (size / 2) - 110 // Molto più padding per i label completi
+    // Imposta DPI per retina displays
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = canvasSize * dpr
+    canvas.height = canvasSize * dpr
+    canvas.style.width = `${canvasSize}px`
+    canvas.style.height = `${canvasSize}px`
+    ctx.scale(dpr, dpr)
+    
+    const centerX = canvasSize / 2
+    const centerY = canvasSize / 2
+    const radius = (canvasSize / 2) - (labelPadding + 30)
     const areas = LIFE_AREAS
     const numAreas = areas.length
     const angleStep = (Math.PI * 2) / numAreas
     
     // Clear canvas
-    ctx.clearRect(0, 0, size, size)
+    ctx.clearRect(0, 0, canvasSize, canvasSize)
     
     // Draw background circles
     ctx.strokeStyle = '#E5E7EB'
@@ -108,7 +123,7 @@ export default function RadarChart({
       const y = centerY + Math.sin(angle) * distance
       
       ctx.beginPath()
-      ctx.arc(x, y, 6, 0, Math.PI * 2)
+      ctx.arc(x, y, compact ? 5 : 6, 0, Math.PI * 2)
       ctx.fillStyle = area.color
       ctx.fill()
       ctx.strokeStyle = '#fff'
@@ -118,12 +133,12 @@ export default function RadarChart({
     
     // Draw labels
     if (showLabels) {
-      ctx.font = 'bold 13px system-ui, sans-serif'
+      ctx.font = `bold ${fontSize}px system-ui, sans-serif`
       ctx.fillStyle = '#374151'
       
       areas.forEach((area, index) => {
         const angle = angleStep * index - Math.PI / 2
-        const labelRadius = radius + 70 // Molto più distante
+        const labelRadius = radius + labelPadding
         let x = centerX + Math.cos(angle) * labelRadius
         let y = centerY + Math.sin(angle) * labelRadius
         
@@ -155,14 +170,13 @@ export default function RadarChart({
       })
     }
     
-  }, [scores, size, showLabels])
+  }, [scores, canvasSize, showLabels, labelPadding, fontSize, compact])
   
   return (
-    <div className="relative flex justify-center">
+    <div className="relative flex justify-center items-center">
       <canvas 
         ref={canvasRef} 
-        width={size} 
-        height={size}
+        style={{ width: canvasSize, height: canvasSize }}
         className={animated ? 'animate-scale-in' : ''}
       />
     </div>
