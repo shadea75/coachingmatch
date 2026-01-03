@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore'
+import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import AdminLayout from '@/components/AdminLayout'
 import { useAuth } from '@/contexts/AuthContext'
@@ -17,7 +17,10 @@ import {
   UserCheck,
   Mail,
   Calendar,
-  ChevronDown
+  ChevronDown,
+  Trash2,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react'
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; bgColor: string; icon: any }> = {
@@ -35,6 +38,8 @@ export default function AdminUsersPage() {
   const [filterRole, setFilterRole] = useState<UserRole | 'all'>('all')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [showRoleMenu, setShowRoleMenu] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState<User | null>(null)
 
   useEffect(() => {
     fetchUsers()
@@ -89,6 +94,42 @@ export default function AdminUsersPage() {
       ))
     } catch (error) {
       console.error('Error suspending user:', error)
+    }
+  }
+
+  // Elimina utente completamente (Firebase Auth + Firestore)
+  async function deleteUser(user: User) {
+    if (!currentUser?.email) return
+    
+    setDeletingId(user.id)
+    try {
+      // Chiama API per eliminare da Firebase Auth
+      const response = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          adminEmail: currentUser.email
+        })
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Errore eliminazione')
+      }
+      
+      // Rimuovi dalla lista locale
+      setUsers(prev => prev.filter(u => u.id !== user.id))
+      setShowDeleteModal(null)
+      
+      alert(`Utente ${user.email} eliminato con successo. Potrà registrarsi di nuovo.`)
+      
+    } catch (error: any) {
+      console.error('Error deleting user:', error)
+      alert(`Errore: ${error.message}`)
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -284,6 +325,14 @@ export default function AdminUsersPage() {
                                 Sospendi
                               </button>
                             )}
+                            <span className="text-gray-300">|</span>
+                            <button
+                              onClick={() => setShowDeleteModal(user)}
+                              className="text-sm text-red-600 hover:text-red-700 font-medium flex items-center gap-1"
+                            >
+                              <Trash2 size={14} />
+                              Elimina
+                            </button>
                           </div>
                         )}
                       </td>
@@ -295,6 +344,68 @@ export default function AdminUsersPage() {
           </table>
         </div>
       </div>
+
+      {/* Modal conferma eliminazione */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-charcoal">Elimina utente</h3>
+                <p className="text-sm text-gray-500">Questa azione non può essere annullata</p>
+              </div>
+            </div>
+            
+            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+              <p className="font-medium text-charcoal">{showDeleteModal.name || 'Utente'}</p>
+              <p className="text-sm text-gray-500">{showDeleteModal.email}</p>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-6">
+              Verranno eliminati:
+            </p>
+            <ul className="text-sm text-gray-600 mb-6 space-y-1 ml-4">
+              <li>• Account Firebase Authentication</li>
+              <li>• Profilo utente da Firestore</li>
+              <li>• Sessioni e offerte associate</li>
+              <li>• Post nella community</li>
+            </ul>
+            
+            <p className="text-sm text-green-600 mb-6">
+              ✓ L'utente potrà registrarsi di nuovo con la stessa email
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(null)}
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => deleteUser(showDeleteModal)}
+                disabled={deletingId === showDeleteModal.id}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {deletingId === showDeleteModal.id ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Eliminazione...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={18} />
+                    Elimina definitivamente
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   )
 }
