@@ -111,6 +111,46 @@ export async function POST(request: NextRequest) {
     postsQuery.docs.forEach(doc => batch3.delete(doc.ref))
     if (!postsQuery.empty) await batch3.commit()
 
+    // Elimina dalla collection coachApplications (se era un coach)
+    try {
+      await adminDb.collection('coachApplications').doc(userId).delete()
+      console.log(`Coach application ${userId} eliminata`)
+    } catch (e) {
+      // Ignora se non esiste
+    }
+
+    // Elimina anche cercando per odema
+    const coachAppsQuery = await adminDb.collection('coachApplications')
+      .where('userId', '==', userId)
+      .get()
+    
+    const batch4 = adminDb.batch()
+    coachAppsQuery.docs.forEach(doc => batch4.delete(doc.ref))
+    if (!coachAppsQuery.empty) await batch4.commit()
+
+    // Elimina i punti coach
+    try {
+      await adminDb.collection('coachPoints').doc(userId).delete()
+    } catch (e) {
+      // Ignora se non esiste
+    }
+
+    // Elimina lo storico punti
+    const pointsHistoryQuery = await adminDb.collection('pointsHistory')
+      .where('odema', '==', userId)
+      .get()
+    
+    const batch5 = adminDb.batch()
+    pointsHistoryQuery.docs.forEach(doc => batch5.delete(doc.ref))
+    if (!pointsHistoryQuery.empty) await batch5.commit()
+
+    // Elimina account Stripe collegato
+    try {
+      await adminDb.collection('coachStripeAccounts').doc(userId).delete()
+    } catch (e) {
+      // Ignora se non esiste
+    }
+
     return NextResponse.json({ 
       success: true, 
       message: 'Utente eliminato completamente'
