@@ -299,7 +299,7 @@ export default function OnboardingPage() {
               </div>
               
               <ObjectivesSelector
-                areaId={state.areasToImprove[currentObjectiveAreaIndex]}
+                area={state.areasToImprove[currentObjectiveAreaIndex]}
                 objectives={OBJECTIVES_BY_AREA[state.areasToImprove[currentObjectiveAreaIndex]] || []}
                 selectedObjectives={state.selectedObjectives[state.areasToImprove[currentObjectiveAreaIndex]] || []}
                 onChange={(objectives) => setObjectives(state.areasToImprove[currentObjectiveAreaIndex], objectives)}
