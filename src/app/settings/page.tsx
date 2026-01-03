@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   ArrowLeft, 
@@ -23,9 +24,16 @@ import { db } from '@/lib/firebase'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 
 export default function SettingsPage() {
+  const router = useRouter()
   const { user, signOut } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  
+  // Handler logout con redirect
+  const handleSignOut = async () => {
+    await signOut()
+    router.replace('/login')
+  }
   
   const [formData, setFormData] = useState({
     name: '',
@@ -291,7 +299,7 @@ export default function SettingsPage() {
           </Link>
           
           <button
-            onClick={() => signOut()}
+            onClick={handleSignOut}
             className="w-full flex items-center justify-between p-4 hover:bg-red-50 text-left"
           >
             <div className="flex items-center gap-3">

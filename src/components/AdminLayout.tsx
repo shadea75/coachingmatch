@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { 
   Users, 
   UserCheck, 
@@ -35,7 +35,13 @@ const ADMIN_MENU = [
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { user, signOut, isAdmin } = useAuth()
+  
+  const handleSignOut = async () => {
+    await signOut()
+    router.replace('/login')
+  }
 
   return (
     <AdminGuard>
@@ -96,7 +102,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
                 </div>
                 <button
-                  onClick={() => signOut()}
+                  onClick={handleSignOut}
                   className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-600 hover:bg-red-50 w-full transition-colors"
                 >
                   <LogOut size={20} />
