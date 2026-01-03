@@ -140,7 +140,7 @@ export default function CoachDashboardPage() {
         const avgRating = totalReviews > 0 
           ? allReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews 
           : 0
-        const pending = allReviews.filter(r => !r.coachResponse).length
+        const pendingReviewsCount = allReviews.filter(r => !r.coachResponse).length
         
         // Carica punti
         const pointsQuery = query(
@@ -221,21 +221,21 @@ export default function CoachDashboardPage() {
           }
         })
         
-        const pending = sessions.filter(s => s.status === 'pending')
+        const pendingSessionsList = sessions.filter(s => s.status === 'pending')
         const upcoming = sessions.filter(s => s.status === 'confirmed' && s.scheduledAt > now)
         
-        setPendingSessions(pending)
+        setPendingSessions(pendingSessionsList)
         
         setStats({
           totalReviews,
           averageRating: avgRating,
-          pendingReviews: pending.length > 0 ? pending.length : 0,
+          pendingReviews: pendingReviewsCount,
           totalPoints: points,
           currentLevel: level,
           totalSessions: sessions.length,
           upcomingSessions: upcoming.length,
           activeCoachees: loadedCoachees.length,
-          pendingSessions: pending.length
+          pendingSessions: pendingSessionsList.length
         })
       } catch (err) {
         console.error('Errore caricamento dati:', err)
