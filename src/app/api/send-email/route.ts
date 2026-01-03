@@ -743,6 +743,198 @@ export async function POST(request: NextRequest) {
         coachEmail: coachEmailResult
       })
     }
+    
+    // EMAIL SESSIONE ANNULLATA DAL COACH
+    if (type === 'session_cancelled_by_coach') {
+      console.log('📤 Invio email sessione annullata')
+      
+      const { coachName, coachEmail, coacheeName, coacheeEmail, date, time, reason } = data
+      
+      const reasonText = reason === 'rejected' 
+        ? 'non ha potuto accettare la tua richiesta'
+        : 'ha dovuto annullare la sessione'
+      
+      // Email al COACHEE
+      const coacheeEmailResult = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: coacheeEmail,
+        subject: `❌ Sessione annullata - CoachaMi`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr>
+                <td>
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0;">
+                        <span style="font-size: 28px; font-weight: bold; color: #333;">Coacha</span><span style="font-size: 28px; font-weight: bold; color: #EC7711; font-style: italic;">Mi</span>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                    <tr>
+                      <td style="padding: 30px;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                          <div style="width: 60px; height: 60px; background: #fee2e2; border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
+                            <span style="font-size: 30px;">✕</span>
+                          </div>
+                        </div>
+                        
+                        <h2 style="margin: 0 0 20px 0; color: #333; text-align: center;">Sessione annullata</h2>
+                        
+                        <p style="margin: 0 0 25px 0;">Ciao ${coacheeName}, purtroppo <strong>${coachName}</strong> ${reasonText}.</p>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0" style="background: #fef2f2; border-radius: 8px; margin-bottom: 20px;">
+                          <tr>
+                            <td style="padding: 20px;">
+                              <p style="margin: 0 0 10px 0;"><strong>📅 Data prevista:</strong> ${date}</p>
+                              <p style="margin: 0;"><strong>🕐 Ora prevista:</strong> ${time}</p>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <div style="background: #f0f9ff; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                          <p style="margin: 0; color: #1e40af; font-size: 14px;">
+                            <strong>💡 Non preoccuparti!</strong><br>
+                            Puoi prenotare una nuova sessione con un altro coach o riprovare più avanti.
+                          </p>
+                        </div>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td align="center">
+                              <a href="https://www.coachami.it/matching" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Trova un altro coach</a>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0; color: #666; font-size: 14px;">
+                        <p style="margin: 0;">© 2025 CoachaMi - Tutti i diritti riservati</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `
+      })
+      
+      console.log('✅ Email coachee (annullamento) inviata:', coacheeEmailResult)
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Email annullamento inviata',
+        coacheeEmail: coacheeEmailResult
+      })
+    }
+    
+    // EMAIL SESSIONE RIMANDATA DAL COACH
+    if (type === 'session_rescheduled_by_coach') {
+      console.log('📤 Invio email sessione rimandata')
+      
+      const { coachName, coachEmail, coacheeName, coacheeEmail, date, time, coachId } = data
+      
+      // Email al COACHEE
+      const coacheeEmailResult = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: coacheeEmail,
+        subject: `🔄 Sessione da riprogrammare - CoachaMi`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr>
+                <td>
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0;">
+                        <span style="font-size: 28px; font-weight: bold; color: #333;">Coacha</span><span style="font-size: 28px; font-weight: bold; color: #EC7711; font-style: italic;">Mi</span>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                    <tr>
+                      <td style="padding: 30px;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                          <div style="width: 60px; height: 60px; background: #fef3c7; border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
+                            <span style="font-size: 30px;">🔄</span>
+                          </div>
+                        </div>
+                        
+                        <h2 style="margin: 0 0 20px 0; color: #333; text-align: center;">Sessione da riprogrammare</h2>
+                        
+                        <p style="margin: 0 0 25px 0;">Ciao ${coacheeName}, <strong>${coachName}</strong> ha chiesto di spostare la sessione ad un'altra data.</p>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0" style="background: #fff7ed; border-radius: 8px; margin-bottom: 20px;">
+                          <tr>
+                            <td style="padding: 20px;">
+                              <p style="margin: 0 0 10px 0;"><strong>📅 Data originale:</strong> ${date}</p>
+                              <p style="margin: 0;"><strong>🕐 Ora originale:</strong> ${time}</p>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <div style="background: #ecfdf5; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                          <p style="margin: 0; color: #065f46; font-size: 14px;">
+                            <strong>📅 Cosa fare?</strong><br>
+                            Prenota una nuova data che ti sia comoda. La tua call gratuita è ancora valida!
+                          </p>
+                        </div>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td align="center">
+                              <a href="https://www.coachami.it/booking/${coachId}" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Scegli nuova data</a>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding: 30px 0; color: #666; font-size: 14px;">
+                        <p style="margin: 0;">© 2025 CoachaMi - Tutti i diritti riservati</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `
+      })
+      
+      console.log('✅ Email coachee (rimando) inviata:', coacheeEmailResult)
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Email rimando inviata',
+        coacheeEmail: coacheeEmailResult
+      })
+    }
 
     return NextResponse.json({ error: 'Tipo email non supportato' }, { status: 400 })
 
