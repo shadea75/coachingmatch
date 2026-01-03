@@ -3,11 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16'
+  apiVersion: '2024-04-10'
 })
-
-// Per ora usiamo una versione semplificata che non richiede firebase-admin
-// I dati dell'offerta vengono passati dal client
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +13,6 @@ export async function POST(request: NextRequest) {
       offerId, 
       installmentNumber, 
       userId,
-      // Dati passati dal client per evitare firebase-admin
       amount,
       coachName,
       coacheeEmail,
@@ -33,14 +29,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Calcola la commissione piattaforma (30% del netto)
     const amountCents = Math.round(amount * 100)
-    const netAmount = amount / 1.22 // Scorporo IVA 22%
-    const platformFeeCents = Math.round(netAmount * 0.30 * 100) // 30% commissione
+    const netAmount = amount / 1.22
+    const platformFeeCents = Math.round(netAmount * 0.30 * 100)
 
-    // Se il coach ha un account Stripe, usa split payment
-    // Altrimenti, il pagamento va tutto alla piattaforma (da gestire manualmente)
-    
     const sessionConfig: Stripe.Checkout.SessionCreateParams = {
       mode: 'payment',
       payment_method_types: ['card'],
@@ -67,12 +59,10 @@ export async function POST(request: NextRequest) {
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pay/offer/${offerId}?cancelled=true`,
     }
 
-    // Aggiungi email se disponibile
     if (coacheeEmail) {
       sessionConfig.customer_email = coacheeEmail
     }
 
-    // Se il coach ha Stripe Connect, usa split payment
     if (coachStripeAccountId) {
       sessionConfig.payment_intent_data = {
         application_fee_amount: platformFeeCents,
