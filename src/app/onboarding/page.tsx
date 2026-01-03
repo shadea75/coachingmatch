@@ -324,20 +324,10 @@ export default function OnboardingPage() {
               exit={{ opacity: 0, x: -20 }}
               className="max-w-xl mx-auto"
             >
-              <div className="text-center mb-8">
-                <p className="text-sm text-gray-500 mb-2">
-                  Area {currentObjectiveAreaIndex + 1} di {state.areasToImprove.length}
-                </p>
-                <h1 className="text-2xl md:text-3xl font-display font-bold text-charcoal mb-3">
-                  Cosa vorresti migliorare in{' '}
-                  <span style={{ color: LIFE_AREAS.find(a => a.id === state.areasToImprove[currentObjectiveAreaIndex])?.color }}>
-                    {LIFE_AREAS.find(a => a.id === state.areasToImprove[currentObjectiveAreaIndex])?.label}
-                  </span>?
-                </h1>
-                <p className="text-gray-500">
-                  Seleziona uno o più obiettivi
-                </p>
-              </div>
+              {/* Indicatore area corrente */}
+              <p className="text-sm text-gray-500 mb-4 text-center">
+                Area {currentObjectiveAreaIndex + 1} di {state.areasToImprove.length}
+              </p>
               
               <ObjectivesSelector
                 area={state.areasToImprove[currentObjectiveAreaIndex]}
