@@ -298,7 +298,56 @@ export default function BookingPage() {
   }
   
   // Confirmation state
-  if (isConfirmed && coach) {
+  if (isConfirmed && coach && selectedDate && selectedTime) {
+    // Crea data/ora per i link calendario
+    const [hours, minutes] = selectedTime.split(':').map(Number)
+    const startDate = new Date(selectedDate)
+    startDate.setHours(hours, minutes, 0, 0)
+    const endDate = new Date(startDate.getTime() + 30 * 60000) // +30 minuti
+    
+    // Formatta per Google Calendar (YYYYMMDDTHHmmss)
+    const formatForGoogle = (date: Date) => {
+      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
+    }
+    
+    // Formatta per Apple/ICS (YYYYMMDDTHHMMSS)
+    const formatForICS = (date: Date) => {
+      const pad = (n: number) => n.toString().padStart(2, '0')
+      return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}T${pad(date.getHours())}${pad(date.getMinutes())}00`
+    }
+    
+    const eventTitle = `Call di coaching con ${coach.name}`
+    const eventDescription = `Prima call di orientamento gratuita con ${coach.name} su CoachaMi`
+    
+    // Link Google Calendar
+    const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${formatForGoogle(startDate)}/${formatForGoogle(endDate)}&details=${encodeURIComponent(eventDescription)}&location=Videochiamata`
+    
+    // Genera file ICS per Apple Calendar
+    const generateICSFile = () => {
+      const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CoachaMi//IT
+BEGIN:VEVENT
+DTSTART:${formatForICS(startDate)}
+DTEND:${formatForICS(endDate)}
+SUMMARY:${eventTitle}
+DESCRIPTION:${eventDescription}
+LOCATION:Videochiamata
+STATUS:CONFIRMED
+END:VEVENT
+END:VCALENDAR`
+      
+      const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `coaching-${format(startDate, 'yyyy-MM-dd')}.ics`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    }
+    
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center p-4">
         <motion.div
@@ -340,7 +389,7 @@ export default function BookingPage() {
               <div className="flex items-center gap-2 text-gray-600">
                 <Calendar size={16} />
                 <span>
-                  {selectedDate && format(selectedDate, "EEEE d MMMM yyyy", { locale: it })}
+                  {format(selectedDate, "EEEE d MMMM yyyy", { locale: it })}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-gray-600">
@@ -351,6 +400,37 @@ export default function BookingPage() {
                 <Video size={16} />
                 <span>Videochiamata</span>
               </div>
+            </div>
+          </div>
+          
+          {/* Bottoni Aggiungi al Calendario */}
+          <div className="mb-6">
+            <p className="text-sm text-gray-500 mb-3">Aggiungi al calendario:</p>
+            <div className="flex gap-2">
+              <a
+                href={googleCalendarUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                  <path d="M19.5 3h-15A1.5 1.5 0 003 4.5v15A1.5 1.5 0 004.5 21h15a1.5 1.5 0 001.5-1.5v-15A1.5 1.5 0 0019.5 3z" stroke="#4285F4" strokeWidth="1.5"/>
+                  <path d="M8 10h8M8 14h5" stroke="#4285F4" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M16 3v3M8 3v3" stroke="#EA4335" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                Google
+              </a>
+              <button
+                onClick={generateICSFile}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="4" width="18" height="17" rx="2" stroke="#333" strokeWidth="1.5"/>
+                  <path d="M3 9h18" stroke="#333" strokeWidth="1.5"/>
+                  <path d="M9 4V2M15 4V2" stroke="#333" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                Apple / Altro
+              </button>
             </div>
           </div>
           
