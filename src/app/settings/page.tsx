@@ -80,7 +80,12 @@ export default function SettingsPage() {
     )
   }
   
-  const isCoach = user.role === 'coach' || user.role === 'admin'
+  const isCoach = user.role === 'coach'
+  const isAdmin = user.role === 'admin'
+  
+  // Per admin mostra badge Admin
+  const roleLabel = isAdmin ? 'Admin' : (isCoach ? 'Coach' : 'Coachee')
+  const roleColor = isAdmin ? 'bg-red-100 text-red-600' : (isCoach ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-600')
   
   return (
     <div className="min-h-screen bg-cream">
@@ -90,7 +95,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link 
-                href="/dashboard"
+                href={isAdmin ? '/admin' : (isCoach ? '/coach/dashboard' : '/dashboard')}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <ArrowLeft size={20} />
@@ -140,10 +145,8 @@ export default function SettingsPage() {
             <div>
               <p className="font-medium text-charcoal">{user.name}</p>
               <p className="text-sm text-gray-500">{user.email}</p>
-              <span className={`inline-block mt-1 text-xs px-2 py-1 rounded-full ${
-                isCoach ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-600'
-              }`}>
-                {isCoach ? 'Coach' : 'Coachee'}
+              <span className={`inline-block mt-1 text-xs px-2 py-1 rounded-full ${roleColor}`}>
+                {roleLabel}
               </span>
             </div>
           </div>
@@ -223,6 +226,24 @@ export default function SettingsPage() {
           transition={{ delay: 0.1 }}
           className="bg-white rounded-2xl shadow-sm overflow-hidden"
         >
+          {/* Link Admin */}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="flex items-center justify-between p-4 hover:bg-gray-50 border-b border-gray-100"
+            >
+              <div className="flex items-center gap-3">
+                <Shield className="text-red-500" size={20} />
+                <div>
+                  <p className="font-medium text-charcoal">Pannello Admin</p>
+                  <p className="text-sm text-gray-500">Gestisci la piattaforma</p>
+                </div>
+              </div>
+              <ChevronRight className="text-gray-400" size={20} />
+            </Link>
+          )}
+          
+          {/* Link Coach */}
           {isCoach && (
             <>
               <Link

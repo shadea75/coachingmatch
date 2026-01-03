@@ -9,7 +9,11 @@ import {
   LayoutDashboard, 
   Settings,
   LogOut,
-  Shield
+  Shield,
+  CreditCard,
+  MessageSquare,
+  ShoppingBag,
+  TrendingUp
 } from 'lucide-react'
 import Logo from '@/components/Logo'
 import AdminGuard from '@/components/AdminGuard'
@@ -21,9 +25,12 @@ interface AdminLayoutProps {
 
 const ADMIN_MENU = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/users', label: 'Gestione Utenti', icon: Users },
-  { href: '/admin/coaches', label: 'Candidature Coach', icon: UserCheck },
-  { href: '/admin/settings', label: 'Impostazioni', icon: Settings, adminOnly: true },
+  { href: '/admin/users', label: 'Utenti', icon: Users },
+  { href: '/admin/coaches', label: 'Coach', icon: UserCheck },
+  { href: '/admin/community', label: 'Community', icon: MessageSquare },
+  { href: '/admin/offers', label: 'Offerte & Sessioni', icon: ShoppingBag },
+  { href: '/admin/payments', label: 'Pagamenti', icon: CreditCard },
+  { href: '/admin/settings', label: 'Impostazioni', icon: Settings },
 ]
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
@@ -61,9 +68,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <aside className="w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-64px)] p-4 fixed left-0 top-16">
             <nav className="space-y-1">
               {ADMIN_MENU.map((item) => {
-                // Nascondi voci adminOnly se non è admin
-                if (item.adminOnly && !isAdmin) return null
-                
                 const Icon = item.icon
                 const isActive = pathname === item.href
                 
