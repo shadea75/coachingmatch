@@ -286,22 +286,22 @@ export default function BookingPage() {
         updatedAt: serverTimestamp()
       })
       
-      // Invia email di conferma
+      // Invia email di richiesta in attesa (NON conferma)
       await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'booking_confirmation',
+          type: 'booking_pending',
           data: {
             sessionId: sessionRef.id,
+            coachId: coach.id,
             coachName: coach.name,
             coachEmail: coach.email,
             coacheeName: user.name || user.email?.split('@')[0],
             coacheeEmail: user.email,
             date: format(scheduledAt, "EEEE d MMMM yyyy", { locale: it }),
             time: selectedTime,
-            duration: 30,
-            sessionDate: scheduledAt.toISOString() // Per generare link calendario
+            duration: 30
           }
         })
       })
