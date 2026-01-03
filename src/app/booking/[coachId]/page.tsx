@@ -59,6 +59,16 @@ export default function BookingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   
+  // Stati per richiesta offerta
+  const [showOfferRequestModal, setShowOfferRequestModal] = useState(false)
+  const [offerRequestForm, setOfferRequestForm] = useState({
+    objectives: '',
+    budget: '',
+    notes: ''
+  })
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false)
+  const [requestSent, setRequestSent] = useState(false)
+  
   // Carica dati coach da Firebase
   useEffect(() => {
     const loadCoach = async () => {
@@ -302,6 +312,55 @@ export default function BookingPage() {
       setError('Errore durante la prenotazione. Riprova.')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+  
+  // Invia richiesta offerta
+  const handleSubmitOfferRequest = async () => {
+    if (!coach || !user || !offerRequestForm.objectives.trim()) return
+    
+    setIsSubmittingRequest(true)
+    try {
+      // Salva richiesta in Firebase
+      await addDoc(collection(db, 'offerRequests'), {
+        coachId: coach.id,
+        coachName: coach.name,
+        coachEmail: coach.email,
+        coacheeId: user.id,
+        coacheeName: user.name || user.email?.split('@')[0] || 'Coachee',
+        coacheeEmail: user.email,
+        objectives: offerRequestForm.objectives,
+        budget: offerRequestForm.budget || null,
+        notes: offerRequestForm.notes || null,
+        status: 'pending',
+        createdAt: serverTimestamp()
+      })
+      
+      // Invia email al coach
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'offer_request',
+          data: {
+            coachName: coach.name,
+            coachEmail: coach.email,
+            coacheeName: user.name || user.email?.split('@')[0],
+            coacheeEmail: user.email,
+            objectives: offerRequestForm.objectives,
+            budget: offerRequestForm.budget,
+            notes: offerRequestForm.notes
+          }
+        })
+      })
+      
+      setRequestSent(true)
+      setShowOfferRequestModal(false)
+    } catch (err) {
+      console.error('Errore invio richiesta:', err)
+      setError('Errore durante l\'invio della richiesta')
+    } finally {
+      setIsSubmittingRequest(false)
     }
   }
   
@@ -569,43 +628,70 @@ END:VCALENDAR`
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-2xl p-8 text-center"
             >
-              <div className="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-4">
-                <Sparkles className="w-8 h-8 text-yellow-500" />
-              </div>
-              
-              {hasUsedFreeCall ? (
+              {requestSent ? (
                 <>
+                  <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                    <Check className="w-8 h-8 text-green-500" />
+                  </div>
                   <h2 className="text-xl font-bold text-charcoal mb-2">
-                    Hai già usato la call gratuita con questo coach
+                    Richiesta inviata!
                   </h2>
                   <p className="text-gray-500 mb-6">
-                    Puoi prenotare una call gratuita solo una volta per ogni coach.
-                    Per continuare il percorso, chiedi a {coach.name} un'offerta personalizzata.
+                    {coach.name} riceverà la tua richiesta e ti contatterà con un'offerta personalizzata.
                   </p>
+                  <Link href="/dashboard" className="btn btn-primary">
+                    Vai alla dashboard
+                  </Link>
                 </>
               ) : (
                 <>
-                  <h2 className="text-xl font-bold text-charcoal mb-2">
-                    Hai raggiunto il limite di call gratuite
-                  </h2>
-                  <p className="text-gray-500 mb-6">
-                    Puoi prenotare massimo {MAX_FREE_CALLS} call gratuite con coach diversi.
-                    Per continuare, scegli uno dei coach con cui hai già parlato.
-                  </p>
+                  <div className="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-4">
+                    <Sparkles className="w-8 h-8 text-yellow-500" />
+                  </div>
+                  
+                  {hasUsedFreeCall ? (
+                    <>
+                      <h2 className="text-xl font-bold text-charcoal mb-2">
+                        Hai già usato la call gratuita con questo coach
+                      </h2>
+                      <p className="text-gray-500 mb-6">
+                        Puoi prenotare una call gratuita solo una volta per ogni coach.
+                        Per continuare il percorso, chiedi a {coach.name} un'offerta personalizzata.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-xl font-bold text-charcoal mb-2">
+                        Hai raggiunto il limite di call gratuite
+                      </h2>
+                      <p className="text-gray-500 mb-6">
+                        Puoi prenotare massimo {MAX_FREE_CALLS} call gratuite con coach diversi.
+                        Per continuare, scegli uno dei coach con cui hai già parlato.
+                      </p>
+                    </>
+                  )}
+                  
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <button
+                      onClick={() => router.back()}
+                      className="btn btn-secondary"
+                    >
+                      Torna indietro
+                    </button>
+                    {hasUsedFreeCall && (
+                      <button
+                        onClick={() => setShowOfferRequestModal(true)}
+                        className="btn btn-primary"
+                      >
+                        Richiedi offerta
+                      </button>
+                    )}
+                    <Link href="/dashboard" className="btn btn-ghost">
+                      Vai alla dashboard
+                    </Link>
+                  </div>
                 </>
               )}
-              
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={() => router.back()}
-                  className="btn btn-secondary"
-                >
-                  Torna indietro
-                </button>
-                <Link href="/dashboard" className="btn btn-primary">
-                  Vai alla dashboard
-                </Link>
-              </div>
             </motion.div>
           ) : (
           <>
@@ -779,6 +865,104 @@ END:VCALENDAR`
           )}
         </div>
       </main>
+      
+      {/* Modal Richiesta Offerta */}
+      {showOfferRequestModal && coach && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/50" 
+            onClick={() => setShowOfferRequestModal(false)} 
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative bg-white rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
+          >
+            <h2 className="text-xl font-bold text-charcoal mb-2">
+              Richiedi offerta a {coach.name}
+            </h2>
+            <p className="text-gray-500 text-sm mb-6">
+              Descrivi cosa stai cercando e il coach ti invierà un'offerta personalizzata.
+            </p>
+            
+            <div className="space-y-4">
+              {/* Obiettivi */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Cosa vorresti raggiungere? *
+                </label>
+                <textarea
+                  value={offerRequestForm.objectives}
+                  onChange={(e) => setOfferRequestForm(prev => ({ ...prev, objectives: e.target.value }))}
+                  placeholder="Es: Vorrei migliorare la mia autostima e gestire meglio lo stress lavorativo..."
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none resize-none"
+                />
+              </div>
+              
+              {/* Budget */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Budget indicativo (opzionale)
+                </label>
+                <select
+                  value={offerRequestForm.budget}
+                  onChange={(e) => setOfferRequestForm(prev => ({ ...prev, budget: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none"
+                >
+                  <option value="">Seleziona...</option>
+                  <option value="100-200">€100 - €200</option>
+                  <option value="200-400">€200 - €400</option>
+                  <option value="400-600">€400 - €600</option>
+                  <option value="600+">€600+</option>
+                  <option value="da_definire">Da definire insieme</option>
+                </select>
+              </div>
+              
+              {/* Note */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Note aggiuntive (opzionale)
+                </label>
+                <textarea
+                  value={offerRequestForm.notes}
+                  onChange={(e) => setOfferRequestForm(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Altre informazioni utili per il coach..."
+                  rows={2}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none resize-none"
+                />
+              </div>
+            </div>
+            
+            {error && (
+              <p className="text-red-500 text-sm mt-4">{error}</p>
+            )}
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowOfferRequestModal(false)}
+                className="flex-1 btn btn-secondary"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={handleSubmitOfferRequest}
+                disabled={isSubmittingRequest || !offerRequestForm.objectives.trim()}
+                className="flex-1 btn btn-primary disabled:opacity-50"
+              >
+                {isSubmittingRequest ? (
+                  <>
+                    <Loader2 className="animate-spin mr-2" size={18} />
+                    Invio...
+                  </>
+                ) : (
+                  'Invia richiesta'
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }
