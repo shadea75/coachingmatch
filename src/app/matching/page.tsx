@@ -186,7 +186,10 @@ export default function MatchingPage() {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
+      <div className="min-h-screen bg-cream flex flex-col items-center justify-center">
+        <div className="mb-8">
+          <Logo size="lg" />
+        </div>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

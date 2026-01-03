@@ -38,7 +38,10 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'calls' | 'community'>('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [stats, setStats] = useState({ activeCoaches: 0, totalCoachees: 0 })
-  const [communitySettings, setCommunitySettings] = useState({ freeTrialDays: 30 })
+  const [communitySettings, setCommunitySettings] = useState({ 
+    freeTrialDays: 30,
+    openAccessEnabled: true // Impostazione admin: se true, tutti accedono
+  })
   const [userCalls, setUserCalls] = useState<any[]>([])
   
   // Redirect coach/admin alla loro dashboard
@@ -74,7 +77,11 @@ export default function DashboardPage() {
         // Carica impostazioni community
         const settingsDoc = await getDoc(doc(db, 'settings', 'community'))
         if (settingsDoc.exists()) {
-          setCommunitySettings(settingsDoc.data() as any)
+          const data = settingsDoc.data()
+          setCommunitySettings({
+            freeTrialDays: data.freeTrialDays ?? 30,
+            openAccessEnabled: data.openAccessEnabled !== false // Default true
+          })
         }
       } catch (err) {
         console.error('Errore caricamento stats:', err)
@@ -92,14 +99,19 @@ export default function DashboardPage() {
   }
   
   const daysLeftInTrial = () => {
-    if (!user?.createdAt) return 0
+    if (!user?.createdAt) return communitySettings.freeTrialDays
     const createdAt = user.createdAt instanceof Date ? user.createdAt : new Date(user.createdAt)
     const trialEndDate = new Date(createdAt.getTime() + communitySettings.freeTrialDays * 24 * 60 * 60 * 1000)
     const daysLeft = Math.ceil((trialEndDate.getTime() - new Date().getTime()) / (24 * 60 * 60 * 1000))
     return Math.max(0, daysLeft)
   }
   
-  const canAccessCommunity = user?.membershipStatus === 'active' || isInFreeTrial()
+  // Accesso community controllato da admin
+  // Se openAccessEnabled = true → tutti accedono
+  // Altrimenti serve abbonamento o periodo di prova
+  const canAccessCommunity = communitySettings.openAccessEnabled || 
+    user?.membershipStatus === 'active' || 
+    isInFreeTrial()
   
   // Mock area scores
   const mockScores = user?.areaScores || {

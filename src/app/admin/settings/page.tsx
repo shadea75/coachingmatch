@@ -20,6 +20,7 @@ export default function AdminSettingsPage() {
     communityMonthlyPrice: 29,
     coachMonthlyPrice: 29,
     minPostsPerMonth: 4,
+    openAccessEnabled: true, // Accesso libero alla community per tutti
   })
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -38,8 +39,9 @@ export default function AdminSettingsPage() {
           const data = communityDoc.data()
           setSettings(prev => ({ 
             ...prev, 
-            communityFreeTrialDays: data.freeTrialDays || 30,
-            communityMonthlyPrice: data.monthlyPrice || 29
+            communityFreeTrialDays: data.freeTrialDays ?? 30,
+            communityMonthlyPrice: data.monthlyPrice ?? 29,
+            openAccessEnabled: data.openAccessEnabled !== false // Default true
           }))
         }
       } catch (err) {
@@ -71,6 +73,7 @@ export default function AdminSettingsPage() {
         freeTrialDays: settings.communityFreeTrialDays,
         monthlyPrice: settings.communityMonthlyPrice,
         coachMonthlyPrice: settings.coachMonthlyPrice,
+        openAccessEnabled: settings.openAccessEnabled,
         updatedAt: new Date()
       })
       
@@ -213,6 +216,40 @@ export default function AdminSettingsPage() {
                 <p className="text-xs text-gray-500 mt-1">
                   I coach che non raggiungono questo obiettivo perdono visibilità
                 </p>
+              </div>
+              
+              {/* Toggle accesso libero */}
+              <div className="pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Accesso libero alla Community
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Se attivo, tutti gli utenti possono accedere senza abbonamento
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSettings({ ...settings, openAccessEnabled: !settings.openAccessEnabled })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      settings.openAccessEnabled ? 'bg-primary-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        settings.openAccessEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+                {settings.openAccessEnabled && (
+                  <div className="mt-2 p-3 bg-green-50 rounded-lg">
+                    <p className="text-sm text-green-700">
+                      ✓ Tutti gli utenti possono accedere alla Community gratuitamente
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

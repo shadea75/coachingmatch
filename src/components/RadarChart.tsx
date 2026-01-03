@@ -10,7 +10,7 @@ interface RadarChartProps {
   showLabels?: boolean
 }
 
-// Label abbreviati per il radar chart
+// Label completi per il radar chart
 const SHORT_LABELS: Record<string, string> = {
   'salute': 'Salute',
   'finanze': 'Finanze',
@@ -24,7 +24,7 @@ const SHORT_LABELS: Record<string, string> = {
 
 export default function RadarChart({ 
   scores, 
-  size = 380, // Aumentato per dare più spazio ai label
+  size = 480, // Ancora più grande per i label completi
   animated = true,
   showLabels = true 
 }: RadarChartProps) {
@@ -39,7 +39,7 @@ export default function RadarChart({
     
     const centerX = size / 2
     const centerY = size / 2
-    const radius = (size / 2) - 80 // Più padding per i label (era 60)
+    const radius = (size / 2) - 110 // Molto più padding per i label completi
     const areas = LIFE_AREAS
     const numAreas = areas.length
     const angleStep = (Math.PI * 2) / numAreas
@@ -123,7 +123,7 @@ export default function RadarChart({
       
       areas.forEach((area, index) => {
         const angle = angleStep * index - Math.PI / 2
-        const labelRadius = radius + 45 // Aumentato da 35
+        const labelRadius = radius + 70 // Molto più distante
         let x = centerX + Math.cos(angle) * labelRadius
         let y = centerY + Math.sin(angle) * labelRadius
         
