@@ -16,23 +16,42 @@ import {
   BarChart3,
   Menu,
   X,
-  ShoppingBag
+  ShoppingBag,
+  Eye,
+  Target,
+  TrendingUp,
+  Clock
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import StarRating from '@/components/StarRating'
+import RadarChart from '@/components/RadarChart'
 import { db } from '@/lib/firebase'
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore'
+import { collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore'
 import { LEVELS_CONFIG, getLevelFromPoints } from '@/types/community'
+import { LIFE_AREAS, LifeAreaId } from '@/types'
 
 // ADMIN_EMAILS - redirect forzato per admin
 const ADMIN_EMAILS = ['debora.carofiglio@gmail.com']
+
+interface CoacheeData {
+  id: string
+  name: string
+  email: string
+  photo?: string
+  areaScores?: Record<LifeAreaId, number>
+  selectedObjectives?: Record<LifeAreaId, string[]>
+  areasToImprove?: LifeAreaId[]
+  wheelCompletedAt?: Date
+  offerId?: string
+  offerStatus?: string
+  lastSessionDate?: Date
+}
 
 export default function CoachDashboardPage() {
   const router = useRouter()
   const { user, signOut, loading } = useAuth()
   
-  // TUTTI GLI useState DEVONO ESSERE QUI, PRIMA DI QUALSIASI RETURN
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [shouldRedirect, setShouldRedirect] = useState(false)
@@ -43,16 +62,20 @@ export default function CoachDashboardPage() {
     totalPoints: 0,
     currentLevel: 'rookie' as string,
     totalSessions: 0,
-    upcomingSessions: 0
+    upcomingSessions: 0,
+    activeCoachees: 0
   })
   const [recentReviews, setRecentReviews] = useState<any[]>([])
+  const [coachees, setCoachees] = useState<CoacheeData[]>([])
+  const [selectedCoachee, setSelectedCoachee] = useState<CoacheeData | null>(null)
+  const [showCoacheeModal, setShowCoacheeModal] = useState(false)
   
-  // Check se è admin (per email o ruolo)
+  // Check se è admin
   const isAdminByEmail = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false
   const isAdminByRole = user?.role === 'admin'
   const isAdminUser = isAdminByEmail || isAdminByRole
   
-  // REDIRECT IMMEDIATO per admin
+  // REDIRECT per admin
   useEffect(() => {
     if (user && isAdminUser) {
       setShouldRedirect(true)
@@ -124,6 +147,51 @@ export default function CoachDashboardPage() {
           level = getLevelFromPoints(points)
         }
         
+        // Carica coachee dalle offerte attive
+        const offersQuery = query(
+          collection(db, 'offers'),
+          where('coachId', '==', user.id),
+          where('status', 'in', ['active', 'accepted', 'pending'])
+        )
+        const offersSnap = await getDocs(offersQuery)
+        
+        const coacheeIds = new Set<string>()
+        const coacheeOffers: Record<string, { offerId: string, status: string }> = {}
+        
+        offersSnap.docs.forEach(doc => {
+          const data = doc.data()
+          if (data.coacheeId) {
+            coacheeIds.add(data.coacheeId)
+            coacheeOffers[data.coacheeId] = {
+              offerId: doc.id,
+              status: data.status
+            }
+          }
+        })
+        
+        // Carica dati coachee
+        const loadedCoachees: CoacheeData[] = []
+        for (const coacheeId of coacheeIds) {
+          const userDoc = await getDoc(doc(db, 'users', coacheeId))
+          if (userDoc.exists()) {
+            const userData = userDoc.data()
+            loadedCoachees.push({
+              id: coacheeId,
+              name: userData.name || 'Coachee',
+              email: userData.email || '',
+              photo: userData.photo,
+              areaScores: userData.areaScores,
+              selectedObjectives: userData.selectedObjectives,
+              areasToImprove: userData.areasToImprove,
+              wheelCompletedAt: userData.wheelCompletedAt?.toDate?.() || null,
+              offerId: coacheeOffers[coacheeId]?.offerId,
+              offerStatus: coacheeOffers[coacheeId]?.status
+            })
+          }
+        }
+        
+        setCoachees(loadedCoachees)
+        
         setStats({
           totalReviews,
           averageRating: avgRating,
@@ -131,7 +199,8 @@ export default function CoachDashboardPage() {
           totalPoints: points,
           currentLevel: level,
           totalSessions: 0,
-          upcomingSessions: 0
+          upcomingSessions: 0,
+          activeCoachees: loadedCoachees.length
         })
       } catch (err) {
         console.error('Errore caricamento dati:', err)
@@ -143,13 +212,19 @@ export default function CoachDashboardPage() {
     loadData()
   }, [user?.id, isAdminUser])
   
-  // Handler logout con redirect
+  // Handler logout
   const handleSignOut = async () => {
     await signOut()
     window.location.href = '/login'
   }
+
+  // Apri modal coachee
+  const openCoacheeDetails = (coachee: CoacheeData) => {
+    setSelectedCoachee(coachee)
+    setShowCoacheeModal(true)
+  }
   
-  // Se è admin, mostra loading e redirect
+  // Se è admin, mostra loading
   if (shouldRedirect || isAdminUser) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
@@ -161,7 +236,6 @@ export default function CoachDashboardPage() {
     )
   }
   
-  // Se sta ancora caricando auth
   if (loading) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
@@ -238,7 +312,7 @@ export default function CoachDashboardPage() {
   return (
     <div className="min-h-screen bg-cream">
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-100 z-40 px-4 py-3 flex items-center justify-between">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
         <Logo size="sm" />
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -302,7 +376,7 @@ export default function CoachDashboardPage() {
             </h1>
             
             {/* Stats Grid */}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -345,7 +419,7 @@ export default function CoachDashboardPage() {
                   <span className="text-xs text-gray-400">Da rispondere</span>
                 </div>
                 <p className="text-3xl font-bold text-charcoal">{stats.pendingReviews}</p>
-                <p className="text-sm text-gray-500">recensioni in attesa</p>
+                <p className="text-sm text-gray-500">recensioni</p>
               </motion.div>
               
               <motion.div
@@ -361,7 +435,99 @@ export default function CoachDashboardPage() {
                 <p className="text-3xl font-bold text-charcoal">{stats.upcomingSessions}</p>
                 <p className="text-sm text-gray-500">in programma</p>
               </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="bg-white rounded-xl p-5 shadow-sm bg-gradient-to-br from-primary-50 to-white"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <Users className="text-primary-500" size={24} />
+                  <span className="text-xs text-gray-400">Coachee</span>
+                </div>
+                <p className="text-3xl font-bold text-primary-600">{stats.activeCoachees}</p>
+                <p className="text-sm text-gray-500">attivi</p>
+              </motion.div>
             </div>
+            
+            {/* I Miei Coachee */}
+            {coachees.length > 0 && (
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-charcoal flex items-center gap-2">
+                    <Users size={20} className="text-primary-500" />
+                    I Miei Coachee
+                  </h2>
+                  <span className="text-sm text-gray-400">{coachees.length} totali</span>
+                </div>
+                
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {coachees.map(coachee => (
+                    <div 
+                      key={coachee.id}
+                      className="border border-gray-100 rounded-xl p-4 hover:border-primary-200 hover:shadow-sm transition-all cursor-pointer"
+                      onClick={() => openCoacheeDetails(coachee)}
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        {coachee.photo ? (
+                          <img 
+                            src={coachee.photo} 
+                            alt={coachee.name}
+                            className="w-12 h-12 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center">
+                            <span className="text-primary-600 font-semibold text-lg">
+                              {coachee.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-charcoal truncate">{coachee.name}</p>
+                          <p className="text-xs text-gray-400 truncate">{coachee.email}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Mini preview ruota */}
+                      {coachee.areaScores && Object.keys(coachee.areaScores).length > 0 ? (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1 text-xs text-green-600">
+                            <Target size={14} />
+                            <span>Ruota completata</span>
+                          </div>
+                          <button className="text-xs text-primary-500 flex items-center gap-1 hover:underline">
+                            <Eye size={14} />
+                            Vedi
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-xs text-gray-400">
+                          <Clock size={14} />
+                          <span>Ruota non compilata</span>
+                        </div>
+                      )}
+                      
+                      {/* Status offerta */}
+                      {coachee.offerStatus && (
+                        <div className="mt-2">
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            coachee.offerStatus === 'active' ? 'bg-green-100 text-green-700' :
+                            coachee.offerStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            {coachee.offerStatus === 'active' ? 'Percorso attivo' :
+                             coachee.offerStatus === 'pending' ? 'Offerta in attesa' :
+                             coachee.offerStatus === 'accepted' ? 'Offerta accettata' :
+                             coachee.offerStatus}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {/* Quick Actions */}
             <div className="grid sm:grid-cols-3 gap-4">
@@ -450,6 +616,187 @@ export default function CoachDashboardPage() {
           </motion.div>
         )}
       </main>
+      
+      {/* Modal dettaglio coachee con ruota */}
+      {showCoacheeModal && selectedCoachee && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowCoacheeModal(false)}>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center gap-4">
+                {selectedCoachee.photo ? (
+                  <img 
+                    src={selectedCoachee.photo} 
+                    alt={selectedCoachee.name}
+                    className="w-16 h-16 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center">
+                    <span className="text-primary-600 font-bold text-2xl">
+                      {selectedCoachee.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-xl font-bold text-charcoal">{selectedCoachee.name}</h2>
+                  <p className="text-gray-500">{selectedCoachee.email}</p>
+                </div>
+                <button 
+                  onClick={() => setShowCoacheeModal(false)}
+                  className="ml-auto p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Body */}
+            <div className="p-6">
+              {selectedCoachee.areaScores && Object.keys(selectedCoachee.areaScores).length > 0 ? (
+                <>
+                  {/* Radar Chart */}
+                  <div className="mb-6">
+                    <h3 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+                      <Target size={18} className="text-primary-500" />
+                      Ruota della Vita
+                    </h3>
+                    <div className="flex justify-center">
+                      <RadarChart 
+                        scores={selectedCoachee.areaScores} 
+                        size={280}
+                        showLabels={true}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Punteggi per area */}
+                  <div className="mb-6">
+                    <h3 className="font-semibold text-charcoal mb-3">Punteggi per area</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {LIFE_AREAS.map(area => {
+                        const score = selectedCoachee.areaScores?.[area.id] || 0
+                        const isLow = score <= 5
+                        return (
+                          <div 
+                            key={area.id}
+                            className={`flex items-center justify-between p-3 rounded-lg ${isLow ? 'bg-red-50' : 'bg-gray-50'}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: area.color }}
+                              />
+                              <span className="text-sm text-gray-700">{area.label}</span>
+                            </div>
+                            <span 
+                              className={`font-bold ${isLow ? 'text-red-600' : 'text-gray-700'}`}
+                              style={{ color: isLow ? undefined : area.color }}
+                            >
+                              {score}/10
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* Aree da migliorare */}
+                  {selectedCoachee.areasToImprove && selectedCoachee.areasToImprove.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="font-semibold text-charcoal mb-3 flex items-center gap-2">
+                        <TrendingUp size={18} className="text-amber-500" />
+                        Aree prioritarie da migliorare
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedCoachee.areasToImprove.map(areaId => {
+                          const area = LIFE_AREAS.find(a => a.id === areaId)
+                          if (!area) return null
+                          return (
+                            <span 
+                              key={areaId}
+                              className="px-3 py-1.5 rounded-full text-sm font-medium text-white"
+                              style={{ backgroundColor: area.color }}
+                            >
+                              {area.label}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Obiettivi selezionati */}
+                  {selectedCoachee.selectedObjectives && Object.keys(selectedCoachee.selectedObjectives).length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-charcoal mb-3 flex items-center gap-2">
+                        <Target size={18} className="text-green-500" />
+                        Obiettivi selezionati
+                      </h3>
+                      <div className="space-y-3">
+                        {Object.entries(selectedCoachee.selectedObjectives).map(([areaId, objectives]) => {
+                          if (!objectives || objectives.length === 0) return null
+                          const area = LIFE_AREAS.find(a => a.id === areaId)
+                          if (!area) return null
+                          return (
+                            <div key={areaId} className="bg-gray-50 rounded-lg p-3">
+                              <p className="text-sm font-medium mb-2" style={{ color: area.color }}>
+                                {area.label}
+                              </p>
+                              <ul className="space-y-1">
+                                {(objectives as string[]).map((obj, idx) => (
+                                  <li key={idx} className="text-sm text-gray-600 flex items-start gap-2">
+                                    <span className="text-green-500 mt-0.5">✓</span>
+                                    {obj}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Data compilazione */}
+                  {selectedCoachee.wheelCompletedAt && (
+                    <p className="text-xs text-gray-400 mt-6 text-center">
+                      Ruota compilata il {selectedCoachee.wheelCompletedAt.toLocaleDateString('it-IT')}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <Target size={48} className="mx-auto mb-4 opacity-30" />
+                  <p>Questo coachee non ha ancora compilato la Ruota della Vita</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-100 flex gap-3">
+              <button
+                onClick={() => setShowCoacheeModal(false)}
+                className="flex-1 btn btn-secondary"
+              >
+                Chiudi
+              </button>
+              {selectedCoachee.offerId && (
+                <Link
+                  href={`/coach/offers/${selectedCoachee.offerId}`}
+                  className="flex-1 btn btn-primary justify-center"
+                >
+                  Vedi Offerta
+                </Link>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }
