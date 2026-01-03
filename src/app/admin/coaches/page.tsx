@@ -12,7 +12,13 @@ import {
   Phone,
   MapPin,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Award,
+  GraduationCap,
+  Clock,
+  Users,
+  Target,
+  Heart
 } from 'lucide-react'
 import { collection, getDocs, doc, updateDoc, query, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -21,14 +27,25 @@ import { LIFE_AREAS, CoachStatus } from '@/types'
 
 interface CoachApplication {
   id: string
+  userId?: string
   name: string
   email: string
+  photo?: string
   bio?: string
+  motivation?: string
   lifeArea?: string
-  certifications?: any[]
+  certifications?: { name: string; institution: string; year: number }[]
+  education?: string[]
   yearsOfExperience?: number
+  languages?: string[]
   sessionMode?: string[]
   location?: string
+  averagePrice?: number
+  freeCallAvailable?: boolean
+  clientTypes?: string[]
+  problemsAddressed?: string[]
+  coachingMethod?: string[]
+  style?: string[]
   status: CoachStatus
   submittedAt?: any
   createdAt?: any
@@ -51,6 +68,7 @@ export default function AdminCoachesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [updating, setUpdating] = useState(false)
 
   // Carica candidature da Firebase
   const fetchApplications = async () => {
@@ -95,11 +113,61 @@ export default function AdminCoachesPage() {
   }
   
   const updateStatus = async (id: string, newStatus: CoachStatus) => {
+    setUpdating(true)
     try {
+      // Aggiorna status in coachApplications
       await updateDoc(doc(db, 'coachApplications', id), {
         status: newStatus,
         updatedAt: new Date()
       })
+      
+      // Se approvato, aggiorna anche il ruolo in users da pending_coach a coach
+      if (newStatus === 'approved') {
+        const app = applications.find(a => a.id === id)
+        const userId = app?.userId || id // userId o usa l'id stesso
+        
+        try {
+          await updateDoc(doc(db, 'users', userId), {
+            role: 'coach',
+            updatedAt: new Date()
+          })
+          console.log('Ruolo utente aggiornato a coach')
+        } catch (userError) {
+          console.error('Errore aggiornamento ruolo utente:', userError)
+        }
+        
+        // Invia email di approvazione
+        try {
+          await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'coach_approved',
+              data: {
+                name: app?.name,
+                email: app?.email
+              }
+            })
+          })
+        } catch (emailError) {
+          console.error('Errore invio email approvazione:', emailError)
+        }
+      }
+      
+      // Se rifiutato, mantieni pending_coach o imposta come coachee
+      if (newStatus === 'rejected') {
+        const app = applications.find(a => a.id === id)
+        const userId = app?.userId || id
+        
+        try {
+          await updateDoc(doc(db, 'users', userId), {
+            role: 'coachee', // Downgrade a coachee
+            updatedAt: new Date()
+          })
+        } catch (userError) {
+          console.error('Errore aggiornamento ruolo utente:', userError)
+        }
+      }
       
       setApplications(prev => prev.map(app => 
         app.id === id ? { ...app, status: newStatus } : app
@@ -109,7 +177,16 @@ export default function AdminCoachesPage() {
       }
     } catch (error) {
       console.error('Errore aggiornamento status:', error)
+      alert('Errore durante l\'aggiornamento')
+    } finally {
+      setUpdating(false)
     }
+  }
+
+  const getLifeAreaLabel = (areaId?: string) => {
+    if (!areaId) return null
+    const area = LIFE_AREAS.find(a => a.id === areaId)
+    return area
   }
   
   return (
@@ -181,7 +258,7 @@ export default function AdminCoachesPage() {
               ) : (
                 filteredApplications.map((app) => {
                   const statusConfig = STATUS_CONFIG[app.status] || STATUS_CONFIG.pending
-                  const area = LIFE_AREAS.find(a => a.id === app.lifeArea)
+                  const area = getLifeAreaLabel(app.lifeArea)
                   
                   return (
                     <motion.div
@@ -194,10 +271,14 @@ export default function AdminCoachesPage() {
                       onClick={() => setSelectedApplication(app)}
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
-                          <span className="font-medium text-gray-500">
-                            {app.name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?'}
-                          </span>
+                        <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                          {app.photo ? (
+                            <img src={app.photo} alt={app.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="font-medium text-gray-500">
+                              {app.name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?'}
+                            </span>
+                          )}
                         </div>
                         
                         <div className="flex-1">
@@ -228,9 +309,9 @@ export default function AdminCoachesPage() {
 
             {/* Detail Panel */}
             {selectedApplication && (
-              <aside className="w-96 bg-white rounded-xl border border-gray-200 p-6 h-fit sticky top-6">
+              <aside className="w-[450px] bg-white rounded-xl border border-gray-200 p-6 h-fit sticky top-6 max-h-[calc(100vh-120px)] overflow-y-auto">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="font-semibold text-charcoal">Dettagli</h2>
+                  <h2 className="font-semibold text-charcoal">Dettagli Candidatura</h2>
                   <button onClick={() => setSelectedApplication(null)} className="text-gray-400 hover:text-gray-600">
                     <X size={20} />
                   </button>
@@ -238,15 +319,29 @@ export default function AdminCoachesPage() {
                 
                 {/* Profile */}
                 <div className="text-center mb-6">
-                  <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-3">
-                    <span className="text-2xl font-medium text-gray-500">
-                      {selectedApplication.name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?'}
-                    </span>
+                  <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-3 overflow-hidden">
+                    {selectedApplication.photo ? (
+                      <img src={selectedApplication.photo} alt={selectedApplication.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl font-medium text-gray-500">
+                        {selectedApplication.name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?'}
+                      </span>
+                    )}
                   </div>
                   <h3 className="font-semibold text-lg">{selectedApplication.name}</h3>
-                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium mt-2 ${STATUS_CONFIG[selectedApplication.status]?.bgColor} ${STATUS_CONFIG[selectedApplication.status]?.color}`}>
-                    {STATUS_CONFIG[selectedApplication.status]?.label}
-                  </span>
+                  {getLifeAreaLabel(selectedApplication.lifeArea) && (
+                    <span 
+                      className="inline-block px-3 py-1 rounded-full text-sm text-white mt-1"
+                      style={{ backgroundColor: getLifeAreaLabel(selectedApplication.lifeArea)?.color }}
+                    >
+                      {getLifeAreaLabel(selectedApplication.lifeArea)?.label}
+                    </span>
+                  )}
+                  <div className="mt-2">
+                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${STATUS_CONFIG[selectedApplication.status]?.bgColor} ${STATUS_CONFIG[selectedApplication.status]?.color}`}>
+                      {STATUS_CONFIG[selectedApplication.status]?.label}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Contact */}
@@ -261,15 +356,58 @@ export default function AdminCoachesPage() {
                   )}
                 </div>
 
-                {/* Bio */}
+                {/* La mia storia */}
                 {selectedApplication.bio && (
                   <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Bio</h4>
-                    <p className="text-sm text-gray-700">{selectedApplication.bio}</p>
+                    <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                      <Heart size={14} /> La mia storia, la mia missione
+                    </h4>
+                    <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedApplication.bio}</p>
                   </div>
                 )}
 
-                {/* Experience */}
+                {/* Il mio scopo */}
+                {selectedApplication.motivation && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                      <Target size={14} /> Il mio scopo
+                    </h4>
+                    <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedApplication.motivation}</p>
+                  </div>
+                )}
+
+                {/* Certificazioni */}
+                {selectedApplication.certifications && selectedApplication.certifications.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                      <Award size={14} /> Certificazioni
+                    </h4>
+                    <div className="space-y-2">
+                      {selectedApplication.certifications.map((cert, idx) => (
+                        <div key={idx} className="bg-gray-50 p-2 rounded-lg text-sm">
+                          <p className="font-medium">{cert.name}</p>
+                          <p className="text-gray-500 text-xs">{cert.institution} - {cert.year}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Formazione */}
+                {selectedApplication.education && selectedApplication.education.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                      <GraduationCap size={14} /> Formazione
+                    </h4>
+                    <ul className="space-y-1">
+                      {selectedApplication.education.map((edu, idx) => (
+                        <li key={idx} className="text-sm text-gray-700 bg-gray-50 p-2 rounded-lg">{edu}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Info servizio */}
                 <div className="mb-6 bg-gray-50 rounded-lg p-3 text-sm space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Esperienza</span>
@@ -279,16 +417,68 @@ export default function AdminCoachesPage() {
                     <span className="text-gray-500">Modalità</span>
                     <span className="font-medium">{selectedApplication.sessionMode?.join(', ') || '-'}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Prezzo sessione</span>
+                    <span className="font-medium">€{selectedApplication.averagePrice || '-'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Call gratuita</span>
+                    <span className="font-medium">{selectedApplication.freeCallAvailable ? 'Sì' : 'No'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Lingue</span>
+                    <span className="font-medium">{selectedApplication.languages?.join(', ') || '-'}</span>
+                  </div>
                 </div>
 
+                {/* Clienti target */}
+                {selectedApplication.clientTypes && selectedApplication.clientTypes.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                      <Users size={14} /> Lavora con
+                    </h4>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedApplication.clientTypes.map((type, idx) => (
+                        <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">{type}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Problemi trattati */}
+                {selectedApplication.problemsAddressed && selectedApplication.problemsAddressed.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">Problemi trattati</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedApplication.problemsAddressed.map((problem, idx) => (
+                        <span key={idx} className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">{problem}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Stile */}
+                {selectedApplication.style && selectedApplication.style.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">Stile di coaching</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedApplication.style.map((s, idx) => (
+                        <span key={idx} className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs capitalize">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Actions */}
-                <div className="space-y-2">
+                <div className="space-y-2 pt-4 border-t border-gray-100">
                   {selectedApplication.status === 'pending' && (
                     <button 
                       onClick={() => updateStatus(selectedApplication.id, 'reviewing')} 
-                      className="w-full btn bg-blue-500 text-white hover:bg-blue-600"
+                      disabled={updating}
+                      className="w-full btn bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
                     >
-                      <Eye size={18} /> Inizia revisione
+                      {updating ? <Loader2 size={18} className="animate-spin" /> : <Eye size={18} />}
+                      Inizia revisione
                     </button>
                   )}
                   
@@ -296,13 +486,16 @@ export default function AdminCoachesPage() {
                     <>
                       <button 
                         onClick={() => updateStatus(selectedApplication.id, 'approved')} 
-                        className="w-full btn bg-green-500 text-white hover:bg-green-600"
+                        disabled={updating}
+                        className="w-full btn bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
                       >
-                        <Check size={18} /> Approva
+                        {updating ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+                        Approva Coach
                       </button>
                       <button 
                         onClick={() => updateStatus(selectedApplication.id, 'rejected')} 
-                        className="w-full btn bg-red-100 text-red-700 hover:bg-red-200"
+                        disabled={updating}
+                        className="w-full btn bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
                       >
                         <X size={18} /> Rifiuta
                       </button>
@@ -310,15 +503,21 @@ export default function AdminCoachesPage() {
                   )}
                   
                   {selectedApplication.status === 'approved' && (
-                    <div className="text-center text-sm text-green-600 py-2">✓ Coach approvato</div>
+                    <div className="text-center py-3">
+                      <div className="text-green-600 font-medium flex items-center justify-center gap-2">
+                        <Check size={18} /> Coach approvato
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">L'utente può ora accedere come coach</p>
+                    </div>
                   )}
                   
                   {selectedApplication.status === 'rejected' && (
                     <button 
                       onClick={() => updateStatus(selectedApplication.id, 'pending')} 
-                      className="w-full btn bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      disabled={updating}
+                      className="w-full btn bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
                     >
-                      Riconsidera
+                      Riconsidera candidatura
                     </button>
                   )}
                 </div>
