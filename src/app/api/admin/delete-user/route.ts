@@ -1,47 +1,51 @@
 // src/app/api/admin/delete-user/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { initializeApp, getApps, cert } from 'firebase-admin/app'
-import { getAuth } from 'firebase-admin/auth'
-import { getFirestore } from 'firebase-admin/firestore'
 
-// Inizializza Firebase Admin solo una volta
-if (getApps().length === 0) {
-  // Usa le credenziali dal service account
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+// Email admin autorizzate
+const ADMIN_EMAILS = ['debora.carofiglio@gmail.com']
+
+// Funzione per inizializzare Firebase Admin solo quando serve
+async function getFirebaseAdmin() {
+  const { initializeApp, getApps, cert } = await import('firebase-admin/app')
+  const { getAuth } = await import('firebase-admin/auth')
+  const { getFirestore } = await import('firebase-admin/firestore')
   
-  if (serviceAccount) {
-    try {
-      const parsedKey = JSON.parse(serviceAccount)
-      initializeApp({
-        credential: cert(parsedKey)
-      })
-    } catch (e) {
+  if (getApps().length === 0) {
+    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+    
+    if (serviceAccount) {
+      try {
+        const parsedKey = JSON.parse(serviceAccount)
+        initializeApp({
+          credential: cert(parsedKey)
+        })
+      } catch (e) {
+        // Fallback: usa le variabili d'ambiente individuali
+        initializeApp({
+          credential: cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+          })
+        })
+      }
+    } else {
       // Fallback: usa le variabili d'ambiente individuali
       initializeApp({
         credential: cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
+          projectId: process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
           privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
         })
       })
     }
-  } else {
-    // Fallback: usa le variabili d'ambiente individuali
-    initializeApp({
-      credential: cert({
-        projectId: process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-      })
-    })
+  }
+  
+  return {
+    auth: getAuth(),
+    db: getFirestore()
   }
 }
-
-const adminAuth = getAuth()
-const adminDb = getFirestore()
-
-// Email admin autorizzate
-const ADMIN_EMAILS = ['debora.carofiglio@gmail.com']
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,6 +60,9 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'userId mancante' }, { status: 400 })
     }
+
+    // Inizializza Firebase Admin
+    const { auth: adminAuth, db: adminDb } = await getFirebaseAdmin()
 
     // 1. Elimina da Firebase Authentication
     try {
