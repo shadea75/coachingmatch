@@ -83,13 +83,22 @@ export default function StripeOnboardingPage() {
     setError('')
     
     try {
+      // Importa Firebase
+      const { db } = await import('@/lib/firebase')
+      const { doc, getDoc, setDoc, serverTimestamp } = await import('firebase/firestore')
+      
+      // Controlla se esiste già un account
+      const accountDoc = await getDoc(doc(db, 'coachStripeAccounts', user.id))
+      const existingAccountId = accountDoc.exists() ? accountDoc.data()?.stripeAccountId : null
+      
       const response = await fetch('/api/stripe-connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           coachId: user.id,
           email: user.email,
-          coachName: user.name
+          coachName: user.name,
+          existingAccountId
         })
       })
       
@@ -97,6 +106,20 @@ export default function StripeOnboardingPage() {
       
       if (data.error) {
         throw new Error(data.error)
+      }
+      
+      // Salva accountId in Firebase
+      if (data.accountId) {
+        await setDoc(doc(db, 'coachStripeAccounts', user.id), {
+          coachId: user.id,
+          stripeAccountId: data.accountId,
+          onboardingComplete: false,
+          chargesEnabled: false,
+          payoutsEnabled: false,
+          country: 'IT',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true })
       }
       
       if (data.url) {

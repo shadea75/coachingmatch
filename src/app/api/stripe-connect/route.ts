@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { db } from '@/lib/firebase'
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10'
@@ -11,7 +9,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { coachId, email, coachName } = body
+    const { coachId, email, coachName, existingAccountId } = body
     
     if (!coachId || !email) {
       return NextResponse.json(
@@ -20,29 +18,23 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Verifica se esiste già un account
-    const existingAccount = await getDoc(doc(db, 'coachStripeAccounts', coachId))
+    let accountId = existingAccountId
     
-    if (existingAccount.exists()) {
-      const data = existingAccount.data()
-      
-      // Se l'onboarding è completo, ritorna
-      if (data.onboardingComplete) {
-        return NextResponse.json({ 
-          message: 'Account già configurato',
-          accountId: data.stripeAccountId
+    // Se esiste già un account, genera solo il link
+    if (accountId) {
+      try {
+        const accountLink = await stripe.accountLinks.create({
+          account: accountId,
+          refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/coach/stripe-onboarding?refresh=true`,
+          return_url: `${process.env.NEXT_PUBLIC_APP_URL}/coach/stripe-onboarding/complete`,
+          type: 'account_onboarding'
         })
+        
+        return NextResponse.json({ url: accountLink.url, accountId })
+      } catch (e) {
+        // Se l'account non esiste più, creane uno nuovo
+        console.log('Account non trovato, creo nuovo account')
       }
-      
-      // Altrimenti genera nuovo link di onboarding
-      const accountLink = await stripe.accountLinks.create({
-        account: data.stripeAccountId,
-        refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/coach/stripe-onboarding?refresh=true`,
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/coach/stripe-onboarding/complete`,
-        type: 'account_onboarding'
-      })
-      
-      return NextResponse.json({ url: accountLink.url })
     }
     
     // Crea nuovo account Stripe Connect (Express)
@@ -56,25 +48,13 @@ export async function POST(request: NextRequest) {
       },
       business_type: 'individual',
       business_profile: {
-        name: coachName,
+        name: coachName || 'Coach',
         product_description: 'Servizi di coaching personalizzato',
         mcc: '8299' // Educational services
       },
       metadata: {
         coachId: coachId
       }
-    })
-    
-    // Salva account in Firebase
-    await setDoc(doc(db, 'coachStripeAccounts', coachId), {
-      coachId,
-      stripeAccountId: account.id,
-      onboardingComplete: false,
-      chargesEnabled: false,
-      payoutsEnabled: false,
-      country: 'IT',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
     })
     
     // Genera link di onboarding
@@ -99,48 +79,25 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Verifica stato account
+// Verifica stato account (senza Firebase)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const coachId = searchParams.get('coachId')
+    const accountId = searchParams.get('accountId')
     
-    if (!coachId) {
-      return NextResponse.json(
-        { error: 'coachId mancante' },
-        { status: 400 }
-      )
-    }
-    
-    const accountDoc = await getDoc(doc(db, 'coachStripeAccounts', coachId))
-    
-    if (!accountDoc.exists()) {
+    if (!accountId) {
       return NextResponse.json({ 
         hasAccount: false,
         onboardingComplete: false 
       })
     }
     
-    const data = accountDoc.data()
-    
     // Verifica stato su Stripe
-    const account = await stripe.accounts.retrieve(data.stripeAccountId)
-    
-    // Aggiorna stato in Firebase se cambiato
-    if (account.charges_enabled !== data.chargesEnabled || 
-        account.payouts_enabled !== data.payoutsEnabled) {
-      await setDoc(doc(db, 'coachStripeAccounts', coachId), {
-        ...data,
-        chargesEnabled: account.charges_enabled,
-        payoutsEnabled: account.payouts_enabled,
-        onboardingComplete: account.charges_enabled && account.payouts_enabled,
-        updatedAt: serverTimestamp()
-      }, { merge: true })
-    }
+    const account = await stripe.accounts.retrieve(accountId)
     
     return NextResponse.json({
       hasAccount: true,
-      stripeAccountId: data.stripeAccountId,
+      stripeAccountId: accountId,
       onboardingComplete: account.charges_enabled && account.payouts_enabled,
       chargesEnabled: account.charges_enabled,
       payoutsEnabled: account.payouts_enabled,
