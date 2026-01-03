@@ -244,7 +244,8 @@ export default function BookingPage() {
             coacheeEmail: user.email,
             date: format(scheduledAt, "EEEE d MMMM yyyy", { locale: it }),
             time: selectedTime,
-            duration: 30
+            duration: 30,
+            sessionDate: scheduledAt.toISOString() // Per generare link calendario
           }
         })
       })
