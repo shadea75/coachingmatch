@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { 
@@ -13,11 +14,60 @@ import {
   Briefcase,
   Shield,
   PiggyBank,
-  PartyPopper
+  PartyPopper,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import Logo from '@/components/Logo'
+import { db } from '@/lib/firebase'
+import { collection, query, where, getDocs, limit } from 'firebase/firestore'
+
+interface Coach {
+  id: string
+  name: string
+  photo: string | null
+  specialization: string
+  bio: string
+  rating: number
+  reviewCount: number
+}
 
 export default function HomePage() {
+  const [coaches, setCoaches] = useState<Coach[]>([])
+  const [loadingCoaches, setLoadingCoaches] = useState(true)
+
+  // Carica coach approvati
+  useEffect(() => {
+    const loadCoaches = async () => {
+      try {
+        const coachesQuery = query(
+          collection(db, 'coachApplications'),
+          where('status', '==', 'approved'),
+          limit(8)
+        )
+        const snapshot = await getDocs(coachesQuery)
+        const loadedCoaches: Coach[] = snapshot.docs.map(doc => {
+          const data = doc.data()
+          return {
+            id: doc.id,
+            name: data.name || 'Coach',
+            photo: data.photo || null,
+            specialization: data.specializations?.focusTopics?.[0] || 'Life Coach',
+            bio: data.bio || data.motivation || '',
+            rating: data.rating || 5.0,
+            reviewCount: data.reviewCount || 0
+          }
+        })
+        setCoaches(loadedCoaches)
+      } catch (err) {
+        console.error('Errore caricamento coach:', err)
+      } finally {
+        setLoadingCoaches(false)
+      }
+    }
+    loadCoaches()
+  }, [])
+
   return (
     <div className="min-h-screen bg-cream">
       {/* Navigation */}
@@ -28,6 +78,12 @@ export default function HomePage() {
           </Link>
           
           <div className="flex items-center gap-4">
+            <Link 
+              href="#coaches" 
+              className="text-gray-600 hover:text-charcoal transition-colors hidden sm:block"
+            >
+              I Nostri Coach
+            </Link>
             <Link 
               href="/coach/register" 
               className="text-gray-600 hover:text-charcoal transition-colors hidden sm:block"
@@ -71,7 +127,7 @@ export default function HomePage() {
             
             <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
               Valuta le aree della tua vita, definisci cosa vuoi migliorare 
-              e incontra 3 coach selezionati appositamente per te.
+              e incontra coach selezionati appositamente per te.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -84,10 +140,10 @@ export default function HomePage() {
               </Link>
               
               <Link 
-                href="#how-it-works"
+                href="#coaches"
                 className="btn btn-secondary text-lg px-8 py-4"
               >
-                Come funziona
+                Scopri i coach
               </Link>
             </div>
           </motion.div>
@@ -114,9 +170,96 @@ export default function HomePage() {
           </motion.div>
         </div>
       </section>
+
+      {/* I Nostri Coach Section */}
+      <section id="coaches" className="py-20 px-4 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-display font-bold text-charcoal mb-4">
+              I nostri Coach
+            </h2>
+            <p className="text-gray-600 text-lg max-w-xl mx-auto">
+              Seleziona tra i nostri coach certificati e inizia il tuo percorso di crescita trasformazionale
+            </p>
+          </div>
+          
+          {loadingCoaches ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
+            </div>
+          ) : coaches.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <Users className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p>Nessun coach disponibile al momento</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {coaches.map((coach, index) => (
+                  <motion.div
+                    key={coach.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    viewport={{ once: true }}
+                  >
+                    <Link href={`/coaches/${coach.id}`}>
+                      <div className="group relative bg-cream rounded-2xl overflow-hidden card-hover">
+                        {/* Foto Coach */}
+                        <div className="aspect-[3/4] relative overflow-hidden">
+                          {coach.photo ? (
+                            <img 
+                              src={coach.photo} 
+                              alt={coach.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
+                              <span className="text-6xl font-bold text-primary-400">
+                                {coach.name.charAt(0)}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {/* Overlay gradient */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                          
+                          {/* Badge COACH */}
+                          <div className="absolute top-4 left-4">
+                            <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-semibold text-primary-600">
+                              COACH
+                            </span>
+                          </div>
+                          
+                          {/* Info bottom */}
+                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                            <h3 className="text-xl font-bold mb-1">{coach.name}</h3>
+                            <p className="text-sm text-white/80">{coach.specialization}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+              
+              {/* CTA per vedere tutti */}
+              <div className="text-center mt-10">
+                <Link 
+                  href="/coaches"
+                  className="inline-flex items-center gap-2 text-primary-600 font-semibold hover:text-primary-700 transition-colors"
+                >
+                  Vedi tutti i coach
+                  <ArrowRight size={18} />
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
       
       {/* How it works */}
-      <section id="how-it-works" className="py-20 px-4 bg-white">
+      <section id="how-it-works" className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-display font-bold text-charcoal mb-4">
@@ -144,8 +287,8 @@ export default function HomePage() {
               {
                 icon: Users,
                 color: '#10B981',
-                title: 'Incontra 3 coach selezionati',
-                description: 'Ricevi 3 proposte personalizzate e prenota una call gratuita di orientamento.'
+                title: 'Incontra i coach selezionati',
+                description: 'Ricevi proposte personalizzate e prenota una call gratuita di orientamento.'
               }
             ].map((step, index) => (
               <motion.div
@@ -156,7 +299,7 @@ export default function HomePage() {
                 viewport={{ once: true }}
                 className="relative"
               >
-                <div className="bg-cream rounded-2xl p-8 h-full card-hover">
+                <div className="bg-white rounded-2xl p-8 h-full card-hover">
                   <div 
                     className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
                     style={{ backgroundColor: `${step.color}15` }}
@@ -182,7 +325,7 @@ export default function HomePage() {
       </section>
       
       {/* Areas preview */}
-      <section className="py-20 px-4">
+      <section className="py-20 px-4 bg-white">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-display font-bold text-charcoal mb-4">
@@ -210,7 +353,7 @@ export default function HomePage() {
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ delay: index * 0.05 }}
                 viewport={{ once: true }}
-                className="bg-white rounded-xl p-6 text-center card-hover"
+                className="bg-cream rounded-xl p-6 text-center card-hover"
               >
                 <div 
                   className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center"
@@ -259,7 +402,7 @@ export default function HomePage() {
       </section>
       
       {/* Footer */}
-      <footer className="py-12 px-4 border-t border-gray-100">
+      <footer className="py-12 px-4 border-t border-gray-100 bg-white">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <Logo size="sm" />
@@ -280,7 +423,7 @@ export default function HomePage() {
             </div>
             
             <p className="text-sm text-gray-400">
-              © 2025 CoachaMi. Tutti i diritti riservati.
+              © 2026 CoachaMi. Tutti i diritti riservati.
             </p>
           </div>
         </div>

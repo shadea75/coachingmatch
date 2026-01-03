@@ -25,6 +25,8 @@ import ScoreSelector from '@/components/ScoreSelector'
 import ObjectivesSelector from '@/components/ObjectivesSelector'
 import RadarChart from '@/components/RadarChart'
 import Logo from '@/components/Logo'
+import { db } from '@/lib/firebase'
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 
 // Icon mapping
 const AREA_ICONS: Record<LifeAreaId, typeof Briefcase> = {
@@ -91,6 +93,42 @@ export default function OnboardingPage() {
     }
   }
   
+  // Salva i dati della ruota nel profilo utente (anche per utenti esistenti)
+  const saveWheelDataToProfile = async (userId: string) => {
+    try {
+      // Trova le 3 aree con punteggio più basso per evidenziarle come priorità
+      const sortedAreas = Object.entries(state.areaScores)
+        .sort(([, a], [, b]) => (a as number) - (b as number))
+        .slice(0, 3)
+        .map(([area]) => area)
+
+      // Prepara i dati completi della valutazione
+      const wheelData = {
+        areaScores: state.areaScores,
+        selectedObjectives: state.selectedObjectives,
+        areasToImprove: state.areasToImprove,
+        priorityAreas: sortedAreas,
+        wheelCompletedAt: serverTimestamp(),
+        onboardingCompleted: true
+      }
+
+      // Salva nel documento utente
+      await setDoc(doc(db, 'users', userId), wheelData, { merge: true })
+
+      // Salva anche in una collection separata per lo storico
+      await setDoc(doc(db, 'userWheelHistory', `${userId}_${Date.now()}`), {
+        userId,
+        ...wheelData,
+        createdAt: serverTimestamp()
+      })
+
+      console.log('Dati ruota salvati con successo')
+    } catch (error) {
+      console.error('Errore salvataggio dati ruota:', error)
+      // Non bloccare il flusso anche se fallisce
+    }
+  }
+  
   // Handle registration
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -106,22 +144,22 @@ export default function OnboardingPage() {
     try {
       await signUp(formData.email, formData.password, formData.name)
       
-      // Try to save onboarding data, but don't block if it fails
+      // Salva i dati della ruota nel profilo
       try {
         await updateUserProfile({
           areaScores: state.areaScores as Record<LifeAreaId, number>,
           selectedObjectives: state.selectedObjectives as Record<LifeAreaId, string[]>,
+          areasToImprove: state.areasToImprove,
           onboardingCompleted: true,
+          wheelCompletedAt: new Date(),
           // Nuovi campi
           age: formData.age ? parseInt(formData.age) : null,
           gender: (formData.gender || null) as 'M' | 'F' | 'other' | 'prefer_not' | null,
         })
       } catch (profileError) {
         console.log('Profile update skipped:', profileError)
-        // Continue anyway - user is created
       }
       
-      // Always go to results after successful signup
       setIsSubmitting(false)
       goToStep('results')
     } catch (error: any) {
@@ -136,6 +174,14 @@ export default function OnboardingPage() {
       router.push('/matching')
     }
   }, [user, router])
+  
+  // Se l'utente è già loggato ma non ha completato l'onboarding, 
+  // salva i dati alla fine
+  useEffect(() => {
+    if (user && state.currentStep === 'results') {
+      saveWheelDataToProfile(user.id)
+    }
+  }, [user, state.currentStep])
   
   return (
     <div className="min-h-screen bg-cream">
@@ -164,7 +210,7 @@ export default function OnboardingPage() {
             
             <Logo size="sm" />
             
-            <div className="w-9" /> {/* Spacer */}
+            <div className="w-9" />
           </div>
           
           {/* Progress bar */}
@@ -225,49 +271,40 @@ export default function OnboardingPage() {
                 value={state.areaScores[currentArea.id]}
                 onChange={handleScoreSelect}
                 color={currentArea.color}
-                areaId={currentArea.id}
               />
-              
-              {/* Mini radar preview */}
-              <div className="mt-8 flex justify-center">
-                <div className="opacity-80">
-                  <RadarChart 
-                    scores={state.areaScores} 
-                    size={280}
-                    showLabels={false}
-                  />
-                </div>
-              </div>
             </motion.div>
           )}
-          
-          {/* STEP 2: Objectives Selection */}
+
+          {/* STEP 2: Objectives */}
           {state.currentStep === 'objectives' && state.areasToImprove.length > 0 && (
             <motion.div
-              key={`objectives-${state.areasToImprove[currentObjectiveAreaIndex]}`}
+              key={`objectives-${currentObjectiveAreaIndex}`}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="max-w-2xl mx-auto"
+              className="max-w-xl mx-auto"
             >
+              <div className="text-center mb-8">
+                <p className="text-sm text-gray-500 mb-2">
+                  Area {currentObjectiveAreaIndex + 1} di {state.areasToImprove.length}
+                </p>
+                <h1 className="text-2xl md:text-3xl font-display font-bold text-charcoal mb-3">
+                  Cosa vorresti migliorare in{' '}
+                  <span style={{ color: LIFE_AREAS.find(a => a.id === state.areasToImprove[currentObjectiveAreaIndex])?.color }}>
+                    {LIFE_AREAS.find(a => a.id === state.areasToImprove[currentObjectiveAreaIndex])?.label}
+                  </span>?
+                </h1>
+                <p className="text-gray-500">
+                  Seleziona uno o più obiettivi
+                </p>
+              </div>
+              
               <ObjectivesSelector
-                area={state.areasToImprove[currentObjectiveAreaIndex]}
-                currentScore={state.areaScores[state.areasToImprove[currentObjectiveAreaIndex]] || 5}
+                areaId={state.areasToImprove[currentObjectiveAreaIndex]}
+                objectives={OBJECTIVES_BY_AREA[state.areasToImprove[currentObjectiveAreaIndex]] || []}
                 selectedObjectives={state.selectedObjectives[state.areasToImprove[currentObjectiveAreaIndex]] || []}
                 onChange={(objectives) => setObjectives(state.areasToImprove[currentObjectiveAreaIndex], objectives)}
               />
-              
-              {/* Skip option */}
-              <div className="text-center mt-6">
-                <button
-                  onClick={handleNext}
-                  className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  {currentObjectiveAreaIndex < state.areasToImprove.length - 1 
-                    ? 'Salta quest\'area' 
-                    : 'Continua senza selezionare'}
-                </button>
-              </div>
             </motion.div>
           )}
           
@@ -455,6 +492,11 @@ export default function OnboardingPage() {
                     </div>
                   )
                 })}
+              </div>
+              
+              {/* Info salvato */}
+              <div className="bg-green-50 rounded-xl p-4 mb-6 text-sm text-green-700">
+                <p>✓ I tuoi dati sono stati salvati. Il coach potrà vederli per prepararsi alla call.</p>
               </div>
               
               <button
