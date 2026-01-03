@@ -133,7 +133,7 @@ export default function RadarChart({
     
     // Disegna le label esterne
     if (showLabels) {
-      const labelRadius = maxRadius + (compact ? 45 : 60)
+      const labelRadius = maxRadius + (compact ? 40 : 55)
       
       areas.forEach((area, index) => {
         const angle = angleStep * index - Math.PI / 2
@@ -142,23 +142,12 @@ export default function RadarChart({
         
         const label = AREA_LABELS[area.id] || area.label
         
-        ctx.font = `600 ${compact ? 11 : 13}px system-ui, sans-serif`
+        ctx.font = `600 ${compact ? 10 : 12}px system-ui, sans-serif`
         ctx.fillStyle = '#374151'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         
-        // Per label lunghe, splitta su due righe
-        if (label.length > 10 && !compact) {
-          const words = label.split(' ')
-          if (words.length >= 2) {
-            ctx.fillText(words[0], x, y - 8)
-            ctx.fillText(words.slice(1).join(' '), x, y + 8)
-          } else {
-            ctx.fillText(label, x, y)
-          }
-        } else {
-          ctx.fillText(label, x, y)
-        }
+        ctx.fillText(label, x, y)
       })
     }
     
