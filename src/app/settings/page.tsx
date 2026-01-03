@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -16,18 +16,22 @@ import {
   Loader2,
   Save,
   CheckCircle,
-  Camera
+  Camera,
+  X
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
-import { db } from '@/lib/firebase'
+import { db, storage } from '@/lib/firebase'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 
 export default function SettingsPage() {
   const router = useRouter()
   const { user, signOut } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   
   // Handler logout con redirect
   const handleSignOut = async () => {
@@ -38,7 +42,8 @@ export default function SettingsPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone: ''
+    phone: '',
+    photo: ''
   })
   
   const [notifications, setNotifications] = useState({
@@ -53,10 +58,139 @@ export default function SettingsPage() {
       setFormData({
         name: user.name || '',
         email: user.email || '',
-        phone: user.phone || ''
+        phone: user.phone || '',
+        photo: user.photo || ''
       })
     }
   }, [user])
+  
+  // Upload foto
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user?.id) return
+    
+    // Verifica tipo file
+    if (!file.type.startsWith('image/')) {
+      alert('Per favore seleziona un\'immagine')
+      return
+    }
+    
+    // Verifica dimensione (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('L\'immagine deve essere inferiore a 5MB')
+      return
+    }
+    
+    setIsUploadingPhoto(true)
+    
+    try {
+      // Metodo 1: Firebase Storage (preferito)
+      try {
+        const storageRef = ref(storage, `profile-photos/${user.id}`)
+        
+        await uploadBytes(storageRef, file)
+        const downloadURL = await getDownloadURL(storageRef)
+        
+        // Salva URL nel profilo
+        await updateDoc(doc(db, 'users', user.id), {
+          photo: downloadURL,
+          updatedAt: serverTimestamp()
+        })
+        
+        setFormData(prev => ({ ...prev, photo: downloadURL }))
+        setSaveSuccess(true)
+        setTimeout(() => setSaveSuccess(false), 3000)
+      } catch (storageError: any) {
+        console.log('Firebase Storage non disponibile, uso Base64:', storageError.message)
+        
+        // Metodo 2: Fallback a Base64 (per immagini piccole)
+        const reader = new FileReader()
+        reader.onloadend = async () => {
+          const base64 = reader.result as string
+          
+          // Comprimi l'immagine se troppo grande per Firestore (max ~1MB)
+          let finalImage = base64
+          if (base64.length > 900000) {
+            // Comprimi usando canvas
+            finalImage = await compressImage(file, 400, 0.7)
+          }
+          
+          await updateDoc(doc(db, 'users', user.id), {
+            photo: finalImage,
+            updatedAt: serverTimestamp()
+          })
+          
+          setFormData(prev => ({ ...prev, photo: finalImage }))
+          setSaveSuccess(true)
+          setTimeout(() => setSaveSuccess(false), 3000)
+        }
+        reader.readAsDataURL(file)
+      }
+    } catch (err) {
+      console.error('Errore upload foto:', err)
+      alert('Errore durante il caricamento della foto')
+    } finally {
+      setIsUploadingPhoto(false)
+    }
+  }
+  
+  // Comprimi immagine
+  const compressImage = (file: File, maxSize: number, quality: number): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          let width = img.width
+          let height = img.height
+          
+          if (width > height) {
+            if (width > maxSize) {
+              height = Math.round((height * maxSize) / width)
+              width = maxSize
+            }
+          } else {
+            if (height > maxSize) {
+              width = Math.round((width * maxSize) / height)
+              height = maxSize
+            }
+          }
+          
+          canvas.width = width
+          canvas.height = height
+          
+          const ctx = canvas.getContext('2d')
+          ctx?.drawImage(img, 0, 0, width, height)
+          
+          resolve(canvas.toDataURL('image/jpeg', quality))
+        }
+        img.src = e.target?.result as string
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+  
+  // Rimuovi foto
+  const handleRemovePhoto = async () => {
+    if (!user?.id) return
+    
+    setIsUploadingPhoto(true)
+    try {
+      await updateDoc(doc(db, 'users', user.id), {
+        photo: null,
+        updatedAt: serverTimestamp()
+      })
+      
+      setFormData(prev => ({ ...prev, photo: '' }))
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (err) {
+      console.error('Errore rimozione foto:', err)
+    } finally {
+      setIsUploadingPhoto(false)
+    }
+  }
   
   // Salva profilo
   const handleSaveProfile = async () => {
@@ -91,7 +225,6 @@ export default function SettingsPage() {
   const isCoach = user.role === 'coach'
   const isAdmin = user.role === 'admin'
   
-  // Per admin mostra badge Admin
   const roleLabel = isAdmin ? 'Admin' : (isCoach ? 'Coach' : 'Coachee')
   const roleColor = isAdmin ? 'bg-red-100 text-red-600' : (isCoach ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-600')
   
@@ -133,29 +266,60 @@ export default function SettingsPage() {
           {/* Avatar */}
           <div className="flex items-center gap-4 mb-6">
             <div className="relative">
-              {user.photo ? (
+              {formData.photo ? (
                 <img 
-                  src={user.photo} 
-                  alt={user.name}
+                  src={formData.photo} 
+                  alt={formData.name}
                   className="w-20 h-20 rounded-full object-cover"
                 />
               ) : (
                 <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center">
                   <span className="text-2xl font-semibold text-primary-600">
-                    {user.name?.charAt(0)?.toUpperCase() || '?'}
+                    {formData.name?.charAt(0)?.toUpperCase() || '?'}
                   </span>
                 </div>
               )}
-              <button className="absolute bottom-0 right-0 w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center text-white hover:bg-primary-600">
-                <Camera size={16} />
+              
+              {/* Pulsante upload */}
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingPhoto}
+                className="absolute bottom-0 right-0 w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center text-white hover:bg-primary-600 disabled:opacity-50"
+              >
+                {isUploadingPhoto ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Camera size={16} />
+                )}
               </button>
+              
+              {/* Input file nascosto */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                className="hidden"
+              />
             </div>
-            <div>
-              <p className="font-medium text-charcoal">{user.name}</p>
-              <p className="text-sm text-gray-500">{user.email}</p>
+            
+            <div className="flex-1">
+              <p className="font-medium text-charcoal">{formData.name}</p>
+              <p className="text-sm text-gray-500">{formData.email}</p>
               <span className={`inline-block mt-1 text-xs px-2 py-1 rounded-full ${roleColor}`}>
                 {roleLabel}
               </span>
+              
+              {/* Link rimuovi foto */}
+              {formData.photo && (
+                <button
+                  onClick={handleRemovePhoto}
+                  disabled={isUploadingPhoto}
+                  className="block mt-2 text-xs text-red-500 hover:underline disabled:opacity-50"
+                >
+                  Rimuovi foto
+                </button>
+              )}
             </div>
           </div>
           
