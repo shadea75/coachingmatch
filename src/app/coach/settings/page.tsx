@@ -146,6 +146,7 @@ export default function CoachSettingsPage() {
   
   const tabs = [
     { id: 'profile', label: 'Profilo', icon: User },
+    { id: 'availability', label: 'Disponibilità', icon: Calendar, href: '/coach/availability' },
     { id: 'notifications', label: 'Notifiche', icon: Bell },
   ]
   
@@ -178,6 +179,22 @@ export default function CoachSettingsPage() {
               <nav className="space-y-1">
                 {tabs.map(tab => {
                   const Icon = tab.icon
+                  
+                  // Se ha href, usa Link
+                  if ((tab as any).href) {
+                    return (
+                      <Link
+                        key={tab.id}
+                        href={(tab as any).href}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors hover:bg-gray-50 text-gray-600"
+                      >
+                        <Icon size={20} />
+                        {tab.label}
+                        <ExternalLink size={14} className="ml-auto opacity-50" />
+                      </Link>
+                    )
+                  }
+                  
                   return (
                     <button
                       key={tab.id}
