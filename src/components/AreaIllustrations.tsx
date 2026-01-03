@@ -501,4 +501,3 @@ export const getAreaIllustration = (areaId: string, size?: number, className?: s
 }
 
 export default AreaIllustrations
-
