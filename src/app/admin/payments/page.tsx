@@ -135,6 +135,8 @@ export default function AdminPaymentsPage() {
   
   // Modal
   const [verifyModal, setVerifyModal] = useState<PendingPayout | null>(null)
+  const [receiveInvoiceModal, setReceiveInvoiceModal] = useState<PendingPayout | null>(null)
+  const [invoiceNumber, setInvoiceNumber] = useState('')
   const [rejectReason, setRejectReason] = useState('')
   const [processing, setProcessing] = useState(false)
 
@@ -458,10 +460,13 @@ export default function AdminPaymentsPage() {
       setVerifyModal(null)
       setRejectReason('')
       
+      // Invia email al coach
+      await sendPayoutEmail(payout, approved ? 'invoice_verified' : 'invoice_rejected')
+      
       if (!approved) {
         alert(`Fattura rifiutata. Il coach riceverà una notifica.`)
       } else {
-        alert(`Fattura verificata. Pronta per il payout di lunedì.`)
+        alert(`Fattura verificata! Pronta per il payout.`)
       }
     } catch (err) {
       console.error('Errore verifica fattura:', err)
@@ -501,6 +506,130 @@ export default function AdminPaymentsPage() {
   }
 
   const coachTotals = getCoachTotals()
+
+  // Invia email al coach per cambio stato payout
+  const sendPayoutEmail = async (payout: PendingPayout, type: 'invoice_received' | 'invoice_verified' | 'invoice_rejected' | 'payout_completed' | 'reset') => {
+    try {
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: `payout_${type}`,
+          data: {
+            coachEmail: payout.coachEmail,
+            coachName: payout.coachName,
+            offerTitle: payout.offerTitle,
+            sessionNumber: payout.sessionNumber,
+            amount: payout.grossAmount,
+            invoiceNumber: payout.coachInvoice.number,
+            rejectionReason: rejectReason || undefined
+          }
+        })
+      })
+    } catch (err) {
+      console.error('Errore invio email:', err)
+    }
+  }
+
+  // Segna fattura come ricevuta
+  const handleReceiveInvoice = async (payout: PendingPayout) => {
+    if (!invoiceNumber.trim()) {
+      alert('Inserisci il numero fattura')
+      return
+    }
+    
+    setProcessing(true)
+    try {
+      const { setDoc } = await import('firebase/firestore')
+      await setDoc(doc(db, 'payoutTracking', payout.id), {
+        offerId: payout.offerId,
+        coachId: payout.coachId,
+        coachName: payout.coachName,
+        sessionNumber: payout.sessionNumber,
+        grossAmount: payout.grossAmount,
+        coachInvoice: {
+          required: true,
+          received: true,
+          number: invoiceNumber.trim(),
+          receivedAt: serverTimestamp(),
+          verified: false
+        },
+        payoutStatus: 'invoice_received',
+        updatedAt: serverTimestamp()
+      }, { merge: true })
+      
+      // Aggiorna stato locale
+      setPendingPayouts(prev => prev.map(p => {
+        if (p.id === payout.id) {
+          return {
+            ...p,
+            payoutStatus: 'invoice_received',
+            coachInvoice: {
+              ...p.coachInvoice,
+              received: true,
+              number: invoiceNumber.trim(),
+              receivedAt: new Date()
+            }
+          }
+        }
+        return p
+      }))
+      
+      // Invia email al coach
+      await sendPayoutEmail({ ...payout, coachInvoice: { ...payout.coachInvoice, number: invoiceNumber.trim() } }, 'invoice_received')
+      
+      setReceiveInvoiceModal(null)
+      setInvoiceNumber('')
+      alert('Fattura registrata! Il coach riceverà una conferma.')
+    } catch (err) {
+      console.error('Errore registrazione fattura:', err)
+      alert('Errore durante la registrazione')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  // Segna payout come completato (pagato)
+  const handleMarkAsPaid = async (payout: PendingPayout) => {
+    if (!confirm(`Confermi di aver pagato €${payout.grossAmount.toFixed(2)} a ${payout.coachName}?`)) return
+    
+    setProcessing(true)
+    try {
+      const { setDoc } = await import('firebase/firestore')
+      await setDoc(doc(db, 'payoutTracking', payout.id), {
+        offerId: payout.offerId,
+        coachId: payout.coachId,
+        coachName: payout.coachName,
+        sessionNumber: payout.sessionNumber,
+        grossAmount: payout.grossAmount,
+        payoutStatus: 'completed',
+        completedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true })
+      
+      // Aggiorna stato locale
+      setPendingPayouts(prev => prev.map(p => {
+        if (p.id === payout.id) {
+          return {
+            ...p,
+            payoutStatus: 'completed',
+            completedAt: new Date()
+          }
+        }
+        return p
+      }))
+      
+      // Invia email al coach
+      await sendPayoutEmail(payout, 'payout_completed')
+      
+      alert(`Payout completato! ${payout.coachName} riceverà una conferma.`)
+    } catch (err) {
+      console.error('Errore completamento payout:', err)
+      alert('Errore durante il completamento')
+    } finally {
+      setProcessing(false)
+    }
+  }
 
   // Status badge per payout
   const getPayoutStatusBadge = (status: string) => {
@@ -846,14 +975,36 @@ export default function AdminPaymentsPage() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            {/* Segna fattura ricevuta */}
+                            {payout.payoutStatus === 'awaiting_invoice' && (
+                              <button
+                                onClick={() => setReceiveInvoiceModal(payout)}
+                                className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200"
+                                title="Segna fattura ricevuta"
+                              >
+                                <FileText size={16} />
+                              </button>
+                            )}
+                            
                             {/* Verifica fattura */}
                             {payout.payoutStatus === 'invoice_received' && !payout.coachInvoice.verified && (
                               <button
                                 onClick={() => setVerifyModal(payout)}
-                                className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200"
+                                className="p-2 rounded-lg bg-purple-100 text-purple-600 hover:bg-purple-200"
                                 title="Verifica fattura"
                               >
                                 <Eye size={16} />
+                              </button>
+                            )}
+                            
+                            {/* Segna come pagato */}
+                            {(payout.payoutStatus === 'ready_for_payout' || (payout.payoutStatus === 'invoice_received' && payout.coachInvoice.verified)) && (
+                              <button
+                                onClick={() => handleMarkAsPaid(payout)}
+                                className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200"
+                                title="Segna come pagato"
+                              >
+                                <Banknote size={16} />
                               </button>
                             )}
                             
@@ -873,6 +1024,8 @@ export default function AdminPaymentsPage() {
                                     },
                                     updatedAt: serverTimestamp()
                                   }, { merge: true })
+                                  // Invia email al coach
+                                  await sendPayoutEmail(payout, 'reset')
                                   loadData()
                                 }}
                                 className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -1102,6 +1255,83 @@ export default function AdminPaymentsPage() {
               >
                 {processing ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
                 Approva
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal registra fattura ricevuta */}
+      {receiveInvoiceModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-charcoal">Registra Fattura Ricevuta</h3>
+              <button 
+                onClick={() => { setReceiveInvoiceModal(null); setInvoiceNumber(''); }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Info payout */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Coach</p>
+                    <p className="font-medium text-charcoal">{receiveInvoiceModal.coachName}</p>
+                    <p className="text-xs text-gray-400">{receiveInvoiceModal.coachEmail}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Importo da pagare</p>
+                    <p className="font-bold text-green-600">{formatCurrency(receiveInvoiceModal.grossAmount)}</p>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <p className="text-sm text-gray-500">Offerta</p>
+                  <p className="font-medium text-charcoal">{receiveInvoiceModal.offerTitle} - Sessione {receiveInvoiceModal.sessionNumber}</p>
+                </div>
+              </div>
+              
+              {/* Campo numero fattura */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Numero Fattura *
+                </label>
+                <input
+                  type="text"
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  placeholder="Es: FT-2026-001"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                <p className="text-xs text-gray-400 mt-1">Inserisci il numero fattura ricevuto dal coach</p>
+              </div>
+              
+              <div className="bg-amber-50 rounded-xl p-3">
+                <p className="text-sm text-amber-700">
+                  <strong>Nota:</strong> Dopo la registrazione, dovrai verificare che la fattura sia corretta prima di procedere al pagamento.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { setReceiveInvoiceModal(null); setInvoiceNumber(''); }}
+                disabled={processing}
+                className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 disabled:opacity-50"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => handleReceiveInvoice(receiveInvoiceModal)}
+                disabled={processing || !invoiceNumber.trim()}
+                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {processing ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                Registra Fattura
               </button>
             </div>
           </div>
