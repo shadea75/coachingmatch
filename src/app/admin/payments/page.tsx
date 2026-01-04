@@ -218,6 +218,14 @@ export default function AdminPaymentsPage() {
             const scheduledDate = new Date(paidDate)
             scheduledDate.setDate(scheduledDate.getDate() + daysUntilMonday)
             
+            // Calcoli corretti:
+            // - coachPayout = 70% del pagato dal coachee (es. €70 su €100)
+            // - Questo è l'importo LORDO che il coach fattura a CoachaMi
+            // - Se il coach è forfettario: €70 sono tutti suoi
+            // - Se il coach è ordinario: €70 = €57,38 + €12,62 IVA (lui versa l'IVA)
+            // - platformFee = 30% = €30 (nostro incasso lordo)
+            // - platformFee netto = €30 / 1.22 = €24,59 (nostro guadagno dopo IVA)
+            
             generatedPayouts.push({
               id: trackingId,
               offerId: offer.id,
@@ -228,10 +236,10 @@ export default function AdminPaymentsPage() {
               coacheeId: offer.coacheeId,
               coacheeName: offer.coacheeName,
               sessionNumber: inst.sessionNumber,
-              grossAmount: inst.coachPayout,
-              netAmount: inst.coachPayout / 1.22, // Scorporo IVA
-              vatAmount: inst.coachPayout - (inst.coachPayout / 1.22),
-              platformFee: inst.platformFee,
+              grossAmount: inst.coachPayout, // 70% - importo che paghiamo al coach
+              netAmount: inst.platformFee / 1.22, // Nostro guadagno netto (30% scorporato IVA)
+              vatAmount: inst.platformFee - (inst.platformFee / 1.22), // IVA su nostra commissione
+              platformFee: inst.platformFee, // 30% lordo
               paidAt: inst.paidAt,
               coachInvoice: tracking?.coachInvoice || {
                 required: true,
@@ -399,7 +407,8 @@ export default function AdminPaymentsPage() {
   // Stats globali
   const filteredPayments = getFilteredPayments()
   const totalRevenue = filteredPayments.reduce((sum, p) => sum + p.amount, 0)
-  const platformEarnings = filteredPayments.reduce((sum, p) => sum + p.platformFee, 0)
+  const platformEarningsGross = filteredPayments.reduce((sum, p) => sum + p.platformFee, 0)
+  const platformEarningsNet = platformEarningsGross / 1.22 // Scorporo IVA 22%
   const coachPayouts = filteredPayments.reduce((sum, p) => sum + p.coachPayout, 0)
   const subscriptionRevenue = subscriptions.length * 29
 
@@ -679,8 +688,8 @@ export default function AdminPaymentsPage() {
               </div>
               <span className="text-sm text-gray-500">Guadagno CoachaMi</span>
             </div>
-            <p className="text-2xl font-bold text-primary-600">{formatCurrency(platformEarnings)}</p>
-            <p className="text-xs text-gray-400 mt-1">30% commissione</p>
+            <p className="text-2xl font-bold text-primary-600">{formatCurrency(platformEarningsNet)}</p>
+            <p className="text-xs text-gray-400 mt-1">30% commissione (netto IVA)</p>
           </div>
           <div className="bg-white p-5 rounded-xl border">
             <div className="flex items-center gap-3 mb-2">
@@ -954,7 +963,7 @@ export default function AdminPaymentsPage() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <p className="font-bold text-charcoal">{formatCurrency(payout.grossAmount)}</p>
-                          <p className="text-xs text-gray-400">{formatCurrency(payout.netAmount)} + IVA</p>
+                          <p className="text-xs text-gray-400">da pagare al coach</p>
                         </td>
                         <td className="px-6 py-4 text-center">
                           {payout.coachInvoice.number ? (
@@ -1219,7 +1228,7 @@ export default function AdminPaymentsPage() {
                 <ul className="text-sm text-blue-700 space-y-1">
                   <li>• Intestatario: CoachaMi / Debora Carofiglio</li>
                   <li>• P.IVA: IT02411430685</li>
-                  <li>• Importo: {formatCurrency(verifyModal.grossAmount)} (o {formatCurrency(verifyModal.netAmount)} + IVA)</li>
+                  <li>• Importo fattura: <strong>{formatCurrency(verifyModal.grossAmount)}</strong></li>
                   <li>• Descrizione servizio coaching</li>
                 </ul>
               </div>
