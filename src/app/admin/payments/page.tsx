@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import AdminLayout from '@/components/AdminLayout'
 import { 
   CreditCard, 
@@ -18,7 +18,13 @@ import {
   CheckCircle,
   Clock,
   Eye,
-  X
+  X,
+  AlertCircle,
+  Send,
+  XCircle,
+  RefreshCw,
+  Banknote,
+  HourglassIcon
 } from 'lucide-react'
 import { db } from '@/lib/firebase'
 import { 
@@ -30,7 +36,8 @@ import {
   doc,
   updateDoc,
   addDoc,
-  serverTimestamp
+  serverTimestamp,
+  Timestamp
 } from 'firebase/firestore'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -63,20 +70,39 @@ interface Offer {
   createdAt: Date
 }
 
-interface CoachInvoice {
+// Nuovo tipo per i payout pendenti (Modello A)
+interface PendingPayout {
   id: string
+  offerId: string
+  offerTitle: string
   coachId: string
   coachName: string
   coachEmail: string
-  month: string
-  year: number
-  totalAmount: number
-  invoiceUrl?: string
-  invoiceNumber?: string
-  status: 'pending' | 'uploaded' | 'paid'
-  uploadedAt?: Date
-  paidAt?: Date
+  coacheeId: string
+  coacheeName: string
+  sessionNumber: number
+  grossAmount: number // €70 IVA inclusa
+  netAmount: number // €57.38 imponibile
+  vatAmount: number // €12.62 IVA
+  stripeSessionId?: string
+  stripeInvoiceId?: string
+  stripeTransferId?: string
+  coachInvoice: {
+    required: boolean
+    received: boolean
+    number: string | null
+    receivedAt?: Date
+    verified: boolean
+    verifiedBy?: string
+    verifiedAt?: Date
+    rejectedAt?: Date
+    rejectionReason?: string
+  }
+  payoutStatus: 'awaiting_invoice' | 'invoice_received' | 'invoice_rejected' | 'ready_for_payout' | 'completed' | 'failed'
+  scheduledPayoutDate: Date
+  completedAt?: Date
   createdAt: Date
+  updatedAt: Date
 }
 
 interface Subscription {
@@ -100,17 +126,20 @@ function formatCurrency(amount: number): string {
 
 export default function AdminPaymentsPage() {
   const [offers, setOffers] = useState<Offer[]>([])
-  const [invoices, setInvoices] = useState<CoachInvoice[]>([])
+  const [pendingPayouts, setPendingPayouts] = useState<PendingPayout[]>([])
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'coaches' | 'invoices' | 'subscriptions'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'payouts' | 'coaches' | 'subscriptions'>('overview')
   
   // Filtri
   const [selectedCoach, setSelectedCoach] = useState<string>('all')
   const [selectedMonth, setSelectedMonth] = useState<string>('all')
+  const [payoutFilter, setPayoutFilter] = useState<string>('all')
   
-  // Modal fattura
-  const [showInvoiceModal, setShowInvoiceModal] = useState<{coachId: string, coachName: string, coachEmail: string, month: string, year: number, amount: number} | null>(null)
+  // Modal
+  const [verifyModal, setVerifyModal] = useState<PendingPayout | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [processing, setProcessing] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -147,28 +176,46 @@ export default function AdminPaymentsPage() {
       })
       setOffers(loadedOffers)
 
-      // Carica fatture coach
-      const invoicesQuery = query(collection(db, 'coachInvoices'), orderBy('createdAt', 'desc'))
-      const invoicesSnap = await getDocs(invoicesQuery)
-      const loadedInvoices: CoachInvoice[] = invoicesSnap.docs.map(doc => {
+      // Carica pending payouts (Modello A)
+      const payoutsQuery = query(collection(db, 'pendingPayouts'), orderBy('createdAt', 'desc'))
+      const payoutsSnap = await getDocs(payoutsQuery)
+      const loadedPayouts: PendingPayout[] = payoutsSnap.docs.map(doc => {
         const data = doc.data()
         return {
           id: doc.id,
+          offerId: data.offerId || '',
+          offerTitle: data.offerTitle || '',
           coachId: data.coachId || '',
           coachName: data.coachName || '',
           coachEmail: data.coachEmail || '',
-          month: data.month || '',
-          year: data.year || new Date().getFullYear(),
-          totalAmount: data.totalAmount || 0,
-          invoiceUrl: data.invoiceUrl || '',
-          invoiceNumber: data.invoiceNumber || '',
-          status: data.status || 'pending',
-          uploadedAt: data.uploadedAt?.toDate?.() || null,
-          paidAt: data.paidAt?.toDate?.() || null,
-          createdAt: data.createdAt?.toDate() || new Date()
+          coacheeId: data.coacheeId || '',
+          coacheeName: data.coacheeName || '',
+          sessionNumber: data.sessionNumber || 1,
+          grossAmount: data.grossAmount || 70,
+          netAmount: data.netAmount || 57.38,
+          vatAmount: data.vatAmount || 12.62,
+          stripeSessionId: data.stripeSessionId || '',
+          stripeInvoiceId: data.stripeInvoiceId || '',
+          stripeTransferId: data.stripeTransferId || '',
+          coachInvoice: {
+            required: data.coachInvoice?.required ?? true,
+            received: data.coachInvoice?.received ?? false,
+            number: data.coachInvoice?.number || null,
+            receivedAt: data.coachInvoice?.receivedAt?.toDate?.() || null,
+            verified: data.coachInvoice?.verified ?? false,
+            verifiedBy: data.coachInvoice?.verifiedBy || null,
+            verifiedAt: data.coachInvoice?.verifiedAt?.toDate?.() || null,
+            rejectedAt: data.coachInvoice?.rejectedAt?.toDate?.() || null,
+            rejectionReason: data.coachInvoice?.rejectionReason || null
+          },
+          payoutStatus: data.payoutStatus || 'awaiting_invoice',
+          scheduledPayoutDate: data.scheduledPayoutDate?.toDate() || new Date(),
+          completedAt: data.completedAt?.toDate?.() || null,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date()
         }
       })
-      setInvoices(loadedInvoices)
+      setPendingPayouts(loadedPayouts)
 
       // Carica utenti con membership attiva
       const usersQuery = query(
@@ -195,9 +242,16 @@ export default function AdminPaymentsPage() {
   }
 
   // Lista coach unici
-  const uniqueCoaches = Array.from(new Map(
-    offers.map(o => [o.coachId, { id: o.coachId, name: o.coachName, email: o.coachEmail }])
-  ).values())
+  const uniqueCoaches = useMemo(() => {
+    const coaches = new Map<string, { id: string; name: string; email: string }>()
+    offers.forEach(o => {
+      if (o.coachId) coaches.set(o.coachId, { id: o.coachId, name: o.coachName, email: o.coachEmail })
+    })
+    pendingPayouts.forEach(p => {
+      if (p.coachId) coaches.set(p.coachId, { id: p.coachId, name: p.coachName, email: p.coachEmail })
+    })
+    return Array.from(coaches.values()).sort((a, b) => a.name.localeCompare(b.name))
+  }, [offers, pendingPayouts])
 
   // Lista mesi con pagamenti
   const getMonthsWithPayments = () => {
@@ -242,6 +296,33 @@ export default function AdminPaymentsPage() {
     ).sort((a, b) => new Date(b.paidAt!).getTime() - new Date(a.paidAt!).getTime())
   }
 
+  // Filtra pending payouts
+  const filteredPayouts = useMemo(() => {
+    return pendingPayouts.filter(p => {
+      if (payoutFilter !== 'all' && p.payoutStatus !== payoutFilter) return false
+      return true
+    })
+  }, [pendingPayouts, payoutFilter])
+
+  // Stats payout
+  const payoutStats = useMemo(() => {
+    const awaitingInvoice = pendingPayouts.filter(p => p.payoutStatus === 'awaiting_invoice').length
+    const invoiceReceived = pendingPayouts.filter(p => p.payoutStatus === 'invoice_received').length
+    const readyForPayout = pendingPayouts.filter(p => p.payoutStatus === 'ready_for_payout' || (p.payoutStatus === 'invoice_received' && p.coachInvoice.verified)).length
+    const completed = pendingPayouts.filter(p => p.payoutStatus === 'completed').length
+    const rejected = pendingPayouts.filter(p => p.payoutStatus === 'invoice_rejected').length
+    
+    const totalPending = pendingPayouts
+      .filter(p => p.payoutStatus !== 'completed')
+      .reduce((sum, p) => sum + p.grossAmount, 0)
+    
+    const totalCompleted = pendingPayouts
+      .filter(p => p.payoutStatus === 'completed')
+      .reduce((sum, p) => sum + p.grossAmount, 0)
+    
+    return { awaitingInvoice, invoiceReceived, readyForPayout, completed, rejected, totalPending, totalCompleted }
+  }, [pendingPayouts])
+
   // Calcola totali per coach
   const getCoachTotals = () => {
     const totals: Record<string, {
@@ -252,6 +333,7 @@ export default function AdminPaymentsPage() {
       totalPlatformFee: number
       paidSessions: number
       pendingSessions: number
+      pendingPayoutAmount: number
       monthlyBreakdown: Record<string, number>
     }> = {}
 
@@ -265,6 +347,7 @@ export default function AdminPaymentsPage() {
           totalPlatformFee: 0,
           paidSessions: 0,
           pendingSessions: 0,
+          pendingPayoutAmount: 0,
           monthlyBreakdown: {}
         }
       }
@@ -287,6 +370,13 @@ export default function AdminPaymentsPage() {
       })
     })
 
+    // Aggiungi pending payout amounts
+    pendingPayouts.forEach(payout => {
+      if (payout.payoutStatus !== 'completed' && totals[payout.coachId]) {
+        totals[payout.coachId].pendingPayoutAmount += payout.grossAmount
+      }
+    })
+
     return Object.values(totals).sort((a, b) => b.totalEarnings - a.totalEarnings)
   }
 
@@ -297,53 +387,121 @@ export default function AdminPaymentsPage() {
   const coachPayouts = filteredPayments.reduce((sum, p) => sum + p.coachPayout, 0)
   const subscriptionRevenue = subscriptions.length * 29
 
-  // Crea richiesta fattura per coach
-  const createInvoiceRequest = async (coachId: string, coachName: string, coachEmail: string, month: string, year: number, amount: number) => {
+  // Verifica fattura coach
+  const handleVerifyInvoice = async (payout: PendingPayout, approved: boolean) => {
+    setProcessing(true)
     try {
-      await addDoc(collection(db, 'coachInvoices'), {
-        coachId,
-        coachName,
-        coachEmail,
-        month,
-        year,
-        totalAmount: amount,
-        status: 'pending',
-        createdAt: serverTimestamp()
-      })
+      const updateData: any = {
+        updatedAt: serverTimestamp()
+      }
       
-      // Ricarica dati
-      loadData()
-      setShowInvoiceModal(null)
-      alert(`Richiesta fattura inviata a ${coachName}`)
+      if (approved) {
+        updateData['coachInvoice.verified'] = true
+        updateData['coachInvoice.verifiedAt'] = serverTimestamp()
+        updateData['coachInvoice.verifiedBy'] = 'admin' // TODO: usare ID admin reale
+        updateData.payoutStatus = 'ready_for_payout'
+      } else {
+        updateData['coachInvoice.rejectedAt'] = serverTimestamp()
+        updateData['coachInvoice.rejectionReason'] = rejectReason
+        updateData.payoutStatus = 'invoice_rejected'
+      }
+      
+      await updateDoc(doc(db, 'pendingPayouts', payout.id), updateData)
+      
+      // Aggiorna stato locale
+      setPendingPayouts(prev => prev.map(p => {
+        if (p.id === payout.id) {
+          return {
+            ...p,
+            payoutStatus: approved ? 'ready_for_payout' : 'invoice_rejected',
+            coachInvoice: {
+              ...p.coachInvoice,
+              verified: approved,
+              verifiedAt: approved ? new Date() : undefined,
+              rejectedAt: !approved ? new Date() : undefined,
+              rejectionReason: !approved ? rejectReason : undefined
+            }
+          }
+        }
+        return p
+      }))
+      
+      setVerifyModal(null)
+      setRejectReason('')
+      
+      // TODO: Inviare email al coach
+      if (!approved) {
+        alert(`Fattura rifiutata. Il coach riceverà una notifica.`)
+      } else {
+        alert(`Fattura verificata. Pronta per il payout di lunedì.`)
+      }
     } catch (err) {
-      console.error('Errore creazione richiesta:', err)
-      alert('Errore nella creazione della richiesta')
+      console.error('Errore verifica fattura:', err)
+      alert('Errore durante la verifica')
+    } finally {
+      setProcessing(false)
     }
   }
 
-  // Segna fattura come pagata
-  const markInvoiceAsPaid = async (invoiceId: string) => {
+  // Esegui batch payout manuale
+  const handleManualBatchPayout = async () => {
+    if (!confirm('Vuoi eseguire il batch payout adesso? Verranno processati tutti i payout pronti.')) return
+    
+    setProcessing(true)
     try {
-      await updateDoc(doc(db, 'coachInvoices', invoiceId), {
-        status: 'paid',
-        paidAt: serverTimestamp()
+      const response = await fetch('/api/admin/batch-payout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || 'manual'}`
+        }
       })
-      setInvoices(invoices.map(inv => 
-        inv.id === invoiceId ? { ...inv, status: 'paid', paidAt: new Date() } : inv
-      ))
+      
+      const result = await response.json()
+      
+      if (response.ok) {
+        alert(`Batch payout completato!\n\nProcessati: ${result.processed}\nCompletati: ${result.successful}\nFalliti: ${result.failed}`)
+        loadData() // Ricarica dati
+      } else {
+        alert(`Errore: ${result.error}`)
+      }
     } catch (err) {
-      console.error('Errore aggiornamento fattura:', err)
+      console.error('Errore batch payout:', err)
+      alert('Errore durante il batch payout')
+    } finally {
+      setProcessing(false)
     }
   }
 
   const coachTotals = getCoachTotals()
+
+  // Status badge per payout
+  const getPayoutStatusBadge = (status: string) => {
+    const config: Record<string, { bg: string; text: string; icon: any; label: string }> = {
+      'awaiting_invoice': { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock, label: 'In attesa fattura' },
+      'invoice_received': { bg: 'bg-blue-100', text: 'text-blue-700', icon: FileText, label: 'Fattura ricevuta' },
+      'invoice_rejected': { bg: 'bg-red-100', text: 'text-red-700', icon: XCircle, label: 'Fattura rifiutata' },
+      'ready_for_payout': { bg: 'bg-purple-100', text: 'text-purple-700', icon: CheckCircle, label: 'Pronto per payout' },
+      'completed': { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle, label: 'Completato' },
+      'failed': { bg: 'bg-red-100', text: 'text-red-700', icon: AlertCircle, label: 'Fallito' }
+    }
+    
+    const c = config[status] || config['awaiting_invoice']
+    const Icon = c.icon
+    
+    return (
+      <span className={`px-2 py-1 text-xs rounded-full ${c.bg} ${c.text} flex items-center gap-1 justify-center w-fit`}>
+        <Icon size={12} />
+        {c.label}
+      </span>
+    )
+  }
 
   return (
     <AdminLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-charcoal">Pagamenti</h1>
-          <p className="text-gray-500">Panoramica finanziaria e gestione fatture coach</p>
+          <p className="text-gray-500">Panoramica finanziaria e gestione payout coach</p>
         </div>
 
         {/* Stats */}
@@ -369,13 +527,13 @@ export default function AdminPaymentsPage() {
           </div>
           <div className="bg-white p-5 rounded-xl border">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <User className="w-5 h-5 text-blue-600" />
+              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                <HourglassIcon className="w-5 h-5 text-amber-600" />
               </div>
-              <span className="text-sm text-gray-500">Da pagare ai coach</span>
+              <span className="text-sm text-gray-500">Payout in sospeso</span>
             </div>
-            <p className="text-2xl font-bold text-charcoal">{formatCurrency(coachPayouts)}</p>
-            <p className="text-xs text-gray-400 mt-1">70% del netto</p>
+            <p className="text-2xl font-bold text-amber-600">{formatCurrency(payoutStats.totalPending)}</p>
+            <p className="text-xs text-gray-400 mt-1">{payoutStats.awaitingInvoice + payoutStats.invoiceReceived + payoutStats.readyForPayout} da processare</p>
           </div>
           <div className="bg-white p-5 rounded-xl border">
             <div className="flex items-center gap-3 mb-2">
@@ -401,6 +559,20 @@ export default function AdminPaymentsPage() {
             Panoramica
           </button>
           <button
+            onClick={() => setActiveTab('payouts')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'payouts' ? 'bg-charcoal text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Banknote size={16} className="inline mr-2" />
+            Payout Coach
+            {payoutStats.awaitingInvoice + payoutStats.invoiceReceived > 0 && (
+              <span className="ml-2 px-2 py-0.5 text-xs bg-amber-500 text-white rounded-full">
+                {payoutStats.awaitingInvoice + payoutStats.invoiceReceived}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setActiveTab('coaches')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               activeTab === 'coaches' ? 'bg-charcoal text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
@@ -408,15 +580,6 @@ export default function AdminPaymentsPage() {
           >
             <User size={16} className="inline mr-2" />
             Per Coach ({uniqueCoaches.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('invoices')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'invoices' ? 'bg-charcoal text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <FileText size={16} className="inline mr-2" />
-            Fatture Coach ({invoices.length})
           </button>
           <button
             onClick={() => setActiveTab('subscriptions')}
@@ -482,51 +645,6 @@ export default function AdminPaymentsPage() {
                 )}
               </div>
 
-              {/* Riepilogo filtrato */}
-              {(selectedCoach !== 'all' || selectedMonth !== 'all') && (
-                <div className="p-4 bg-primary-50 border-b">
-                  <div className="flex items-center justify-between flex-wrap gap-4">
-                    <div>
-                      <p className="text-sm text-gray-600">
-                        {selectedCoach !== 'all' && uniqueCoaches.find(c => c.id === selectedCoach)?.name}
-                        {selectedCoach !== 'all' && selectedMonth !== 'all' && ' - '}
-                        {selectedMonth !== 'all' && (() => {
-                          const [year, m] = selectedMonth.split('-')
-                          const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
-                          return `${monthNames[parseInt(m) - 1]} ${year}`
-                        })()}
-                      </p>
-                      <p className="text-2xl font-bold text-charcoal">{formatCurrency(coachPayouts)}</p>
-                      <p className="text-sm text-gray-500">{filteredPayments.length} pagamenti</p>
-                    </div>
-                    
-                    {selectedCoach !== 'all' && selectedMonth !== 'all' && coachPayouts > 0 && (
-                      <button
-                        onClick={() => {
-                          const coach = uniqueCoaches.find(c => c.id === selectedCoach)
-                          if (coach) {
-                            const [year, month] = selectedMonth.split('-')
-                            const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
-                            setShowInvoiceModal({
-                              coachId: coach.id,
-                              coachName: coach.name,
-                              coachEmail: coach.email,
-                              month: monthNames[parseInt(month) - 1],
-                              year: parseInt(year),
-                              amount: coachPayouts
-                            })
-                          }
-                        }}
-                        className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 flex items-center gap-2"
-                      >
-                        <FileText size={16} />
-                        Richiedi Fattura
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
               {/* Lista pagamenti */}
               {filteredPayments.length === 0 ? (
                 <div className="p-12 text-center text-gray-500">
@@ -575,6 +693,178 @@ export default function AdminPaymentsPage() {
                 </table>
               )}
             </>
+          ) : activeTab === 'payouts' ? (
+            /* Tab Payout Coach */
+            <>
+              {/* Stats payout */}
+              <div className="p-4 border-b bg-gray-50">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex gap-6">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-yellow-600">{payoutStats.awaitingInvoice}</p>
+                      <p className="text-xs text-gray-500">In attesa fattura</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-blue-600">{payoutStats.invoiceReceived}</p>
+                      <p className="text-xs text-gray-500">Da verificare</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-purple-600">{payoutStats.readyForPayout}</p>
+                      <p className="text-xs text-gray-500">Pronti per payout</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-600">{payoutStats.completed}</p>
+                      <p className="text-xs text-gray-500">Completati</p>
+                    </div>
+                    {payoutStats.rejected > 0 && (
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-red-600">{payoutStats.rejected}</p>
+                        <p className="text-xs text-gray-500">Rifiutati</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {payoutStats.readyForPayout > 0 && (
+                    <button
+                      onClick={handleManualBatchPayout}
+                      disabled={processing}
+                      className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {processing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                      Esegui Payout Ora
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Filtri payout */}
+              <div className="p-4 border-b flex gap-2 flex-wrap">
+                {[
+                  { value: 'all', label: 'Tutti' },
+                  { value: 'awaiting_invoice', label: 'In attesa fattura' },
+                  { value: 'invoice_received', label: 'Da verificare' },
+                  { value: 'ready_for_payout', label: 'Pronti' },
+                  { value: 'completed', label: 'Completati' },
+                  { value: 'invoice_rejected', label: 'Rifiutati' },
+                ].map(filter => (
+                  <button
+                    key={filter.value}
+                    onClick={() => setPayoutFilter(filter.value)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      payoutFilter === filter.value
+                        ? 'bg-charcoal text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Lista payout */}
+              {filteredPayouts.length === 0 ? (
+                <div className="p-12 text-center text-gray-500">
+                  <Banknote className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Nessun payout {payoutFilter !== 'all' ? 'con questo stato' : ''}</p>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Data</th>
+                      <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Coach</th>
+                      <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Offerta</th>
+                      <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase">Importo</th>
+                      <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">N. Fattura</th>
+                      <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Stato</th>
+                      <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Payout</th>
+                      <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase">Azioni</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredPayouts.map(payout => (
+                      <tr key={payout.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-gray-700">
+                          {format(payout.createdAt, 'dd MMM yyyy', { locale: it })}
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="font-medium text-charcoal">{payout.coachName}</p>
+                          <p className="text-xs text-gray-400">{payout.coachEmail}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-gray-700">{payout.offerTitle || `Offerta #${payout.offerId.slice(-6)}`}</p>
+                          <p className="text-xs text-gray-400">Sessione {payout.sessionNumber}</p>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <p className="font-bold text-charcoal">{formatCurrency(payout.grossAmount)}</p>
+                          <p className="text-xs text-gray-400">{formatCurrency(payout.netAmount)} + IVA</p>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          {payout.coachInvoice.number ? (
+                            <span className="text-sm font-mono">{payout.coachInvoice.number}</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {getPayoutStatusBadge(payout.payoutStatus)}
+                        </td>
+                        <td className="px-6 py-4 text-center text-sm text-gray-500">
+                          {payout.completedAt ? (
+                            format(payout.completedAt, 'dd/MM/yy', { locale: it })
+                          ) : (
+                            format(payout.scheduledPayoutDate, 'dd/MM/yy', { locale: it })
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Verifica fattura */}
+                            {payout.payoutStatus === 'invoice_received' && !payout.coachInvoice.verified && (
+                              <button
+                                onClick={() => setVerifyModal(payout)}
+                                className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200"
+                                title="Verifica fattura"
+                              >
+                                <Eye size={16} />
+                              </button>
+                            )}
+                            
+                            {/* Reset fattura rifiutata */}
+                            {payout.payoutStatus === 'invoice_rejected' && (
+                              <button
+                                onClick={async () => {
+                                  if (!confirm('Resettare lo stato? Il coach potrà reinviare la fattura.')) return
+                                  await updateDoc(doc(db, 'pendingPayouts', payout.id), {
+                                    payoutStatus: 'awaiting_invoice',
+                                    'coachInvoice.received': false,
+                                    'coachInvoice.number': null,
+                                    'coachInvoice.rejectedAt': null,
+                                    'coachInvoice.rejectionReason': null,
+                                    updatedAt: serverTimestamp()
+                                  })
+                                  loadData()
+                                }}
+                                className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                title="Reset stato"
+                              >
+                                <RefreshCw size={16} />
+                              </button>
+                            )}
+                            
+                            {/* Badge completato */}
+                            {payout.payoutStatus === 'completed' && (
+                              <span className="p-2 rounded-lg bg-green-100 text-green-600">
+                                <CheckCircle size={16} />
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
           ) : activeTab === 'coaches' ? (
             /* Tab Coach */
             coachTotals.length === 0 ? (
@@ -597,7 +887,7 @@ export default function AdminPaymentsPage() {
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="grid grid-cols-4 gap-4 mb-4">
                       <div className="bg-gray-50 rounded-lg p-3">
                         <p className="text-sm text-gray-500">Sessioni pagate</p>
                         <p className="text-xl font-bold text-charcoal">{coach.paidSessions}</p>
@@ -605,6 +895,10 @@ export default function AdminPaymentsPage() {
                       <div className="bg-gray-50 rounded-lg p-3">
                         <p className="text-sm text-gray-500">Sessioni in attesa</p>
                         <p className="text-xl font-bold text-charcoal">{coach.pendingSessions}</p>
+                      </div>
+                      <div className="bg-amber-50 rounded-lg p-3">
+                        <p className="text-sm text-gray-500">Payout pendenti</p>
+                        <p className="text-xl font-bold text-amber-600">{formatCurrency(coach.pendingPayoutAmount)}</p>
                       </div>
                       <div className="bg-primary-50 rounded-lg p-3">
                         <p className="text-sm text-gray-500">Commissione CoachaMi</p>
@@ -635,89 +929,6 @@ export default function AdminPaymentsPage() {
                   </div>
                 ))}
               </div>
-            )
-          ) : activeTab === 'invoices' ? (
-            /* Tab Fatture */
-            invoices.length === 0 ? (
-              <div className="p-12 text-center text-gray-500">
-                <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>Nessuna fattura</p>
-                <p className="text-sm mt-2">Usa i filtri nella tab "Panoramica" per richiedere fatture ai coach</p>
-              </div>
-            ) : (
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Coach</th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Periodo</th>
-                    <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase">Importo</th>
-                    <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">N. Fattura</th>
-                    <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Stato</th>
-                    <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase">Azioni</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {invoices.map(invoice => (
-                    <tr key={invoice.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <p className="font-medium text-charcoal">{invoice.coachName}</p>
-                        <p className="text-xs text-gray-400">{invoice.coachEmail}</p>
-                      </td>
-                      <td className="px-6 py-4 text-gray-700">
-                        {invoice.month} {invoice.year}
-                      </td>
-                      <td className="px-6 py-4 text-right font-medium text-charcoal">
-                        {formatCurrency(invoice.totalAmount)}
-                      </td>
-                      <td className="px-6 py-4 text-center text-gray-500">
-                        {invoice.invoiceNumber || '-'}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        {invoice.status === 'paid' ? (
-                          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700 flex items-center gap-1 justify-center">
-                            <CheckCircle size={12} />
-                            Pagata
-                          </span>
-                        ) : invoice.status === 'uploaded' ? (
-                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 justify-center">
-                            <FileText size={12} />
-                            Caricata
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700 flex items-center gap-1 justify-center">
-                            <Clock size={12} />
-                            In attesa
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {invoice.invoiceUrl && (
-                            <a
-                              href={invoice.invoiceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
-                              title="Visualizza fattura"
-                            >
-                              <Eye size={16} />
-                            </a>
-                          )}
-                          {invoice.status === 'uploaded' && (
-                            <button
-                              onClick={() => markInvoiceAsPaid(invoice.id)}
-                              className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200"
-                              title="Segna come pagata"
-                            >
-                              <CheckCircle size={16} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             )
           ) : (
             /* Tab Abbonamenti */
@@ -781,61 +992,85 @@ export default function AdminPaymentsPage() {
         </div>
       </div>
 
-      {/* Modal richiesta fattura */}
-      {showInvoiceModal && (
+      {/* Modal verifica fattura */}
+      {verifyModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-charcoal">Richiedi Fattura</h3>
+              <h3 className="text-lg font-semibold text-charcoal">Verifica Fattura Coach</h3>
               <button 
-                onClick={() => setShowInvoiceModal(null)}
+                onClick={() => { setVerifyModal(null); setRejectReason(''); }}
                 className="p-2 hover:bg-gray-100 rounded-lg"
               >
                 <X size={20} />
               </button>
             </div>
             
-            <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <p className="text-sm text-gray-500">Coach</p>
-              <p className="font-medium text-charcoal">{showInvoiceModal.coachName}</p>
-              <p className="text-sm text-gray-400">{showInvoiceModal.coachEmail}</p>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="space-y-4">
+              {/* Info payout */}
               <div className="bg-gray-50 rounded-xl p-4">
-                <p className="text-sm text-gray-500">Periodo</p>
-                <p className="font-medium text-charcoal">{showInvoiceModal.month} {showInvoiceModal.year}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Coach</p>
+                    <p className="font-medium text-charcoal">{verifyModal.coachName}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Importo</p>
+                    <p className="font-bold text-green-600">{formatCurrency(verifyModal.grossAmount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">N. Fattura</p>
+                    <p className="font-mono">{verifyModal.coachInvoice.number || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Data payout</p>
+                    <p className="font-medium">{format(verifyModal.scheduledPayoutDate, 'dd MMM yyyy', { locale: it })}</p>
+                  </div>
+                </div>
               </div>
-              <div className="bg-green-50 rounded-xl p-4">
-                <p className="text-sm text-gray-500">Importo</p>
-                <p className="font-bold text-green-600">{formatCurrency(showInvoiceModal.amount)}</p>
+              
+              {/* Info verifica */}
+              <div className="bg-blue-50 rounded-xl p-4">
+                <h4 className="font-medium text-blue-800 mb-2">Cosa verificare:</h4>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• Intestatario: CoachaMi / Debora Carofiglio</li>
+                  <li>• P.IVA: IT02411430685</li>
+                  <li>• Importo: {formatCurrency(verifyModal.grossAmount)} (o {formatCurrency(verifyModal.netAmount)} + IVA)</li>
+                  <li>• Descrizione servizio coaching</li>
+                </ul>
+              </div>
+              
+              {/* Campo motivo rifiuto */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Motivo rifiuto (opzionale)
+                </label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Es: Importo errato, dati intestatario non corretti..."
+                  rows={2}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                />
               </div>
             </div>
             
-            <p className="text-sm text-gray-500 mb-4">
-              Verrà inviata una richiesta al coach per caricare la fattura per questo periodo.
-            </p>
-            
-            <div className="flex gap-3">
+            <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setShowInvoiceModal(null)}
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50"
+                onClick={() => handleVerifyInvoice(verifyModal, false)}
+                disabled={processing}
+                className="flex-1 px-4 py-2 border border-red-200 text-red-600 rounded-xl hover:bg-red-50 flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                Annulla
+                <XCircle size={16} />
+                Rifiuta
               </button>
               <button
-                onClick={() => createInvoiceRequest(
-                  showInvoiceModal.coachId,
-                  showInvoiceModal.coachName,
-                  showInvoiceModal.coachEmail,
-                  showInvoiceModal.month,
-                  showInvoiceModal.year,
-                  showInvoiceModal.amount
-                )}
-                className="flex-1 px-4 py-2 bg-primary-500 text-white rounded-xl hover:bg-primary-600 flex items-center justify-center gap-2"
+                onClick={() => handleVerifyInvoice(verifyModal, true)}
+                disabled={processing}
+                className="flex-1 px-4 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <FileText size={16} />
-                Richiedi Fattura
+                {processing ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                Approva
               </button>
             </div>
           </div>
