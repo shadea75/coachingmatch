@@ -375,6 +375,58 @@ export async function POST(request: NextRequest) {
     }
 
     // =====================================================
+    // EMAIL NUOVA OFFERTA (Coach → Coachee)
+    // =====================================================
+    if (type === 'new_offer') {
+      const { coacheeEmail, coacheeName, coachName, offerTitle, totalSessions, priceTotal, pricePerSession, validDays, offerId } = data
+      
+      const result = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: coacheeEmail,
+        subject: `🎁 Nuova offerta da ${coachName} - CoachaMi`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family: sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; padding: 20px;">
+            <div style="max-width: 600px; margin: 0 auto;">${logoHeader}
+              <div style="background: linear-gradient(135deg, #EC7711, #F59E0B); border-radius: 12px 12px 0 0; padding: 30px; text-align: center;">
+                <h1 style="color: white; margin: 0;">🎁 Nuova Offerta!</h1>
+              </div>
+              <div style="background: white; border-radius: 0 0 12px 12px; padding: 30px;">
+                <p>Ciao <strong>${coacheeName}</strong>,</p>
+                <p><strong>${coachName}</strong> ti ha inviato un'offerta personalizzata!</p>
+                
+                <div style="background: #FFF7ED; border-radius: 12px; padding: 20px; margin: 20px 0; border-left: 4px solid #EC7711;">
+                  <h3 style="margin: 0 0 15px 0; color: #EC7711;">${offerTitle}</h3>
+                  <p style="margin: 5px 0;"><strong>📅 Sessioni:</strong> ${totalSessions}</p>
+                  <p style="margin: 5px 0;"><strong>💰 Prezzo totale:</strong> €${priceTotal?.toFixed(2)}</p>
+                  <p style="margin: 5px 0;"><strong>💳 Pagamento:</strong> €${pricePerSession?.toFixed(2)} a sessione</p>
+                  <p style="margin: 5px 0;"><strong>⏰ Validità:</strong> ${validDays} giorni</p>
+                </div>
+                
+                <div style="background: #FEF3C7; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                  <p style="margin: 0; color: #92400e; font-size: 14px;">
+                    <strong>⏳ Attenzione:</strong> L'offerta scade tra ${validDays} giorni. Non perdertela!
+                  </p>
+                </div>
+                
+                <center>
+                  <a href="https://www.coachami.it/offers" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                    Vedi Offerta
+                  </a>
+                </center>
+                
+                <p style="margin-top: 20px; font-size: 14px; color: #666;">
+                  Accedendo potrai vedere i dettagli completi e decidere se accettare l'offerta.
+                </p>
+              </div>
+              ${footer}
+            </div>
+          </body></html>`
+      })
+      
+      return NextResponse.json({ success: true, result })
+    }
+
+    // =====================================================
     // EMAIL PAYOUT - FATTURA RICEVUTA
     // =====================================================
     if (type === 'payout_invoice_received') {
