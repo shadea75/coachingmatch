@@ -35,29 +35,36 @@ import {
 
 // Configurazione piattaforma
 const PLATFORM_CONFIG = {
-  platformFeePercent: 30,
-  vatPercent: 22,
+  coachPercent: 70, // Coach riceve il 70%
+  platformPercent: 30, // CoachaMi trattiene il 30%
+  vatPercent: 22, // IVA sulla commissione CoachaMi
   minPricePerSession: 30,
   maxSessions: 20,
   offerValidDays: 7,
 }
 
-// Calcola pricing
+// Calcola pricing CORRETTO
+// Il coachee paga €100 → Coach riceve €70, CoachaMi tiene €30 (di cui €24,59 netti + €5,41 IVA)
 function calculatePricing(priceTotal: number, totalSessions: number) {
   const pricePerSession = priceTotal / totalSessions
-  const priceNet = priceTotal / (1 + PLATFORM_CONFIG.vatPercent / 100)
-  const vatAmount = priceTotal - priceNet
-  const platformFeeTotal = priceNet * (PLATFORM_CONFIG.platformFeePercent / 100)
-  const coachPayoutTotal = priceNet - platformFeeTotal
+  
+  // Split 70/30 sul LORDO pagato dal coachee
+  const coachPayoutTotal = priceTotal * (PLATFORM_CONFIG.coachPercent / 100) // 70%
+  const platformFeeTotal = priceTotal * (PLATFORM_CONFIG.platformPercent / 100) // 30%
+  
+  // L'IVA si calcola solo sulla commissione CoachaMi (è il nostro ricavo)
+  const platformFeeNet = platformFeeTotal / (1 + PLATFORM_CONFIG.vatPercent / 100) // Netto
+  const platformVatAmount = platformFeeTotal - platformFeeNet // IVA su commissione
   
   return {
-    priceTotal,
-    pricePerSession: Math.round(pricePerSession * 100) / 100,
-    priceNet: Math.round(priceNet * 100) / 100,
-    vatAmount: Math.round(vatAmount * 100) / 100,
-    platformFeeTotal: Math.round(platformFeeTotal * 100) / 100,
-    coachPayoutTotal: Math.round(coachPayoutTotal * 100) / 100,
-    perSessionCoachPayout: Math.round((coachPayoutTotal / totalSessions) * 100) / 100,
+    priceTotal, // €400 - pagato dal coachee
+    pricePerSession: Math.round(pricePerSession * 100) / 100, // €100
+    coachPayoutTotal: Math.round(coachPayoutTotal * 100) / 100, // €280 - al coach
+    platformFeeTotal: Math.round(platformFeeTotal * 100) / 100, // €120 - a CoachaMi (lordo)
+    platformFeeNet: Math.round(platformFeeNet * 100) / 100, // €98,36 - guadagno netto CoachaMi
+    platformVatAmount: Math.round(platformVatAmount * 100) / 100, // €21,64 - IVA da versare
+    perSessionCoachPayout: Math.round((coachPayoutTotal / totalSessions) * 100) / 100, // €70
+    perSessionPlatformFee: Math.round((platformFeeTotal / totalSessions) * 100) / 100, // €30
   }
 }
 
@@ -169,14 +176,12 @@ export default function NewOfferPage() {
       const validUntil = new Date()
       validUntil.setDate(validUntil.getDate() + formData.validDays)
       
-      // Crea le rate (installments)
+      // Crea le rate (installments) con calcoli CORRETTI
       const installments = Array.from({ length: formData.totalSessions }, (_, i) => ({
         sessionNumber: i + 1,
-        amount: pricing.pricePerSession,
-        amountNet: pricing.priceNet / formData.totalSessions,
-        vatAmount: pricing.vatAmount / formData.totalSessions,
-        platformFee: pricing.platformFeeTotal / formData.totalSessions,
-        coachPayout: pricing.coachPayoutTotal / formData.totalSessions,
+        amount: pricing.pricePerSession, // €100 - pagato dal coachee
+        coachPayout: pricing.perSessionCoachPayout, // €70 - al coach (70%)
+        platformFee: pricing.perSessionPlatformFee, // €30 - a CoachaMi (30%)
         status: 'pending'
       }))
       
@@ -200,52 +205,50 @@ export default function NewOfferPage() {
         sessionDuration: formData.sessionDuration,
         completedSessions: 0,
         
-        // Pricing
-        priceTotal: pricing.priceTotal,
-        pricePerSession: pricing.pricePerSession,
-        priceNet: pricing.priceNet,
-        vatAmount: pricing.vatAmount,
-        platformFeeTotal: pricing.platformFeeTotal,
-        coachPayoutTotal: pricing.coachPayoutTotal,
+        // Pricing CORRETTO
+        priceTotal: pricing.priceTotal, // €400 - totale pagato dal coachee
+        pricePerSession: pricing.pricePerSession, // €100 - per sessione
+        coachPayoutTotal: pricing.coachPayoutTotal, // €280 - totale al coach (70%)
+        platformFeeTotal: pricing.platformFeeTotal, // €120 - totale a CoachaMi (30%)
+        platformFeeNet: pricing.platformFeeNet, // €98,36 - guadagno netto CoachaMi
         
         // Rate
         installments,
         paidInstallments: 0,
         
-        // Stato
+        // Status
         status: 'pending',
-        
-        // Date
-        createdAt: serverTimestamp(),
-        sentAt: serverTimestamp(),
         validUntil,
         
-        // Note
-        coachNotes: formData.coachNotes.trim() || null,
+        // Metadata
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       }
       
       const docRef = await addDoc(collection(db, 'offers'), offerData)
       
-      // Invia email notifica al coachee
+      // Invia notifica al coachee
       try {
-        await fetch('/api/emails/offer-created', {
+        await fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            coacheeEmail: selectedCoachee.email,
-            coacheeName: selectedCoachee.name,
-            coachName: user.name || 'Il tuo coach',
-            offerTitle: formData.title.trim(),
-            totalSessions: formData.totalSessions,
-            sessionDuration: formData.sessionDuration,
-            priceTotal: pricing.priceTotal,
-            pricePerSession: pricing.pricePerSession,
-            offerId: docRef.id
+            type: 'new_offer',
+            data: {
+              coacheeEmail: selectedCoachee.email,
+              coacheeName: selectedCoachee.name,
+              coachName: user.name || 'Il tuo coach',
+              offerTitle: formData.title,
+              totalSessions: formData.totalSessions,
+              priceTotal: pricing.priceTotal,
+              pricePerSession: pricing.pricePerSession,
+              validDays: formData.validDays,
+              offerId: docRef.id
+            }
           })
         })
       } catch (emailErr) {
         console.error('Errore invio email:', emailErr)
-        // Non blocchiamo il flusso se l'email fallisce
       }
       
       setSuccess(true)
@@ -257,43 +260,29 @@ export default function NewOfferPage() {
       
     } catch (err: any) {
       console.error('Errore creazione offerta:', err)
-      setError('Errore durante la creazione dell\'offerta. Riprova.')
+      setError(err.message || 'Errore durante la creazione dell\'offerta')
     } finally {
       setIsSubmitting(false)
     }
   }
   
-  // Se non è coach
-  if (!user || (user.role !== 'coach' && user.role !== 'admin')) {
-    return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-500 mb-4">Accesso riservato ai coach</p>
-          <Link href="/login" className="text-primary-500 hover:underline">
-            Accedi
-          </Link>
-        </div>
-      </div>
-    )
-  }
-  
-  // Successo
+  // Success state
   if (success) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
+      <div className="min-h-screen bg-cream flex items-center justify-center p-4">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="bg-white rounded-2xl p-8 text-center max-w-md mx-4"
+          className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-lg"
         >
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Check className="w-8 h-8 text-green-500" />
+            <Check size={32} className="text-green-600" />
           </div>
-          <h2 className="text-xl font-semibold text-charcoal mb-2">Offerta inviata!</h2>
-          <p className="text-gray-500 mb-4">
+          <h2 className="text-xl font-bold text-charcoal mb-2">Offerta Inviata!</h2>
+          <p className="text-gray-600 mb-6">
             {selectedCoachee?.name} riceverà una notifica e potrà accettare l'offerta.
           </p>
-          <p className="text-sm text-gray-400">Reindirizzamento...</p>
+          <p className="text-sm text-gray-500">Reindirizzamento in corso...</p>
         </motion.div>
       </div>
     )
@@ -302,199 +291,187 @@ export default function NewOfferPage() {
   return (
     <div className="min-h-screen bg-cream">
       {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link 
-                href="/coach/offers"
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft size={20} />
-              </Link>
-              <div>
-                <h1 className="text-xl font-semibold text-charcoal">Nuova Offerta</h1>
-                <p className="text-sm text-gray-500">Step {step} di 3</p>
-              </div>
-            </div>
-            <Logo size="sm" />
-          </div>
+      <header className="bg-white border-b sticky top-0 z-50">
+        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
+          <Link href="/coach/offers" className="flex items-center gap-2 text-gray-600 hover:text-charcoal">
+            <ArrowLeft size={20} />
+            <span>Indietro</span>
+          </Link>
+          <Logo className="h-8" />
+          <div className="w-20" />
         </div>
       </header>
       
-      {/* Progress bar */}
+      {/* Progress */}
       <div className="bg-white border-b">
-        <div className="max-w-3xl mx-auto px-4">
-          <div className="flex">
+        <div className="max-w-3xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between mb-2">
             {[1, 2, 3].map((s) => (
-              <div 
-                key={s} 
-                className={`flex-1 h-1 ${s <= step ? 'bg-primary-500' : 'bg-gray-200'}`}
-              />
+              <div key={s} className="flex items-center">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  s < step ? 'bg-green-500 text-white' :
+                  s === step ? 'bg-primary-500 text-white' :
+                  'bg-gray-200 text-gray-500'
+                }`}>
+                  {s < step ? <Check size={16} /> : s}
+                </div>
+                {s < 3 && (
+                  <div className={`w-24 sm:w-32 h-1 mx-2 rounded ${
+                    s < step ? 'bg-green-500' : 'bg-gray-200'
+                  }`} />
+                )}
+              </div>
             ))}
+          </div>
+          <div className="flex justify-between text-xs text-gray-500">
+            <span>Destinatario</span>
+            <span>Sessioni</span>
+            <span>Prezzo</span>
           </div>
         </div>
       </div>
       
+      {/* Content */}
       <main className="max-w-3xl mx-auto px-4 py-6">
-        {/* Step 1: Seleziona Coachee */}
+        {/* Step 1: Seleziona coachee */}
         {step === 1 && (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="space-y-6"
+            className="space-y-4"
           >
             <div className="bg-white rounded-2xl p-6 shadow-sm">
               <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
-                <Users size={20} className="text-primary-500" />
-                Seleziona il Coachee
+                <User size={20} className="text-primary-500" />
+                Seleziona il destinatario
               </h2>
               
-              {/* Ricerca */}
               <input
                 type="text"
-                placeholder="Cerca per nome o email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cerca per nome o email..."
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
               
-              {/* Lista coachee */}
               {isLoading ? (
-                <div className="py-8 text-center">
+                <div className="text-center py-8">
                   <Loader2 className="animate-spin mx-auto text-primary-500" size={32} />
-                </div>
-              ) : filteredCoachees.length === 0 ? (
-                <div className="py-8 text-center text-gray-500">
-                  <User size={48} className="mx-auto mb-2 opacity-50" />
-                  <p>Nessun coachee trovato</p>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-80 overflow-y-auto">
-                  {filteredCoachees.map((coachee) => (
-                    <button
-                      key={coachee.id}
-                      onClick={() => setSelectedCoachee(coachee)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${
-                        selectedCoachee?.id === coachee.id
-                          ? 'bg-primary-50 border-2 border-primary-500'
-                          : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                      }`}
-                    >
-                      <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-                        {coachee.photoURL ? (
-                          <img src={coachee.photoURL} alt="" className="w-10 h-10 rounded-full" />
-                        ) : (
-                          <span className="text-primary-600 font-semibold">
+                  {filteredCoachees.length === 0 ? (
+                    <p className="text-center text-gray-500 py-8">
+                      Nessun coachee trovato
+                    </p>
+                  ) : (
+                    filteredCoachees.map((coachee) => (
+                      <button
+                        key={coachee.id}
+                        onClick={() => setSelectedCoachee(coachee)}
+                        className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                          selectedCoachee?.id === coachee.id
+                            ? 'border-primary-500 bg-primary-50'
+                            : 'border-gray-100 hover:border-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium">
                             {coachee.name.charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="font-medium text-charcoal">{coachee.name}</p>
-                        <p className="text-sm text-gray-500">{coachee.email}</p>
-                      </div>
-                      {selectedCoachee?.id === coachee.id && (
-                        <Check className="text-primary-500" size={20} />
-                      )}
-                    </button>
-                  ))}
+                          </div>
+                          <div>
+                            <p className="font-medium text-charcoal">{coachee.name}</p>
+                            <p className="text-sm text-gray-500">{coachee.email}</p>
+                          </div>
+                          {selectedCoachee?.id === coachee.id && (
+                            <Check size={20} className="ml-auto text-primary-500" />
+                          )}
+                        </div>
+                      </button>
+                    ))
+                  )}
                 </div>
               )}
             </div>
           </motion.div>
         )}
         
-        {/* Step 2: Dettagli Sessioni */}
+        {/* Step 2: Configura sessioni */}
         {step === 2 && (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="space-y-6"
+            className="space-y-4"
           >
             <div className="bg-white rounded-2xl p-6 shadow-sm">
               <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
                 <Package size={20} className="text-primary-500" />
-                Dettagli del Percorso
+                Numero di sessioni
               </h2>
               
-              <div className="space-y-4">
-                {/* Numero sessioni */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Numero di sessioni
-                  </label>
-                  <div className="flex items-center gap-3">
-                    {[1, 2, 4, 6, 8, 10, 12].map((num) => (
-                      <button
-                        key={num}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, totalSessions: num })}
-                        className={`w-12 h-12 rounded-xl font-semibold transition-colors ${
-                          formData.totalSessions === num
-                            ? 'bg-primary-500 text-white'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        {num}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Il coachee pagherà una rata prima di ogni sessione
-                  </p>
-                </div>
-                
-                {/* Durata sessione */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Durata di ogni sessione
-                  </label>
-                  <div className="flex items-center gap-3">
-                    {[30, 45, 60, 90, 120].map((min) => (
-                      <button
-                        key={min}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, sessionDuration: min })}
-                        className={`px-4 py-2 rounded-xl font-medium transition-colors ${
-                          formData.sessionDuration === min
-                            ? 'bg-primary-500 text-white'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        {min} min
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div className="grid grid-cols-4 gap-2 mb-4">
+                {[4, 6, 8, 10].map((num) => (
+                  <button
+                    key={num}
+                    onClick={() => setFormData({ ...formData, totalSessions: num })}
+                    className={`py-3 rounded-xl font-medium transition-colors ${
+                      formData.totalSessions === num
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                ))}
               </div>
+              
+              <input
+                type="number"
+                min={1}
+                max={PLATFORM_CONFIG.maxSessions}
+                value={formData.totalSessions}
+                onChange={(e) => setFormData({ ...formData, totalSessions: parseInt(e.target.value) || 1 })}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
             </div>
             
-            {/* Riepilogo */}
-            <div className="bg-blue-50 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-blue-700 mb-2">
-                <Calendar size={18} />
-                <span className="font-medium">Riepilogo percorso</span>
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+                <Clock size={20} className="text-primary-500" />
+                Durata sessione
+              </h2>
+              
+              <div className="grid grid-cols-3 gap-2">
+                {[45, 60, 90].map((dur) => (
+                  <button
+                    key={dur}
+                    onClick={() => setFormData({ ...formData, sessionDuration: dur })}
+                    className={`py-3 rounded-xl font-medium transition-colors ${
+                      formData.sessionDuration === dur
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {dur} min
+                  </button>
+                ))}
               </div>
-              <p className="text-blue-600">
-                {formData.totalSessions} sessioni da {formData.sessionDuration} minuti ciascuna
-              </p>
             </div>
           </motion.div>
         )}
         
-        {/* Step 3: Prezzo e Conferma */}
+        {/* Step 3: Prezzo e riepilogo */}
         {step === 3 && (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="space-y-6"
+            className="space-y-4"
           >
-            {/* Titolo offerta */}
+            {/* Titolo */}
             <div className="bg-white rounded-2xl p-6 shadow-sm">
               <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
                 <FileText size={20} className="text-primary-500" />
-                Titolo Offerta
+                Titolo del percorso
               </h2>
               
               <input
@@ -518,7 +495,7 @@ export default function NewOfferPage() {
             <div className="bg-white rounded-2xl p-6 shadow-sm">
               <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
                 <Euro size={20} className="text-primary-500" />
-                Prezzo Totale (IVA inclusa)
+                Prezzo Totale
               </h2>
               
               <div className="relative">
@@ -565,7 +542,7 @@ export default function NewOfferPage() {
               </div>
             </div>
             
-            {/* Calcolo guadagno */}
+            {/* Calcolo guadagno CORRETTO */}
             {formData.priceTotal >= formData.totalSessions * PLATFORM_CONFIG.minPricePerSession && (
               <div className="bg-green-50 rounded-2xl p-6">
                 <div className="flex items-center gap-2 mb-4">
@@ -575,7 +552,7 @@ export default function NewOfferPage() {
                 
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Prezzo totale (IVA incl.)</span>
+                    <span className="text-gray-600">Prezzo totale (pagato dal coachee)</span>
                     <span className="font-semibold">{formatCurrency(pricing.priceTotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -584,14 +561,6 @@ export default function NewOfferPage() {
                   </div>
                   
                   <div className="border-t border-green-200 pt-3 mt-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Imponibile</span>
-                      <span>{formatCurrency(pricing.priceNet)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">IVA (22%)</span>
-                      <span>{formatCurrency(pricing.vatAmount)}</span>
-                    </div>
                     <div className="flex justify-between text-sm text-red-600">
                       <span>Commissione CoachaMi (30%)</span>
                       <span>-{formatCurrency(pricing.platformFeeTotal)}</span>
@@ -600,7 +569,7 @@ export default function NewOfferPage() {
                   
                   <div className="border-t border-green-200 pt-3">
                     <div className="flex justify-between text-green-700">
-                      <span className="font-semibold">Il tuo guadagno totale</span>
+                      <span className="font-semibold">Il tuo guadagno totale (70%)</span>
                       <span className="text-xl font-bold">{formatCurrency(pricing.coachPayoutTotal)}</span>
                     </div>
                     <p className="text-sm text-green-600 mt-1">
@@ -618,8 +587,8 @@ export default function NewOfferPage() {
                 <p className="font-medium mb-1">Come funziona il pagamento</p>
                 <ul className="space-y-1 text-blue-600">
                   <li>• {selectedCoachee?.name} pagherà {formatCurrency(pricing.pricePerSession)} prima di ogni sessione</li>
-                  <li>• Riceverai {formatCurrency(pricing.perSessionCoachPayout)} dopo ogni sessione completata</li>
-                  <li>• Le sessioni verranno create automaticamente dopo il pagamento</li>
+                  <li>• Riceverai {formatCurrency(pricing.perSessionCoachPayout)} per ogni sessione</li>
+                  <li>• Dovrai emettere fattura a CoachaMi per ricevere il pagamento</li>
                 </ul>
               </div>
             </div>
@@ -648,6 +617,10 @@ export default function NewOfferPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Rata per sessione</span>
                   <span className="font-medium">{formatCurrency(pricing.pricePerSession)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Tuo guadagno per sessione</span>
+                  <span className="font-medium text-green-600">{formatCurrency(pricing.perSessionCoachPayout)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Validità offerta</span>
