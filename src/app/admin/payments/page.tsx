@@ -70,7 +70,7 @@ interface Offer {
   createdAt: Date
 }
 
-// Nuovo tipo per i payout pendenti (Modello A)
+// Tipo per i payout (derivato dalle installments pagate)
 interface PendingPayout {
   id: string
   offerId: string
@@ -81,12 +81,11 @@ interface PendingPayout {
   coacheeId: string
   coacheeName: string
   sessionNumber: number
-  grossAmount: number // €70 IVA inclusa
-  netAmount: number // €57.38 imponibile
-  vatAmount: number // €12.62 IVA
-  stripeSessionId?: string
-  stripeInvoiceId?: string
-  stripeTransferId?: string
+  grossAmount: number // Importo coach (70%)
+  netAmount: number // Imponibile
+  vatAmount: number // IVA
+  platformFee: number // Commissione piattaforma
+  paidAt: Date
   coachInvoice: {
     required: boolean
     received: boolean
@@ -101,8 +100,6 @@ interface PendingPayout {
   payoutStatus: 'awaiting_invoice' | 'invoice_received' | 'invoice_rejected' | 'ready_for_payout' | 'completed' | 'failed'
   scheduledPayoutDate: Date
   completedAt?: Date
-  createdAt: Date
-  updatedAt: Date
 }
 
 interface Subscription {
@@ -176,47 +173,6 @@ export default function AdminPaymentsPage() {
       })
       setOffers(loadedOffers)
 
-      // Carica pending payouts (Modello A)
-      const payoutsQuery = query(collection(db, 'pendingPayouts'), orderBy('createdAt', 'desc'))
-      const payoutsSnap = await getDocs(payoutsQuery)
-      const loadedPayouts: PendingPayout[] = payoutsSnap.docs.map(doc => {
-        const data = doc.data()
-        return {
-          id: doc.id,
-          offerId: data.offerId || '',
-          offerTitle: data.offerTitle || '',
-          coachId: data.coachId || '',
-          coachName: data.coachName || '',
-          coachEmail: data.coachEmail || '',
-          coacheeId: data.coacheeId || '',
-          coacheeName: data.coacheeName || '',
-          sessionNumber: data.sessionNumber || 1,
-          grossAmount: data.grossAmount || 70,
-          netAmount: data.netAmount || 57.38,
-          vatAmount: data.vatAmount || 12.62,
-          stripeSessionId: data.stripeSessionId || '',
-          stripeInvoiceId: data.stripeInvoiceId || '',
-          stripeTransferId: data.stripeTransferId || '',
-          coachInvoice: {
-            required: data.coachInvoice?.required ?? true,
-            received: data.coachInvoice?.received ?? false,
-            number: data.coachInvoice?.number || null,
-            receivedAt: data.coachInvoice?.receivedAt?.toDate?.() || null,
-            verified: data.coachInvoice?.verified ?? false,
-            verifiedBy: data.coachInvoice?.verifiedBy || null,
-            verifiedAt: data.coachInvoice?.verifiedAt?.toDate?.() || null,
-            rejectedAt: data.coachInvoice?.rejectedAt?.toDate?.() || null,
-            rejectionReason: data.coachInvoice?.rejectionReason || null
-          },
-          payoutStatus: data.payoutStatus || 'awaiting_invoice',
-          scheduledPayoutDate: data.scheduledPayoutDate?.toDate() || new Date(),
-          completedAt: data.completedAt?.toDate?.() || null,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date()
-        }
-      })
-      setPendingPayouts(loadedPayouts)
-
       // Carica utenti con membership attiva
       const usersQuery = query(
         collection(db, 'users'),
@@ -234,6 +190,64 @@ export default function AdminPaymentsPage() {
         type: 'community'
       }))
       setSubscriptions(loadedSubs)
+      
+      // Genera pending payouts dalle installments pagate
+      // Cerca anche nella collection payoutTracking per lo stato
+      let payoutTrackingMap: Record<string, any> = {}
+      try {
+        const trackingSnap = await getDocs(collection(db, 'payoutTracking'))
+        trackingSnap.docs.forEach(doc => {
+          payoutTrackingMap[doc.id] = doc.data()
+        })
+      } catch (e) {
+        // Collection potrebbe non esistere ancora
+      }
+      
+      const generatedPayouts: PendingPayout[] = []
+      loadedOffers.forEach(offer => {
+        offer.installments.forEach((inst, idx) => {
+          if (inst.status === 'paid' && inst.paidAt) {
+            const trackingId = `${offer.id}_${inst.sessionNumber}`
+            const tracking = payoutTrackingMap[trackingId]
+            
+            // Calcola data payout (prossimo lunedì dopo il pagamento)
+            const paidDate = new Date(inst.paidAt)
+            const daysUntilMonday = (8 - paidDate.getDay()) % 7 || 7
+            const scheduledDate = new Date(paidDate)
+            scheduledDate.setDate(scheduledDate.getDate() + daysUntilMonday)
+            
+            generatedPayouts.push({
+              id: trackingId,
+              offerId: offer.id,
+              offerTitle: offer.title,
+              coachId: offer.coachId,
+              coachName: offer.coachName,
+              coachEmail: offer.coachEmail,
+              coacheeId: offer.coacheeId,
+              coacheeName: offer.coacheeName,
+              sessionNumber: inst.sessionNumber,
+              grossAmount: inst.coachPayout,
+              netAmount: inst.coachPayout / 1.22, // Scorporo IVA
+              vatAmount: inst.coachPayout - (inst.coachPayout / 1.22),
+              platformFee: inst.platformFee,
+              paidAt: inst.paidAt,
+              coachInvoice: tracking?.coachInvoice || {
+                required: true,
+                received: false,
+                number: null,
+                verified: false
+              },
+              payoutStatus: tracking?.payoutStatus || 'awaiting_invoice',
+              scheduledPayoutDate: tracking?.scheduledPayoutDate?.toDate?.() || scheduledDate,
+              completedAt: tracking?.completedAt?.toDate?.() || null
+            })
+          }
+        })
+      })
+      
+      // Ordina per data pagamento (più recenti prima)
+      generatedPayouts.sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime())
+      setPendingPayouts(generatedPayouts)
     } catch (err) {
       console.error('Errore caricamento dati:', err)
     } finally {
@@ -391,22 +405,37 @@ export default function AdminPaymentsPage() {
   const handleVerifyInvoice = async (payout: PendingPayout, approved: boolean) => {
     setProcessing(true)
     try {
+      const trackingRef = doc(db, 'payoutTracking', payout.id)
+      
       const updateData: any = {
+        offerId: payout.offerId,
+        coachId: payout.coachId,
+        coachName: payout.coachName,
+        sessionNumber: payout.sessionNumber,
+        grossAmount: payout.grossAmount,
         updatedAt: serverTimestamp()
       }
       
       if (approved) {
-        updateData['coachInvoice.verified'] = true
-        updateData['coachInvoice.verifiedAt'] = serverTimestamp()
-        updateData['coachInvoice.verifiedBy'] = 'admin' // TODO: usare ID admin reale
+        updateData.coachInvoice = {
+          ...payout.coachInvoice,
+          verified: true,
+          verifiedAt: serverTimestamp(),
+          verifiedBy: 'admin'
+        }
         updateData.payoutStatus = 'ready_for_payout'
       } else {
-        updateData['coachInvoice.rejectedAt'] = serverTimestamp()
-        updateData['coachInvoice.rejectionReason'] = rejectReason
+        updateData.coachInvoice = {
+          ...payout.coachInvoice,
+          rejectedAt: serverTimestamp(),
+          rejectionReason: rejectReason
+        }
         updateData.payoutStatus = 'invoice_rejected'
       }
       
-      await updateDoc(doc(db, 'pendingPayouts', payout.id), updateData)
+      // Usa setDoc con merge per creare o aggiornare
+      const { setDoc } = await import('firebase/firestore')
+      await setDoc(trackingRef, updateData, { merge: true })
       
       // Aggiorna stato locale
       setPendingPayouts(prev => prev.map(p => {
@@ -429,7 +458,6 @@ export default function AdminPaymentsPage() {
       setVerifyModal(null)
       setRejectReason('')
       
-      // TODO: Inviare email al coach
       if (!approved) {
         alert(`Fattura rifiutata. Il coach riceverà una notifica.`)
       } else {
@@ -785,7 +813,7 @@ export default function AdminPaymentsPage() {
                     {filteredPayouts.map(payout => (
                       <tr key={payout.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 text-gray-700">
-                          {format(payout.createdAt, 'dd MMM yyyy', { locale: it })}
+                          {format(payout.paidAt, 'dd MMM yyyy', { locale: it })}
                         </td>
                         <td className="px-6 py-4">
                           <p className="font-medium text-charcoal">{payout.coachName}</p>
@@ -834,14 +862,17 @@ export default function AdminPaymentsPage() {
                               <button
                                 onClick={async () => {
                                   if (!confirm('Resettare lo stato? Il coach potrà reinviare la fattura.')) return
-                                  await updateDoc(doc(db, 'pendingPayouts', payout.id), {
+                                  const { setDoc } = await import('firebase/firestore')
+                                  await setDoc(doc(db, 'payoutTracking', payout.id), {
                                     payoutStatus: 'awaiting_invoice',
-                                    'coachInvoice.received': false,
-                                    'coachInvoice.number': null,
-                                    'coachInvoice.rejectedAt': null,
-                                    'coachInvoice.rejectionReason': null,
+                                    coachInvoice: {
+                                      required: true,
+                                      received: false,
+                                      number: null,
+                                      verified: false
+                                    },
                                     updatedAt: serverTimestamp()
-                                  })
+                                  }, { merge: true })
                                   loadData()
                                 }}
                                 className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
