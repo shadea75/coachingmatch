@@ -135,6 +135,24 @@ export interface User {
   isSuspended?: boolean
   suspendedAt?: Date
   suspendedReason?: string
+  
+  // Dati fatturazione
+  billing?: {
+    businessName?: string
+    address?: string
+    city?: string
+    postalCode?: string
+    province?: string
+    country?: string
+    fiscalCode?: string
+    vatNumber?: string
+    sdiCode?: string
+    pec?: string
+    iban?: string
+    bankName?: string
+    accountHolder?: string
+    needsInvoice?: boolean
+  }
 }
 
 // =====================
