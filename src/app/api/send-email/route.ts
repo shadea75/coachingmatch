@@ -315,7 +315,12 @@ export async function POST(request: NextRequest) {
     // EMAIL CONFERMA PAGAMENTO
     // =====================================================
     if (type === 'payment-success') {
-      const { coachName, coachEmail, coacheeName, coacheeEmail, offerTitle, sessionNumber, amount } = data
+      // Parametri: amountPaid = pagato dal coachee, coachPayout = guadagno coach (70%)
+      const { coachName, coachEmail, coacheeName, coacheeEmail, offerTitle, sessionNumber, amount, amountPaid, coachPayout } = data
+      
+      // Per retrocompatibilità: se non c'è amountPaid/coachPayout, calcola da amount
+      const paidByCoachee = amountPaid || amount || 0
+      const coachEarning = coachPayout || (paidByCoachee * 0.70)
       
       const coacheeEmailResult = await resend.emails.send({
         from: 'CoachaMi <noreply@coachami.it>',
@@ -331,7 +336,7 @@ export async function POST(request: NextRequest) {
                 <div style="background: #ecfdf5; border-radius: 8px; padding: 20px; margin: 20px 0;">
                   <p><strong>📦 Offerta:</strong> ${offerTitle}</p>
                   <p><strong>🔢 Sessione:</strong> ${sessionNumber}</p>
-                  <p><strong>💰 Importo:</strong> €${amount?.toFixed(2)}</p>
+                  <p><strong>💰 Importo pagato:</strong> €${paidByCoachee.toFixed(2)}</p>
                   <p><strong>👤 Coach:</strong> ${coachName}</p>
                 </div>
                 <center><a href="https://www.coachami.it/offers" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none;">Prenota sessione</a></center>
@@ -355,10 +360,10 @@ export async function POST(request: NextRequest) {
                   <p><strong>👤 Coachee:</strong> ${coacheeName}</p>
                   <p><strong>📦 Offerta:</strong> ${offerTitle}</p>
                   <p><strong>🔢 Sessione:</strong> ${sessionNumber}</p>
-                  <p><strong>💰 Tuo guadagno:</strong> <span style="color: #059669; font-weight: bold;">€${((amount || 0) * 0.7).toFixed(2)}</span></p>
+                  <p><strong>💰 Tuo guadagno (70%):</strong> <span style="color: #059669; font-weight: bold; font-size: 20px;">€${coachEarning.toFixed(2)}</span></p>
                 </div>
                 <div style="background: #fef3c7; border-radius: 8px; padding: 15px;">
-                  <p style="margin: 0; color: #92400e;"><strong>📋</strong> Per ricevere il pagamento dovrai emettere fattura a CoachaMi.</p>
+                  <p style="margin: 0; color: #92400e;"><strong>📋</strong> Per ricevere il pagamento dovrai emettere fattura di €${coachEarning.toFixed(2)} a CoachaMi.</p>
                 </div>
               </div>
               ${footer}
