@@ -296,6 +296,7 @@ export default function AdminOffersPage() {
     const avgOfferValue = acceptedOffers > 0 ? totalRevenue / acceptedOffers : 0
     
     const totalSessions = sessions.length
+    const activeSessions = sessions.filter(s => s.status === 'pending' || s.status === 'confirmed').length
     const completedSessions = sessions.filter(s => s.status === 'completed').length
     const cancelledSessions = sessions.filter(s => s.status === 'cancelled').length
     const noShowSessions = sessions.filter(s => s.status === 'no_show').length
@@ -325,6 +326,7 @@ export default function AdminOffersPage() {
       coachRevenue,
       avgOfferValue,
       totalSessions,
+      activeSessions,
       completedSessions,
       cancelledSessions,
       noShowSessions,
@@ -476,8 +478,8 @@ export default function AdminOffersPage() {
                 <Calendar className="w-5 h-5 text-indigo-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-charcoal">{globalStats.totalSessions}</p>
-                <p className="text-xs text-gray-500">Sessioni</p>
+                <p className="text-2xl font-bold text-charcoal">{globalStats.activeSessions}</p>
+                <p className="text-xs text-gray-500">Sessioni attive</p>
               </div>
             </div>
           </div>
