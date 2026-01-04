@@ -1,5 +1,5 @@
 // src/app/api/webhooks/stripe/route.ts
-// Webhook Stripe per Modello A (Marketplace)
+// Webhook Stripe per Modello A (Marketplace) - CALCOLI CORRETTI
 
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
@@ -19,6 +19,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 })
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
+
+// Configurazione split 70/30
+const COACH_PERCENT = 70
+const PLATFORM_PERCENT = 30
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
@@ -108,7 +112,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ============= COACHING PAYMENT (MODELLO A) =============
+// ============= COACHING PAYMENT (MODELLO A) - CALCOLI CORRETTI =============
 
 async function handleCoachingPayment(session: Stripe.Checkout.Session) {
   const { offerId, installmentNumber, coachId, coacheeId, coachName, coachEmail } = session.metadata!
@@ -128,12 +132,20 @@ async function handleCoachingPayment(session: Stripe.Checkout.Session) {
   
   const offer = offerDoc.data()
   const instNum = parseInt(installmentNumber)
-  const amountPaid = (session.amount_total || 0) / 100 // Da centesimi a euro
   
-  // Calcoli fiscali (IVA 22%)
-  const grossAmount = amountPaid // €70 (quello che va al coach, IVA inclusa)
-  const netAmount = grossAmount / 1.22 // €57,38 (imponibile)
-  const vatAmount = grossAmount - netAmount // €12,62 (IVA)
+  // IMPORTO PAGATO DAL COACHEE (in euro)
+  const amountPaid = (session.amount_total || 0) / 100 // Es: €100
+  
+  // CALCOLI CORRETTI - Split 70/30 sul LORDO
+  const coachPayout = amountPaid * (COACH_PERCENT / 100) // €70 - va al coach
+  const platformFee = amountPaid * (PLATFORM_PERCENT / 100) // €30 - resta a CoachaMi
+  const platformFeeNet = platformFee / 1.22 // €24,59 - guadagno netto CoachaMi (dopo IVA)
+  const platformVat = platformFee - platformFeeNet // €5,41 - IVA da versare
+  
+  console.log(`Payment received: €${amountPaid}`)
+  console.log(`- Coach payout (70%): €${coachPayout.toFixed(2)}`)
+  console.log(`- Platform fee (30%): €${platformFee.toFixed(2)}`)
+  console.log(`- Platform net: €${platformFeeNet.toFixed(2)}`)
   
   // Aggiorna rata come pagata
   const updatedInstallments = [...(offer.installments || [])]
@@ -142,6 +154,10 @@ async function handleCoachingPayment(session: Stripe.Checkout.Session) {
       ...updatedInstallments[instNum - 1],
       status: 'paid',
       paidAt: new Date().toISOString(),
+      // Salva i valori CORRETTI
+      amount: amountPaid, // €100 - pagato dal coachee
+      coachPayout: coachPayout, // €70 - al coach
+      platformFee: platformFee, // €30 - a CoachaMi
       stripeSessionId: session.id,
       stripePaymentIntentId: session.payment_intent,
       stripeInvoiceId: session.invoice,
@@ -160,7 +176,7 @@ async function handleCoachingPayment(session: Stripe.Checkout.Session) {
     updatedAt: serverTimestamp(),
   })
   
-  // Crea record payout pendente
+  // Crea record payout pendente (per tracciare il pagamento al coach)
   const payoutRef = await addDoc(collection(db, 'pendingPayouts'), {
     // Riferimenti
     offerId,
@@ -168,20 +184,21 @@ async function handleCoachingPayment(session: Stripe.Checkout.Session) {
     coacheeId,
     sessionNumber: instNum,
     offerTitle: offer.title,
+    coachName: offer.coachName,
+    coachEmail: offer.coachEmail,
     
-    // Importi (quota coach)
-    grossAmount, // €70 (IVA inclusa) - quello che il coach riceverà
-    netAmount, // €57,38 (imponibile fattura coach)
-    vatAmount, // €12,62 (IVA fattura coach)
-    
-    // Importo totale pagato dal coachee (per riferimento)
-    coacheePaidAmount: amountPaid,
+    // IMPORTI CORRETTI
+    amountPaid: amountPaid, // €100 - pagato dal coachee
+    coachPayout: coachPayout, // €70 - da pagare al coach
+    platformFee: platformFee, // €30 - commissione CoachaMi
+    platformFeeNet: platformFeeNet, // €24,59 - guadagno netto
+    platformVat: platformVat, // €5,41 - IVA
     
     // Stripe references
     stripeSessionId: session.id,
     stripePaymentIntentId: session.payment_intent,
-    stripeInvoiceId: session.invoice, // Fattura al coachee
-    stripeTransferId: null, // Popolato dopo il payout
+    stripeInvoiceId: session.invoice,
+    stripeTransferId: null,
     
     // Fattura coach → CoachaMi
     coachInvoice: {
@@ -207,9 +224,10 @@ async function handleCoachingPayment(session: Stripe.Checkout.Session) {
   })
   
   console.log(`Payout ${payoutRef.id} created for offer ${offerId}, session ${instNum}`)
+  console.log(`Coach will receive: €${coachPayout.toFixed(2)}`)
   
-  // Invia email al coach: richiesta fattura
-  await sendCoachInvoiceRequestEmail(offer, instNum, grossAmount, nextMonday)
+  // Invia email al coach: notifica pagamento ricevuto
+  await sendCoachPaymentNotification(offer, instNum, coachPayout, nextMonday)
   
   // Invia email conferma pagamento al coachee
   await sendPaymentConfirmationEmail(offer, instNum, amountPaid)
@@ -239,39 +257,31 @@ function getNextMonday(): Date {
   return nextMonday
 }
 
-// Email al coach: richiesta fattura
-async function sendCoachInvoiceRequestEmail(
+// Email al coach: notifica pagamento ricevuto
+async function sendCoachPaymentNotification(
   offer: any, 
   sessionNumber: number, 
   amount: number,
-  deadline: Date
+  payoutDate: Date
 ) {
   try {
     await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: 'coach_invoice_request',
+        type: 'payment-success', // Usa il tipo esistente
         data: {
           coachEmail: offer.coachEmail,
           coachName: offer.coachName,
           coacheeName: offer.coacheeName,
           offerTitle: offer.title,
           sessionNumber,
-          amount: amount.toFixed(2),
-          amountNet: (amount / 1.22).toFixed(2),
-          amountVat: (amount - amount / 1.22).toFixed(2),
-          deadline: deadline.toLocaleDateString('it-IT', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-          }),
+          amount: amount, // €70 - quello che riceverà il coach
         }
       })
     })
   } catch (error) {
-    console.error('Error sending coach invoice request email:', error)
+    console.error('Error sending coach payment notification:', error)
   }
 }
 
@@ -286,7 +296,7 @@ async function sendPaymentConfirmationEmail(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: 'payment_success',
+        type: 'payment-success',
         data: {
           coacheeEmail: offer.coacheeEmail,
           coacheeName: offer.coacheeName,
@@ -295,7 +305,7 @@ async function sendPaymentConfirmationEmail(
           offerTitle: offer.title,
           sessionNumber,
           totalSessions: offer.totalSessions,
-          amount: amount.toFixed(2),
+          amount: amount, // €100 - quello che ha pagato
         }
       })
     })
@@ -414,8 +424,6 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
   
   if (payoutId) {
     console.log(`Transfer ${transfer.id} created for payout ${payoutId}`)
-    
     // Il payout viene già aggiornato dall'endpoint batch-payout
-    // Questo è solo per logging/conferma
   }
 }
