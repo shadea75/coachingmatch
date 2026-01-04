@@ -88,7 +88,6 @@ interface CoachStats {
   platformRevenue: number
   avgOfferValue: number
   totalSessions: number
-  completedSessions: number
 }
 
 // Formatta valuta
@@ -215,8 +214,7 @@ export default function AdminOffersPage() {
           totalRevenue: 0,
           platformRevenue: 0,
           avgOfferValue: 0,
-          totalSessions: 0,
-          completedSessions: 0
+          totalSessions: 0
         }
         statsMap.set(offer.coachId, stats)
       }
@@ -246,15 +244,13 @@ export default function AdminOffersPage() {
       stats.platformRevenue += platformFees
     })
     
-    // Aggiungi sessioni
+    // Aggiungi sessioni (solo pending + confirmed)
     sessions.forEach(session => {
       if (!session.coachId) return
+      if (session.status !== 'pending' && session.status !== 'confirmed') return
       let stats = statsMap.get(session.coachId)
       if (stats) {
         stats.totalSessions++
-        if (session.status === 'completed') {
-          stats.completedSessions++
-        }
       }
     })
     
@@ -514,7 +510,7 @@ export default function AdminOffersPage() {
             }`}
           >
             <Calendar size={16} className="inline mr-2" />
-            Sessioni ({sessions.length})
+            Sessioni ({sessions.filter(s => s.status === 'pending' || s.status === 'confirmed').length})
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
