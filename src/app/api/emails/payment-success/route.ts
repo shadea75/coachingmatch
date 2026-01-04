@@ -152,12 +152,12 @@ export async function POST(request: NextRequest) {
                         <td style="color: #1F2937; font-weight: bold; text-align: right;">#${sessionNumber} di ${totalSessions}</td>
                       </tr>
                       <tr style="border-top: 1px solid #FED7AA;">
-                        <td style="color: #6B7280; padding: 10px 0 5px 0;">Il tuo guadagno:</td>
-                        <td style="color: #EA580C; font-weight: bold; font-size: 18px; text-align: right; padding-top: 10px;">€${(amountPaid * 0.7 / 1.22).toFixed(2)}</td>
+                        <td style="color: #6B7280; padding: 10px 0 5px 0;">Il tuo guadagno (70%):</td>
+                        <td style="color: #EA580C; font-weight: bold; font-size: 18px; text-align: right; padding-top: 10px;">€${(amountPaid * 0.70).toFixed(2)}</td>
                       </tr>
                     </table>
                     <p style="color: #9CA3AF; font-size: 11px; margin: 5px 0 0 0;">
-                      (70% dopo IVA - il pagamento sarà trasferito sul tuo account Stripe)
+                      Per ricevere il pagamento dovrai emettere fattura di €${(amountPaid * 0.70).toFixed(2)} a CoachaMi.
                     </p>
                   </div>
                   
