@@ -852,7 +852,7 @@ export default function AdminPaymentsPage() {
                     <tr>
                       <td colSpan={4} className="px-6 py-3 text-right font-semibold text-gray-700">Totale:</td>
                       <td className="px-6 py-3 text-right font-bold text-charcoal">{formatCurrency(totalRevenue)}</td>
-                      <td className="px-6 py-3 text-right font-bold text-primary-600">{formatCurrency(platformEarnings)}</td>
+                      <td className="px-6 py-3 text-right font-bold text-primary-600">{formatCurrency(platformEarningsNet)}</td>
                       <td className="px-6 py-3 text-right font-bold text-green-600">{formatCurrency(coachPayouts)}</td>
                     </tr>
                   </tfoot>
