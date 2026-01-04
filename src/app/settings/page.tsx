@@ -17,7 +17,9 @@ import {
   Save,
   CheckCircle,
   Camera,
-  X
+  X,
+  FileText,
+  Building
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -31,6 +33,7 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [activeSection, setActiveSection] = useState<'profile' | 'billing'>('profile')
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   // Handler logout con redirect
@@ -44,6 +47,21 @@ export default function SettingsPage() {
     email: '',
     phone: '',
     photo: ''
+  })
+  
+  // Dati fatturazione coachee
+  const [billing, setBilling] = useState({
+    businessName: '',       // Nome/Ragione sociale
+    address: '',            // Indirizzo
+    city: '',               // Città
+    postalCode: '',         // CAP
+    province: '',           // Provincia
+    country: 'Italia',      // Paese
+    fiscalCode: '',         // Codice Fiscale
+    vatNumber: '',          // P.IVA (opzionale per privati)
+    sdiCode: '',            // Codice SDI
+    pec: '',                // PEC
+    needsInvoice: false     // Vuole ricevere fattura?
   })
   
   const [notifications, setNotifications] = useState({
@@ -61,6 +79,23 @@ export default function SettingsPage() {
         phone: user.phone || '',
         photo: user.photo || ''
       })
+      
+      // Carica dati fatturazione se esistono
+      if (user.billing) {
+        setBilling({
+          businessName: user.billing.businessName || '',
+          address: user.billing.address || '',
+          city: user.billing.city || '',
+          postalCode: user.billing.postalCode || '',
+          province: user.billing.province || '',
+          country: user.billing.country || 'Italia',
+          fiscalCode: user.billing.fiscalCode || '',
+          vatNumber: user.billing.vatNumber || '',
+          sdiCode: user.billing.sdiCode || '',
+          pec: user.billing.pec || '',
+          needsInvoice: user.billing.needsInvoice || false
+        })
+      }
     }
   }, [user])
   
@@ -214,6 +249,27 @@ export default function SettingsPage() {
     }
   }
   
+  // Salva dati fatturazione
+  const handleSaveBilling = async () => {
+    if (!user?.id) return
+    
+    setIsLoading(true)
+    try {
+      await updateDoc(doc(db, 'users', user.id), {
+        billing: billing,
+        updatedAt: serverTimestamp()
+      })
+      
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (err) {
+      console.error('Errore salvataggio fatturazione:', err)
+      alert('Errore durante il salvataggio')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
   if (!user) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
@@ -237,14 +293,11 @@ export default function SettingsPage() {
             <div className="flex items-center gap-4">
               <Link 
                 href={isAdmin ? '/admin' : (isCoach ? '/coach/dashboard' : '/dashboard')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-lg"
               >
                 <ArrowLeft size={20} />
               </Link>
-              <div>
-                <h1 className="text-xl font-semibold text-charcoal">Impostazioni</h1>
-                <p className="text-sm text-gray-500">Gestisci il tuo account</p>
-              </div>
+              <h1 className="font-semibold text-charcoal">Impostazioni</h1>
             </div>
             <Logo size="sm" />
           </div>
@@ -252,144 +305,373 @@ export default function SettingsPage() {
       </header>
       
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {/* Profilo */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-6 shadow-sm"
-        >
-          <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
-            <User size={20} className="text-primary-500" />
-            Profilo
-          </h2>
-          
-          {/* Avatar */}
-          <div className="flex items-center gap-4 mb-6">
-            <div className="relative">
-              {formData.photo ? (
-                <img 
-                  src={formData.photo} 
-                  alt={formData.name}
-                  className="w-20 h-20 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center">
-                  <span className="text-2xl font-semibold text-primary-600">
-                    {formData.name?.charAt(0)?.toUpperCase() || '?'}
-                  </span>
-                </div>
-              )}
-              
-              {/* Pulsante upload */}
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploadingPhoto}
-                className="absolute bottom-0 right-0 w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center text-white hover:bg-primary-600 disabled:opacity-50"
-              >
-                {isUploadingPhoto ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Camera size={16} />
-                )}
-              </button>
-              
-              {/* Input file nascosto */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                className="hidden"
-              />
-            </div>
-            
-            <div className="flex-1">
-              <p className="font-medium text-charcoal">{formData.name}</p>
-              <p className="text-sm text-gray-500">{formData.email}</p>
-              <span className={`inline-block mt-1 text-xs px-2 py-1 rounded-full ${roleColor}`}>
-                {roleLabel}
-              </span>
-              
-              {/* Link rimuovi foto */}
-              {formData.photo && (
-                <button
-                  onClick={handleRemovePhoto}
-                  disabled={isUploadingPhoto}
-                  className="block mt-2 text-xs text-red-500 hover:underline disabled:opacity-50"
-                >
-                  Rimuovi foto
-                </button>
-              )}
-            </div>
-          </div>
-          
-          {/* Form */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nome completo
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                disabled
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500"
-              />
-              <p className="text-xs text-gray-400 mt-1">L'email non può essere modificata</p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Telefono
-              </label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="+39 123 456 7890"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-          </div>
-          
-          {/* Success message */}
-          {saveSuccess && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-4 p-3 bg-green-50 rounded-lg flex items-center gap-2 text-green-600"
-            >
-              <CheckCircle size={18} />
-              Profilo aggiornato con successo!
-            </motion.div>
-          )}
-          
-          {/* Save button */}
+        {/* Tab switcher */}
+        <div className="flex gap-2 bg-white rounded-xl p-1 shadow-sm">
           <button
-            onClick={handleSaveProfile}
-            disabled={isLoading}
-            className="mt-6 w-full px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 disabled:opacity-50 flex items-center justify-center gap-2"
+            onClick={() => setActiveSection('profile')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+              activeSection === 'profile'
+                ? 'bg-primary-500 text-white'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
           >
-            {isLoading ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <Save size={18} />
-            )}
-            Salva modifiche
+            <User size={18} />
+            Profilo
           </button>
-        </motion.div>
+          <button
+            onClick={() => setActiveSection('billing')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+              activeSection === 'billing'
+                ? 'bg-primary-500 text-white'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <FileText size={18} />
+            Fatturazione
+          </button>
+        </div>
+        
+        {/* Sezione Profilo */}
+        {activeSection === 'profile' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl p-6 shadow-sm"
+          >
+            <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+              <User size={20} className="text-primary-500" />
+              Profilo
+            </h2>
+            
+            {/* Avatar */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="relative">
+                {formData.photo ? (
+                  <img 
+                    src={formData.photo} 
+                    alt={formData.name}
+                    className="w-20 h-20 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center">
+                    <span className="text-2xl font-semibold text-primary-600">
+                      {formData.name?.charAt(0)?.toUpperCase() || '?'}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Pulsante upload */}
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingPhoto}
+                  className="absolute bottom-0 right-0 w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center text-white hover:bg-primary-600 disabled:opacity-50"
+                >
+                  {isUploadingPhoto ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Camera size={16} />
+                  )}
+                </button>
+                
+                {/* Input file nascosto */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+              </div>
+              
+              <div className="flex-1">
+                <p className="font-medium text-charcoal">{formData.name}</p>
+                <p className="text-sm text-gray-500">{formData.email}</p>
+                <span className={`inline-block mt-1 text-xs px-2 py-1 rounded-full ${roleColor}`}>
+                  {roleLabel}
+                </span>
+                
+                {/* Link rimuovi foto */}
+                {formData.photo && (
+                  <button
+                    onClick={handleRemovePhoto}
+                    disabled={isUploadingPhoto}
+                    className="block mt-2 text-xs text-red-500 hover:underline disabled:opacity-50"
+                  >
+                    Rimuovi foto
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {/* Form */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome completo
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  disabled
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500"
+                />
+                <p className="text-xs text-gray-400 mt-1">L'email non può essere modificata</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Telefono
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="+39 123 456 7890"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+            
+            {/* Success message */}
+            {saveSuccess && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 p-3 bg-green-50 rounded-lg flex items-center gap-2 text-green-600"
+              >
+                <CheckCircle size={18} />
+                Salvato con successo!
+              </motion.div>
+            )}
+            
+            {/* Save button */}
+            <button
+              onClick={handleSaveProfile}
+              disabled={isLoading}
+              className="mt-6 w-full px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Save size={18} />
+              )}
+              Salva modifiche
+            </button>
+          </motion.div>
+        )}
+        
+        {/* Sezione Fatturazione */}
+        {activeSection === 'billing' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            {/* Toggle richiesta fattura */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <label className="flex items-center justify-between cursor-pointer">
+                <div>
+                  <h3 className="font-semibold text-charcoal">Desidero ricevere fattura</h3>
+                  <p className="text-sm text-gray-500">Attiva se hai bisogno di fattura per i tuoi acquisti</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={billing.needsInvoice}
+                  onChange={(e) => setBilling({ ...billing, needsInvoice: e.target.checked })}
+                  className="w-6 h-6 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+                />
+              </label>
+            </div>
+            
+            {billing.needsInvoice && (
+              <>
+                {/* Dati aziendali */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-6">
+                    <Building size={20} className="text-primary-500" />
+                    <h2 className="font-semibold text-charcoal">Dati per la fatturazione</h2>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Nome / Ragione sociale *
+                      </label>
+                      <input
+                        type="text"
+                        value={billing.businessName}
+                        onChange={(e) => setBilling({ ...billing, businessName: e.target.value })}
+                        placeholder="Mario Rossi oppure Rossi SRL"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Indirizzo *
+                      </label>
+                      <input
+                        type="text"
+                        value={billing.address}
+                        onChange={(e) => setBilling({ ...billing, address: e.target.value })}
+                        placeholder="Via Roma 123"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Città *
+                        </label>
+                        <input
+                          type="text"
+                          value={billing.city}
+                          onChange={(e) => setBilling({ ...billing, city: e.target.value })}
+                          placeholder="Milano"
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            CAP *
+                          </label>
+                          <input
+                            type="text"
+                            value={billing.postalCode}
+                            onChange={(e) => setBilling({ ...billing, postalCode: e.target.value })}
+                            placeholder="20100"
+                            maxLength={5}
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Prov. *
+                          </label>
+                          <input
+                            type="text"
+                            value={billing.province}
+                            onChange={(e) => setBilling({ ...billing, province: e.target.value.toUpperCase() })}
+                            placeholder="MI"
+                            maxLength={2}
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Codice Fiscale *
+                      </label>
+                      <input
+                        type="text"
+                        value={billing.fiscalCode}
+                        onChange={(e) => setBilling({ ...billing, fiscalCode: e.target.value.toUpperCase() })}
+                        placeholder="RSSMRA80A01F205X"
+                        maxLength={16}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 uppercase"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Partita IVA (opzionale)
+                      </label>
+                      <input
+                        type="text"
+                        value={billing.vatNumber}
+                        onChange={(e) => setBilling({ ...billing, vatNumber: e.target.value })}
+                        placeholder="IT12345678901"
+                        maxLength={13}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Solo se sei un'azienda o libero professionista</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Codice SDI
+                        </label>
+                        <input
+                          type="text"
+                          value={billing.sdiCode}
+                          onChange={(e) => setBilling({ ...billing, sdiCode: e.target.value.toUpperCase() })}
+                          placeholder="XXXXXXX"
+                          maxLength={7}
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 uppercase"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          PEC
+                        </label>
+                        <input
+                          type="email"
+                          value={billing.pec}
+                          onChange={(e) => setBilling({ ...billing, pec: e.target.value })}
+                          placeholder="email@pec.it"
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Success message */}
+                  {saveSuccess && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 p-3 bg-green-50 rounded-lg flex items-center gap-2 text-green-600"
+                    >
+                      <CheckCircle size={18} />
+                      Dati fatturazione salvati!
+                    </motion.div>
+                  )}
+                  
+                  {/* Save button */}
+                  <button
+                    onClick={handleSaveBilling}
+                    disabled={isLoading}
+                    className="mt-6 w-full px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isLoading ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <Save size={18} />
+                    )}
+                    Salva dati fatturazione
+                  </button>
+                </div>
+              </>
+            )}
+            
+            {!billing.needsInvoice && (
+              <div className="bg-gray-50 rounded-2xl p-6 text-center">
+                <FileText size={40} className="mx-auto mb-3 text-gray-300" />
+                <p className="text-gray-500">Attiva l'opzione sopra se desideri ricevere fattura per i tuoi acquisti</p>
+              </div>
+            )}
+          </motion.div>
+        )}
         
         {/* Link rapidi */}
         <motion.div
@@ -419,14 +701,14 @@ export default function SettingsPage() {
           {isCoach && (
             <>
               <Link
-                href="/coach/stripe-onboarding"
+                href="/coach/settings"
                 className="flex items-center justify-between p-4 hover:bg-gray-50 border-b border-gray-100"
               >
                 <div className="flex items-center gap-3">
                   <CreditCard className="text-green-500" size={20} />
                   <div>
-                    <p className="font-medium text-charcoal">Pagamenti</p>
-                    <p className="text-sm text-gray-500">Configura Stripe Connect</p>
+                    <p className="font-medium text-charcoal">Impostazioni Coach</p>
+                    <p className="text-sm text-gray-500">Profilo e fatturazione coach</p>
                   </div>
                 </div>
                 <ChevronRight className="text-gray-400" size={20} />
