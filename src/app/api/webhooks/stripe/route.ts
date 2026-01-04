@@ -1,3 +1,6 @@
+// src/app/api/webhooks/stripe/route.ts
+// Webhook Stripe per Modello A (Marketplace)
+
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { db } from '@/lib/firebase'
@@ -7,9 +10,9 @@ import {
   updateDoc, 
   addDoc, 
   collection,
-  serverTimestamp 
+  serverTimestamp,
+  Timestamp
 } from 'firebase/firestore'
-import { PLATFORM_CONFIG, calculatePayoutDate } from '@/types/payments'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10'
@@ -32,18 +35,28 @@ export async function POST(request: NextRequest) {
   
   try {
     switch (event.type) {
+      // Pagamento completato
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
         
-        // Controlla se è una subscription community
-        if (session.metadata?.type === 'community_subscription') {
+        if (session.metadata?.type === 'coaching_session') {
+          await handleCoachingPayment(session)
+        } else if (session.metadata?.type === 'community_subscription') {
           await handleCommunitySubscriptionCreated(session)
-        } else {
-          await handleCheckoutCompleted(session)
         }
         break
       }
       
+      // Fattura Stripe finalizzata (per il coachee)
+      case 'invoice.finalized': {
+        const invoice = event.data.object as Stripe.Invoice
+        if (invoice.metadata?.offerId) {
+          await handleInvoiceFinalized(invoice)
+        }
+        break
+      }
+      
+      // Subscription events (community)
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription
@@ -61,38 +74,11 @@ export async function POST(request: NextRequest) {
         break
       }
       
-      case 'invoice.payment_succeeded': {
-        const invoice = event.data.object as Stripe.Invoice
-        // Rinnovo subscription
-        if (invoice.subscription) {
-          console.log(`Invoice paid for subscription: ${invoice.subscription}`)
-        }
-        break
-      }
-      
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice
         if (invoice.subscription) {
           await handleSubscriptionPaymentFailed(invoice)
         }
-        break
-      }
-      
-      case 'payment_intent.succeeded': {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent
-        await handlePaymentSucceeded(paymentIntent)
-        break
-      }
-      
-      case 'payment_intent.payment_failed': {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent
-        await handlePaymentFailed(paymentIntent)
-        break
-      }
-      
-      case 'charge.refunded': {
-        const charge = event.data.object as Stripe.Charge
-        await handleRefund(charge)
         break
       }
       
@@ -103,6 +89,7 @@ export async function POST(request: NextRequest) {
         break
       }
       
+      // Transfer completato (payout al coach)
       case 'transfer.created': {
         const transfer = event.data.object as Stripe.Transfer
         await handleTransferCreated(transfer)
@@ -121,9 +108,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Gestisce checkout completato
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-  const offerId = session.metadata?.offerId
+// ============= COACHING PAYMENT (MODELLO A) =============
+
+async function handleCoachingPayment(session: Stripe.Checkout.Session) {
+  const { offerId, installmentNumber, coachId, coacheeId, coachName, coachEmail } = session.metadata!
   
   if (!offerId) {
     console.error('No offerId in session metadata')
@@ -139,152 +127,213 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   }
   
   const offer = offerDoc.data()
+  const instNum = parseInt(installmentNumber)
+  const amountPaid = (session.amount_total || 0) / 100 // Da centesimi a euro
+  
+  // Calcoli fiscali (IVA 22%)
+  const grossAmount = amountPaid // €70 (quello che va al coach, IVA inclusa)
+  const netAmount = grossAmount / 1.22 // €57,38 (imponibile)
+  const vatAmount = grossAmount - netAmount // €12,62 (IVA)
+  
+  // Aggiorna rata come pagata
+  const updatedInstallments = [...(offer.installments || [])]
+  if (updatedInstallments[instNum - 1]) {
+    updatedInstallments[instNum - 1] = {
+      ...updatedInstallments[instNum - 1],
+      status: 'paid',
+      paidAt: new Date().toISOString(),
+      stripeSessionId: session.id,
+      stripePaymentIntentId: session.payment_intent,
+      stripeInvoiceId: session.invoice,
+    }
+  }
+  
+  // Calcola prossimo lunedì per il payout
+  const nextMonday = getNextMonday()
   
   // Aggiorna offerta
+  const newPaidCount = (offer.paidInstallments || 0) + 1
   await updateDoc(offerRef, {
-    status: 'paid',
-    paidAt: serverTimestamp(),
-    stripePaymentIntentId: session.payment_intent,
-    stripeSessionId: session.id,
-    updatedAt: serverTimestamp()
+    installments: updatedInstallments,
+    paidInstallments: newPaidCount,
+    status: newPaidCount >= offer.totalSessions ? 'fully_paid' : 'active',
+    updatedAt: serverTimestamp(),
   })
   
-  // Crea transazione
-  const payoutDate = calculatePayoutDate(new Date())
-  
-  await addDoc(collection(db, 'transactions'), {
+  // Crea record payout pendente
+  const payoutRef = await addDoc(collection(db, 'pendingPayouts'), {
+    // Riferimenti
     offerId,
-    coachId: offer.coachId,
-    coacheeId: offer.coacheeId,
-    type: 'payment',
-    status: 'completed',
-    amount: offer.priceTotal,
-    netAmount: offer.priceNet,
-    vatAmount: offer.vatAmount,
-    platformFee: offer.platformFee,
-    coachPayout: offer.coachPayout,
-    stripePaymentIntentId: session.payment_intent,
+    coachId,
+    coacheeId,
+    sessionNumber: instNum,
+    offerTitle: offer.title,
+    
+    // Importi (quota coach)
+    grossAmount, // €70 (IVA inclusa) - quello che il coach riceverà
+    netAmount, // €57,38 (imponibile fattura coach)
+    vatAmount, // €12,62 (IVA fattura coach)
+    
+    // Importo totale pagato dal coachee (per riferimento)
+    coacheePaidAmount: amountPaid,
+    
+    // Stripe references
     stripeSessionId: session.id,
-    payoutScheduledAt: payoutDate,
+    stripePaymentIntentId: session.payment_intent,
+    stripeInvoiceId: session.invoice, // Fattura al coachee
+    stripeTransferId: null, // Popolato dopo il payout
+    
+    // Fattura coach → CoachaMi
+    coachInvoice: {
+      required: true,
+      received: false,
+      number: null,
+      receivedAt: null,
+      verified: false,
+      verifiedAt: null,
+      verifiedBy: null,
+      notes: null,
+    },
+    
+    // Stato payout
+    payoutStatus: 'awaiting_invoice',
+    scheduledPayoutDate: Timestamp.fromDate(nextMonday),
+    completedAt: null,
+    failureReason: null,
+    
+    // Metadata
     createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
+    updatedAt: serverTimestamp(),
   })
   
-  // Crea pacchetto se è un package
-  if (offer.type === 'package') {
-    await addDoc(collection(db, 'purchasedPackages'), {
-      offerId,
-      coachId: offer.coachId,
-      coacheeId: offer.coacheeId,
-      title: offer.title,
-      totalSessions: offer.sessionsIncluded,
-      usedSessions: 0,
-      remainingSessions: offer.sessionsIncluded,
-      sessionDuration: offer.sessionDuration,
-      purchasedAt: serverTimestamp(),
-      isActive: true
-    })
-  }
+  console.log(`Payout ${payoutRef.id} created for offer ${offerId}, session ${instNum}`)
   
-  // Aggiorna statistiche coach
-  await updateCoachEarnings(offer.coachId, offer.coachPayout)
+  // Invia email al coach: richiesta fattura
+  await sendCoachInvoiceRequestEmail(offer, instNum, grossAmount, nextMonday)
   
-  // TODO: Invia email di conferma
-  console.log(`Payment completed for offer ${offerId}`)
+  // Invia email conferma pagamento al coachee
+  await sendPaymentConfirmationEmail(offer, instNum, amountPaid)
 }
 
-// Gestisce pagamento riuscito
-async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
-  console.log(`Payment succeeded: ${paymentIntent.id}`)
-  // La maggior parte della logica è in handleCheckoutCompleted
-}
-
-// Gestisce pagamento fallito
-async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
-  const offerId = paymentIntent.metadata?.offerId
-  
-  if (offerId) {
-    await updateDoc(doc(db, 'offers', offerId), {
-      stripePaymentStatus: 'failed',
-      updatedAt: serverTimestamp()
-    })
-  }
-  
-  console.log(`Payment failed: ${paymentIntent.id}`)
-  // TODO: Invia email di notifica
-}
-
-// Gestisce rimborso
-async function handleRefund(charge: Stripe.Charge) {
-  const paymentIntentId = charge.payment_intent as string
-  
-  // Trova la transazione
-  // TODO: Query per paymentIntentId e aggiorna stato
-  
-  console.log(`Refund processed for charge: ${charge.id}`)
-  // TODO: Invia email di conferma rimborso
-}
-
-// Gestisce aggiornamento account Stripe Connect
-async function handleAccountUpdated(account: Stripe.Account) {
-  // Trova coach con questo stripeAccountId
-  // Aggiorna stato onboarding
-  
-  console.log(`Account updated: ${account.id}`)
-  console.log(`Charges enabled: ${account.charges_enabled}`)
-  console.log(`Payouts enabled: ${account.payouts_enabled}`)
-}
-
-// Gestisce trasferimento creato (payout al coach)
-async function handleTransferCreated(transfer: Stripe.Transfer) {
-  const offerId = transfer.metadata?.offerId
-  
-  if (offerId) {
-    // Aggiorna transazione con payout completato
-    console.log(`Transfer created for offer ${offerId}: ${transfer.id}`)
-  }
-}
-
-// Aggiorna statistiche guadagni coach
-async function updateCoachEarnings(coachId: string, amount: number) {
-  const earningsRef = doc(db, 'coachEarnings', coachId)
-  const earningsDoc = await getDoc(earningsRef)
-  
+// Calcola il prossimo lunedì alle 9:00
+function getNextMonday(): Date {
   const now = new Date()
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const dayOfWeek = now.getDay() // 0 = domenica, 1 = lunedì, ...
   
-  if (earningsDoc.exists()) {
-    const data = earningsDoc.data()
-    await updateDoc(earningsRef, {
-      totalEarnings: (data.totalEarnings || 0) + amount,
-      pendingPayout: (data.pendingPayout || 0) + amount,
-      currentMonthEarnings: data.currentMonth === currentMonth 
-        ? (data.currentMonthEarnings || 0) + amount 
-        : amount,
-      currentMonthSessions: data.currentMonth === currentMonth
-        ? (data.currentMonthSessions || 0) + 1
-        : 1,
-      currentMonth,
-      updatedAt: serverTimestamp()
-    })
+  let daysUntilMonday: number
+  if (dayOfWeek === 0) {
+    daysUntilMonday = 1 // Domenica → Lunedì = 1 giorno
+  } else if (dayOfWeek === 1) {
+    // Se è lunedì, vai al prossimo lunedì (7 giorni)
+    // A meno che non siano prima delle 9:00
+    const hour = now.getHours()
+    daysUntilMonday = hour < 9 ? 0 : 7
   } else {
-    await addDoc(collection(db, 'coachEarnings'), {
-      coachId,
-      totalEarnings: amount,
-      totalPaid: 0,
-      pendingPayout: amount,
-      currentMonthEarnings: amount,
-      currentMonthSessions: 1,
-      currentMonth,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+    daysUntilMonday = 8 - dayOfWeek // Martedì=6, Mercoledì=5, ecc.
+  }
+  
+  const nextMonday = new Date(now)
+  nextMonday.setDate(now.getDate() + daysUntilMonday)
+  nextMonday.setHours(9, 0, 0, 0)
+  
+  return nextMonday
+}
+
+// Email al coach: richiesta fattura
+async function sendCoachInvoiceRequestEmail(
+  offer: any, 
+  sessionNumber: number, 
+  amount: number,
+  deadline: Date
+) {
+  try {
+    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'coach_invoice_request',
+        data: {
+          coachEmail: offer.coachEmail,
+          coachName: offer.coachName,
+          coacheeName: offer.coacheeName,
+          offerTitle: offer.title,
+          sessionNumber,
+          amount: amount.toFixed(2),
+          amountNet: (amount / 1.22).toFixed(2),
+          amountVat: (amount - amount / 1.22).toFixed(2),
+          deadline: deadline.toLocaleDateString('it-IT', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          }),
+        }
+      })
     })
+  } catch (error) {
+    console.error('Error sending coach invoice request email:', error)
+  }
+}
+
+// Email al coachee: conferma pagamento
+async function sendPaymentConfirmationEmail(
+  offer: any,
+  sessionNumber: number,
+  amount: number
+) {
+  try {
+    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'payment_success',
+        data: {
+          coacheeEmail: offer.coacheeEmail,
+          coacheeName: offer.coacheeName,
+          coachName: offer.coachName,
+          coachEmail: offer.coachEmail,
+          offerTitle: offer.title,
+          sessionNumber,
+          totalSessions: offer.totalSessions,
+          amount: amount.toFixed(2),
+        }
+      })
+    })
+  } catch (error) {
+    console.error('Error sending payment confirmation email:', error)
+  }
+}
+
+// Fattura Stripe finalizzata
+async function handleInvoiceFinalized(invoice: Stripe.Invoice) {
+  const offerId = invoice.metadata?.offerId
+  
+  if (!offerId) return
+  
+  try {
+    const offerRef = doc(db, 'offers', offerId)
+    
+    // Salva riferimenti fattura per il coachee
+    await updateDoc(offerRef, {
+      [`platformInvoices.${invoice.id}`]: {
+        stripeInvoiceId: invoice.id,
+        invoiceNumber: invoice.number,
+        invoiceUrl: invoice.hosted_invoice_url,
+        invoicePdf: invoice.invoice_pdf,
+        amount: (invoice.amount_paid || 0) / 100,
+        createdAt: serverTimestamp(),
+      },
+      updatedAt: serverTimestamp(),
+    })
+    
+    console.log(`Invoice ${invoice.id} saved for offer ${offerId}`)
+  } catch (error) {
+    console.error('Error handling invoice finalized:', error)
   }
 }
 
 // ============= COMMUNITY SUBSCRIPTION HANDLERS =============
 
-// Gestisce creazione subscription community
 async function handleCommunitySubscriptionCreated(session: Stripe.Checkout.Session) {
   const userId = session.metadata?.userId
   
@@ -293,7 +342,6 @@ async function handleCommunitySubscriptionCreated(session: Stripe.Checkout.Sessi
     return
   }
   
-  // Aggiorna utente con membership attiva
   await updateDoc(doc(db, 'users', userId), {
     membershipStatus: 'active',
     membershipType: 'community',
@@ -304,14 +352,10 @@ async function handleCommunitySubscriptionCreated(session: Stripe.Checkout.Sessi
   })
   
   console.log(`Community subscription created for user ${userId}`)
-  
-  // TODO: Invia email di benvenuto community
 }
 
-// Gestisce aggiornamento subscription
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const userId = subscription.metadata?.userId
-  
   if (!userId) return
   
   const status = subscription.status === 'active' ? 'active' : 'inactive'
@@ -325,10 +369,8 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   console.log(`Subscription updated for user ${userId}: ${status}`)
 }
 
-// Gestisce cancellazione subscription
 async function handleSubscriptionCancelled(subscription: Stripe.Subscription) {
   const userId = subscription.metadata?.userId
-  
   if (!userId) return
   
   await updateDoc(doc(db, 'users', userId), {
@@ -338,14 +380,42 @@ async function handleSubscriptionCancelled(subscription: Stripe.Subscription) {
   })
   
   console.log(`Subscription cancelled for user ${userId}`)
-  
-  // TODO: Invia email di conferma cancellazione
 }
 
-// Gestisce pagamento subscription fallito
 async function handleSubscriptionPaymentFailed(invoice: Stripe.Invoice) {
-  // Trova utente dal customer
   console.log(`Subscription payment failed for customer: ${invoice.customer}`)
-  
   // TODO: Invia email di avviso pagamento fallito
+}
+
+// ============= STRIPE CONNECT HANDLERS =============
+
+async function handleAccountUpdated(account: Stripe.Account) {
+  console.log(`Stripe Connect account updated: ${account.id}`)
+  console.log(`- Charges enabled: ${account.charges_enabled}`)
+  console.log(`- Payouts enabled: ${account.payouts_enabled}`)
+  
+  // Aggiorna stato in Firebase se necessario
+  const coachId = account.metadata?.coachId
+  if (coachId) {
+    try {
+      await updateDoc(doc(db, 'coachStripeAccounts', coachId), {
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+        updatedAt: serverTimestamp(),
+      })
+    } catch (error) {
+      console.error('Error updating coach stripe account:', error)
+    }
+  }
+}
+
+async function handleTransferCreated(transfer: Stripe.Transfer) {
+  const payoutId = transfer.metadata?.payoutId
+  
+  if (payoutId) {
+    console.log(`Transfer ${transfer.id} created for payout ${payoutId}`)
+    
+    // Il payout viene già aggiornato dall'endpoint batch-payout
+    // Questo è solo per logging/conferma
+  }
 }
