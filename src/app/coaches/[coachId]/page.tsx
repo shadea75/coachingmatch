@@ -29,7 +29,7 @@ import { db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
 import { useAuth } from '@/contexts/AuthContext'
 import { LIFE_AREAS } from '@/types'
-import { AreaIllustration } from '@/components/AreaIllustrations'
+import { getAreaIllustration } from '@/components/AreaIllustrations'
 
 interface CoachProfile {
   id: string
@@ -193,7 +193,7 @@ export default function CoachPublicProfilePage() {
               <div className="aspect-square relative">
                 {coach.lifeArea ? (
                   <div className="w-full h-full bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-8">
-                    <AreaIllustration areaId={coach.lifeArea} size={280} />
+                    {getAreaIllustration(coach.lifeArea, 280)}
                   </div>
                 ) : (
                   // Fallback: lettera iniziale se manca lifeArea
