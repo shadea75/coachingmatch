@@ -24,7 +24,8 @@ import {
   XCircle,
   RefreshCw,
   Banknote,
-  HourglassIcon
+  HourglassIcon,
+  Landmark
 } from 'lucide-react'
 import { db } from '@/lib/firebase'
 import { 
@@ -34,6 +35,7 @@ import {
   orderBy, 
   where,
   doc,
+  getDoc,
   updateDoc,
   addDoc,
   serverTimestamp,
@@ -101,6 +103,14 @@ interface PendingPayout {
   payoutStatus: 'awaiting_invoice' | 'invoice_received' | 'invoice_rejected' | 'ready_for_payout' | 'completed' | 'failed'
   scheduledPayoutDate: Date
   completedAt?: Date
+  coachBilling?: {
+    businessName?: string
+    iban?: string
+    bankName?: string
+    accountHolder?: string
+    fiscalCode?: string
+    vatNumber?: string
+  }
 }
 
 interface Subscription {
@@ -206,6 +216,20 @@ export default function AdminPaymentsPage() {
         // Collection potrebbe non esistere ancora
       }
       
+      // Carica dati billing di tutti i coach coinvolti
+      const coachBillingMap: Record<string, any> = {}
+      const uniqueCoachIds = [...new Set(loadedOffers.map(o => o.coachId).filter(Boolean))]
+      await Promise.all(uniqueCoachIds.map(async (coachId) => {
+        try {
+          const coachDoc = await getDoc(doc(db, 'users', coachId))
+          if (coachDoc.exists()) {
+            coachBillingMap[coachId] = coachDoc.data().billing || null
+          }
+        } catch (e) {
+          console.error('Errore caricamento billing coach:', coachId, e)
+        }
+      }))
+      
       const generatedPayouts: PendingPayout[] = []
       loadedOffers.forEach(offer => {
         offer.installments.forEach((inst, idx) => {
@@ -254,7 +278,8 @@ export default function AdminPaymentsPage() {
               },
               payoutStatus: tracking?.payoutStatus || 'awaiting_invoice',
               scheduledPayoutDate: tracking?.scheduledPayoutDate?.toDate?.() || scheduledDate,
-              completedAt: tracking?.completedAt?.toDate?.() || null
+              completedAt: tracking?.completedAt?.toDate?.() || null,
+              coachBilling: coachBillingMap[offer.coachId] || null
             })
           }
         })
@@ -1242,6 +1267,41 @@ export default function AdminPaymentsPage() {
                   <li>• Descrizione servizio coaching</li>
                 </ul>
               </div>
+              
+              {/* Info bancarie coach per bonifico */}
+              {verifyModal.coachBilling?.iban ? (
+                <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                  <h4 className="font-medium text-green-800 mb-3 flex items-center gap-2">
+                    <Landmark size={18} />
+                    Dati per il bonifico
+                  </h4>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-xs text-green-600">IBAN</p>
+                      <p className="font-mono text-green-900 select-all text-sm bg-white px-2 py-1 rounded">{verifyModal.coachBilling.iban}</p>
+                    </div>
+                    {verifyModal.coachBilling.bankName && (
+                      <div>
+                        <p className="text-xs text-green-600">Banca</p>
+                        <p className="text-green-900">{verifyModal.coachBilling.bankName}</p>
+                      </div>
+                    )}
+                    {verifyModal.coachBilling.accountHolder && (
+                      <div>
+                        <p className="text-xs text-green-600">Intestatario</p>
+                        <p className="text-green-900">{verifyModal.coachBilling.accountHolder}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                  <p className="text-amber-800 text-sm flex items-center gap-2">
+                    <AlertCircle size={18} />
+                    <span><strong>Attenzione:</strong> Il coach non ha inserito l'IBAN nelle impostazioni. Contattalo per ottenerlo prima di procedere con il bonifico.</span>
+                  </p>
+                </div>
+              )}
               
               {/* Campo motivo rifiuto */}
               <div>
