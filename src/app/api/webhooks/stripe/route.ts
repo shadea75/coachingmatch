@@ -227,7 +227,7 @@ async function handleCoachingPayment(session: Stripe.Checkout.Session) {
   console.log(`Coach will receive: €${coachPayout.toFixed(2)}`)
   
   // Invia email al coach: notifica pagamento ricevuto
-  await sendCoachPaymentNotification(offer, instNum, coachPayout, nextMonday)
+  await sendCoachPaymentNotification(offer, instNum, amountPaid, coachPayout, nextMonday)
   
   // Invia email conferma pagamento al coachee
   await sendPaymentConfirmationEmail(offer, instNum, amountPaid)
@@ -261,7 +261,8 @@ function getNextMonday(): Date {
 async function sendCoachPaymentNotification(
   offer: any, 
   sessionNumber: number, 
-  amount: number,
+  amountPaid: number, // Pagato dal coachee
+  coachPayout: number, // Guadagno coach (70%)
   payoutDate: Date
 ) {
   try {
@@ -269,14 +270,16 @@ async function sendCoachPaymentNotification(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: 'payment-success', // Usa il tipo esistente
+        type: 'payment-success',
         data: {
           coachEmail: offer.coachEmail,
           coachName: offer.coachName,
           coacheeName: offer.coacheeName,
+          coacheeEmail: offer.coacheeEmail,
           offerTitle: offer.title,
           sessionNumber,
-          amount: amount, // €70 - quello che riceverà il coach
+          amountPaid: amountPaid, // €100 - pagato dal coachee
+          coachPayout: coachPayout, // €70 - guadagno coach
         }
       })
     })
@@ -289,7 +292,7 @@ async function sendCoachPaymentNotification(
 async function sendPaymentConfirmationEmail(
   offer: any,
   sessionNumber: number,
-  amount: number
+  amountPaid: number // Pagato dal coachee
 ) {
   try {
     await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
@@ -305,7 +308,8 @@ async function sendPaymentConfirmationEmail(
           offerTitle: offer.title,
           sessionNumber,
           totalSessions: offer.totalSessions,
-          amount: amount, // €100 - quello che ha pagato
+          amountPaid: amountPaid, // €100 - pagato dal coachee
+          coachPayout: amountPaid * 0.70, // €70 - per retrocompatibilità
         }
       })
     })
