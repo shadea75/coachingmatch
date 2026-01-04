@@ -22,7 +22,10 @@ import {
   Check,
   X,
   ExternalLink,
-  LogOut
+  LogOut,
+  FileText,
+  Building,
+  Landmark
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -53,6 +56,23 @@ export default function CoachSettingsPage() {
     freeCallAvailable: true,
     sessionMode: ['online'],
     photo: ''
+  })
+  
+  // Dati fatturazione
+  const [billing, setBilling] = useState({
+    businessName: '',       // Nome/Ragione sociale
+    address: '',            // Indirizzo
+    city: '',               // Città
+    postalCode: '',         // CAP
+    province: '',           // Provincia
+    country: 'Italia',      // Paese
+    fiscalCode: '',         // Codice Fiscale
+    vatNumber: '',          // P.IVA
+    sdiCode: '',            // Codice SDI
+    pec: '',                // PEC
+    iban: '',               // IBAN per bonifici
+    bankName: '',           // Nome banca
+    accountHolder: ''       // Intestatario conto
   })
   
   // Redirect se non loggato
@@ -86,6 +106,25 @@ export default function CoachSettingsPage() {
             sessionMode: data.sessionMode || ['online'],
             photo: data.photo || ''
           })
+          
+          // Carica dati fatturazione se esistono
+          if (data.billing) {
+            setBilling({
+              businessName: data.billing.businessName || '',
+              address: data.billing.address || '',
+              city: data.billing.city || '',
+              postalCode: data.billing.postalCode || '',
+              province: data.billing.province || '',
+              country: data.billing.country || 'Italia',
+              fiscalCode: data.billing.fiscalCode || '',
+              vatNumber: data.billing.vatNumber || '',
+              sdiCode: data.billing.sdiCode || '',
+              pec: data.billing.pec || '',
+              iban: data.billing.iban || '',
+              bankName: data.billing.bankName || '',
+              accountHolder: data.billing.accountHolder || ''
+            })
+          }
         }
       } catch (err) {
         console.error('Errore caricamento profilo:', err)
@@ -97,8 +136,8 @@ export default function CoachSettingsPage() {
     loadProfile()
   }, [user])
   
-  // Salva modifiche
-  const handleSave = async () => {
+  // Salva modifiche profilo
+  const handleSaveProfile = async () => {
     if (!user?.id) return
     
     setIsSaving(true)
@@ -129,6 +168,35 @@ export default function CoachSettingsPage() {
     }
   }
   
+  // Salva dati fatturazione
+  const handleSaveBilling = async () => {
+    if (!user?.id) return
+    
+    setIsSaving(true)
+    setSaveSuccess(false)
+    
+    try {
+      await updateDoc(doc(db, 'coachApplications', user.id), {
+        billing: billing,
+        updatedAt: serverTimestamp()
+      })
+      
+      // Aggiorna anche nella collection users per accesso rapido admin
+      await updateDoc(doc(db, 'users', user.id), {
+        billing: billing,
+        updatedAt: serverTimestamp()
+      })
+      
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (err) {
+      console.error('Errore salvataggio fatturazione:', err)
+      alert('Errore nel salvataggio. Riprova.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+  
   const handleLogout = async () => {
     await signOut()
     router.replace('/login')
@@ -146,6 +214,7 @@ export default function CoachSettingsPage() {
   
   const tabs = [
     { id: 'profile', label: 'Profilo', icon: User },
+    { id: 'billing', label: 'Fatturazione', icon: FileText },
     { id: 'availability', label: 'Disponibilità', icon: Calendar, href: '/coach/availability' },
     { id: 'notifications', label: 'Notifiche', icon: Bell },
   ]
@@ -211,11 +280,10 @@ export default function CoachSettingsPage() {
                   )
                 })}
                 
-                <hr className="my-3" />
-                
+                {/* Logout */}
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-red-600 hover:bg-red-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors hover:bg-red-50 text-red-500 mt-4"
                 >
                   <LogOut size={20} />
                   Esci
@@ -270,7 +338,7 @@ export default function CoachSettingsPage() {
                         type="tel"
                         value={profile.phone}
                         onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                        placeholder="+39 333 1234567"
+                        placeholder="+39 123 456 7890"
                         className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
                       />
                     </div>
@@ -290,7 +358,7 @@ export default function CoachSettingsPage() {
                   </div>
                 </div>
                 
-                {/* Area di competenza */}
+                {/* Area competenza */}
                 <div className="bg-white rounded-2xl p-6 border border-gray-200">
                   <h2 className="text-lg font-semibold text-charcoal mb-4">Area di competenza principale</h2>
                   <p className="text-sm text-gray-500 mb-4">
@@ -395,7 +463,7 @@ export default function CoachSettingsPage() {
                   </div>
                 </div>
                 
-                {/* Salva */}
+                {/* Salva Profilo */}
                 <div className="flex items-center justify-between bg-white rounded-2xl p-4 border border-gray-200">
                   {saveSuccess && (
                     <div className="flex items-center gap-2 text-green-600">
@@ -406,7 +474,7 @@ export default function CoachSettingsPage() {
                   {!saveSuccess && <div />}
                   
                   <button
-                    onClick={handleSave}
+                    onClick={handleSaveProfile}
                     disabled={isSaving}
                     className="btn btn-primary"
                   >
@@ -419,6 +487,246 @@ export default function CoachSettingsPage() {
                       <>
                         <Save size={18} />
                         Salva modifiche
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+            
+            {/* Tab: Fatturazione */}
+            {activeTab === 'billing' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                {/* Alert */}
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <p className="text-amber-800 text-sm">
+                    <strong>⚠️ Importante:</strong> Questi dati sono necessari per ricevere i pagamenti e per emettere fatture a CoachaMi.
+                  </p>
+                </div>
+                
+                {/* Dati aziendali */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200">
+                  <div className="flex items-center gap-2 mb-6">
+                    <Building size={20} className="text-primary-500" />
+                    <h2 className="text-lg font-semibold text-charcoal">Dati aziendali</h2>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Nome / Ragione sociale *
+                      </label>
+                      <input
+                        type="text"
+                        value={billing.businessName}
+                        onChange={(e) => setBilling({ ...billing, businessName: e.target.value })}
+                        placeholder="Mario Rossi oppure Rossi Consulting SRL"
+                        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Indirizzo *
+                      </label>
+                      <input
+                        type="text"
+                        value={billing.address}
+                        onChange={(e) => setBilling({ ...billing, address: e.target.value })}
+                        placeholder="Via Roma 123"
+                        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Città *
+                      </label>
+                      <input
+                        type="text"
+                        value={billing.city}
+                        onChange={(e) => setBilling({ ...billing, city: e.target.value })}
+                        placeholder="Milano"
+                        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          CAP *
+                        </label>
+                        <input
+                          type="text"
+                          value={billing.postalCode}
+                          onChange={(e) => setBilling({ ...billing, postalCode: e.target.value })}
+                          placeholder="20100"
+                          maxLength={5}
+                          className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Provincia *
+                        </label>
+                        <input
+                          type="text"
+                          value={billing.province}
+                          onChange={(e) => setBilling({ ...billing, province: e.target.value.toUpperCase() })}
+                          placeholder="MI"
+                          maxLength={2}
+                          className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Dati fiscali */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200">
+                  <div className="flex items-center gap-2 mb-6">
+                    <FileText size={20} className="text-primary-500" />
+                    <h2 className="text-lg font-semibold text-charcoal">Dati fiscali</h2>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Codice Fiscale *
+                      </label>
+                      <input
+                        type="text"
+                        value={billing.fiscalCode}
+                        onChange={(e) => setBilling({ ...billing, fiscalCode: e.target.value.toUpperCase() })}
+                        placeholder="RSSMRA80A01F205X"
+                        maxLength={16}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 uppercase"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Partita IVA
+                      </label>
+                      <input
+                        type="text"
+                        value={billing.vatNumber}
+                        onChange={(e) => setBilling({ ...billing, vatNumber: e.target.value })}
+                        placeholder="IT12345678901"
+                        maxLength={13}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Lascia vuoto se non hai P.IVA</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Codice SDI
+                      </label>
+                      <input
+                        type="text"
+                        value={billing.sdiCode}
+                        onChange={(e) => setBilling({ ...billing, sdiCode: e.target.value.toUpperCase() })}
+                        placeholder="XXXXXXX"
+                        maxLength={7}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 uppercase"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        PEC
+                      </label>
+                      <input
+                        type="email"
+                        value={billing.pec}
+                        onChange={(e) => setBilling({ ...billing, pec: e.target.value })}
+                        placeholder="esempio@pec.it"
+                        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Dati bancari */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200">
+                  <div className="flex items-center gap-2 mb-6">
+                    <Landmark size={20} className="text-primary-500" />
+                    <h2 className="text-lg font-semibold text-charcoal">Dati bancari per bonifici</h2>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        IBAN *
+                      </label>
+                      <input
+                        type="text"
+                        value={billing.iban}
+                        onChange={(e) => setBilling({ ...billing, iban: e.target.value.toUpperCase().replace(/\s/g, '') })}
+                        placeholder="IT60X0542811101000000123456"
+                        maxLength={34}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 uppercase font-mono"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Nome Banca
+                      </label>
+                      <input
+                        type="text"
+                        value={billing.bankName}
+                        onChange={(e) => setBilling({ ...billing, bankName: e.target.value })}
+                        placeholder="Intesa Sanpaolo"
+                        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Intestatario conto
+                      </label>
+                      <input
+                        type="text"
+                        value={billing.accountHolder}
+                        onChange={(e) => setBilling({ ...billing, accountHolder: e.target.value })}
+                        placeholder="Mario Rossi"
+                        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Salva Fatturazione */}
+                <div className="flex items-center justify-between bg-white rounded-2xl p-4 border border-gray-200">
+                  {saveSuccess && (
+                    <div className="flex items-center gap-2 text-green-600">
+                      <Check size={18} />
+                      <span className="text-sm font-medium">Dati fatturazione salvati!</span>
+                    </div>
+                  )}
+                  {!saveSuccess && <div />}
+                  
+                  <button
+                    onClick={handleSaveBilling}
+                    disabled={isSaving}
+                    className="btn btn-primary"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="animate-spin" size={18} />
+                        Salvataggio...
+                      </>
+                    ) : (
+                      <>
+                        <Save size={18} />
+                        Salva dati fatturazione
                       </>
                     )}
                   </button>
