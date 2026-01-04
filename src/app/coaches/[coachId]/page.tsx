@@ -29,12 +29,12 @@ import { db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
 import { useAuth } from '@/contexts/AuthContext'
 import { LIFE_AREAS } from '@/types'
+import { AreaIllustration } from '@/components/AreaIllustrations'
 
 interface CoachProfile {
   id: string
   name: string
   email: string
-  photo: string | null
   bio: string
   motivation: string
   lifeArea: string | null
@@ -95,7 +95,6 @@ export default function CoachPublicProfilePage() {
             id: coachDoc.id,
             name: data.name || 'Coach',
             email: data.email || '',
-            photo: data.photo || null,
             bio: data.bio || '',
             motivation: data.motivation || '',
             lifeArea: data.lifeArea || null,
@@ -190,15 +189,14 @@ export default function CoachPublicProfilePage() {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-2xl overflow-hidden shadow-sm sticky top-24"
             >
-              {/* Foto */}
+              {/* Illustrazione area di specializzazione */}
               <div className="aspect-square relative">
-                {coach.photo ? (
-                  <img 
-                    src={coach.photo} 
-                    alt={coach.name}
-                    className="w-full h-full object-cover"
-                  />
+                {coach.lifeArea ? (
+                  <div className="w-full h-full bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-8">
+                    <AreaIllustration areaId={coach.lifeArea} size={280} />
+                  </div>
                 ) : (
+                  // Fallback: lettera iniziale se manca lifeArea
                   <div className="w-full h-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
                     <span className="text-8xl font-bold text-primary-400">
                       {coach.name.charAt(0)}
@@ -301,6 +299,17 @@ export default function CoachPublicProfilePage() {
                 In cosa posso aiutarti
               </h2>
               
+              {/* Mostra prima la lifeArea come specializzazione principale */}
+              {coach.lifeArea && (() => {
+                const area = LIFE_AREAS.find(a => a.id === coach.lifeArea)
+                return area ? (
+                  <div className="flex items-center gap-3 text-gray-700 mb-3">
+                    <CheckCircle size={18} className="text-primary-500 flex-shrink-0" />
+                    <span className="font-medium">{area.label}</span>
+                  </div>
+                ) : null
+              })()}
+              
               <div className="space-y-3">
                 {coach.specializations.focusTopics.map((topic, index) => (
                   <div 
@@ -312,7 +321,7 @@ export default function CoachPublicProfilePage() {
                   </div>
                 ))}
                 
-                {coach.specializations.focusTopics.length === 0 && (
+                {coach.specializations.focusTopics.length === 0 && !coach.lifeArea && (
                   <p className="text-gray-500">Supporto personalizzato per la tua crescita personale e professionale</p>
                 )}
               </div>
