@@ -427,6 +427,138 @@ export async function POST(request: NextRequest) {
     }
 
     // =====================================================
+    // EMAIL REMINDER OFFERTA (24h prima scadenza)
+    // =====================================================
+    if (type === 'offer_reminder') {
+      const { coacheeEmail, coacheeName, coachName, offerTitle, totalSessions, priceTotal, pricePerSession, validUntil, hoursLeft } = data
+      
+      const result = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: coacheeEmail,
+        subject: `⏰ L'offerta di ${coachName} scade domani! - CoachaMi`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family: sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; padding: 20px;">
+            <div style="max-width: 600px; margin: 0 auto;">${logoHeader}
+              <div style="background: linear-gradient(135deg, #F59E0B, #D97706); border-radius: 12px 12px 0 0; padding: 30px; text-align: center;">
+                <h1 style="color: white; margin: 0;">⏰ Offerta in Scadenza!</h1>
+              </div>
+              <div style="background: white; border-radius: 0 0 12px 12px; padding: 30px;">
+                <p>Ciao <strong>${coacheeName}</strong>,</p>
+                <p>Ti ricordiamo che l'offerta di <strong>${coachName}</strong> scade <strong>domani</strong>!</p>
+                
+                <div style="background: #FFF7ED; border-radius: 12px; padding: 20px; margin: 20px 0; border-left: 4px solid #F59E0B;">
+                  <h3 style="margin: 0 0 15px 0; color: #D97706;">${offerTitle}</h3>
+                  <p style="margin: 5px 0;"><strong>📅 Sessioni:</strong> ${totalSessions}</p>
+                  <p style="margin: 5px 0;"><strong>💰 Prezzo totale:</strong> €${priceTotal?.toFixed(2)}</p>
+                  <p style="margin: 5px 0;"><strong>💳 Pagamento:</strong> €${pricePerSession?.toFixed(2)} a sessione</p>
+                  <p style="margin: 5px 0;"><strong>⏰ Scade il:</strong> ${validUntil}</p>
+                </div>
+                
+                <div style="background: #FEF2F2; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                  <p style="margin: 0; color: #991B1B; font-weight: 600;">
+                    ⚠️ Hai solo ${hoursLeft} ore per accettare questa offerta!
+                  </p>
+                </div>
+                
+                <center>
+                  <a href="https://www.coachami.it/offers" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                    Accetta Ora
+                  </a>
+                </center>
+                
+                <p style="margin-top: 20px; font-size: 14px; color: #666;">
+                  Non perdere questa opportunità di iniziare il tuo percorso di coaching!
+                </p>
+              </div>
+              ${footer}
+            </div>
+          </body></html>`
+      })
+      
+      return NextResponse.json({ success: true, result })
+    }
+
+    // =====================================================
+    // EMAIL OFFERTA SCADUTA (al Coachee)
+    // =====================================================
+    if (type === 'offer_expired_coachee') {
+      const { coacheeEmail, coacheeName, coachName, offerTitle } = data
+      
+      const result = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: coacheeEmail,
+        subject: `😔 L'offerta di ${coachName} è scaduta - CoachaMi`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family: sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; padding: 20px;">
+            <div style="max-width: 600px; margin: 0 auto;">${logoHeader}
+              <div style="background: linear-gradient(135deg, #6B7280, #4B5563); border-radius: 12px 12px 0 0; padding: 30px; text-align: center;">
+                <h1 style="color: white; margin: 0;">😔 Offerta Scaduta</h1>
+              </div>
+              <div style="background: white; border-radius: 0 0 12px 12px; padding: 30px;">
+                <p>Ciao <strong>${coacheeName}</strong>,</p>
+                <p>Purtroppo l'offerta "<strong>${offerTitle}</strong>" di <strong>${coachName}</strong> è scaduta.</p>
+                
+                <div style="background: #F3F4F6; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                  <p style="margin: 0; color: #4B5563;">
+                    Non preoccuparti! Puoi sempre contattare ${coachName} per richiedere una nuova offerta personalizzata.
+                  </p>
+                </div>
+                
+                <center>
+                  <a href="https://www.coachami.it/coaches" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                    Esplora altri Coach
+                  </a>
+                </center>
+              </div>
+              ${footer}
+            </div>
+          </body></html>`
+      })
+      
+      return NextResponse.json({ success: true, result })
+    }
+
+    // =====================================================
+    // EMAIL OFFERTA SCADUTA (al Coach)
+    // =====================================================
+    if (type === 'offer_expired_coach') {
+      const { coachEmail, coachName, coacheeName, offerTitle } = data
+      
+      const result = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: coachEmail,
+        subject: `📋 Offerta "${offerTitle}" scaduta - CoachaMi`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family: sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; padding: 20px;">
+            <div style="max-width: 600px; margin: 0 auto;">${logoHeader}
+              <div style="background: linear-gradient(135deg, #6B7280, #4B5563); border-radius: 12px 12px 0 0; padding: 30px; text-align: center;">
+                <h1 style="color: white; margin: 0;">📋 Offerta Scaduta</h1>
+              </div>
+              <div style="background: white; border-radius: 0 0 12px 12px; padding: 30px;">
+                <p>Ciao <strong>${coachName}</strong>,</p>
+                <p>L'offerta "<strong>${offerTitle}</strong>" inviata a <strong>${coacheeName}</strong> è scaduta senza essere accettata.</p>
+                
+                <div style="background: #F3F4F6; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                  <p style="margin: 0; color: #4B5563;">
+                    💡 <strong>Suggerimento:</strong> Potresti contattare ${coacheeName} per capire se ha ancora interesse e inviare una nuova offerta.
+                  </p>
+                </div>
+                
+                <center>
+                  <a href="https://www.coachami.it/coach/offers" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                    Gestisci Offerte
+                  </a>
+                </center>
+              </div>
+              ${footer}
+            </div>
+          </body></html>`
+      })
+      
+      return NextResponse.json({ success: true, result })
+    }
+
+    // =====================================================
     // EMAIL PAYOUT - FATTURA RICEVUTA
     // =====================================================
     if (type === 'payout_invoice_received') {
