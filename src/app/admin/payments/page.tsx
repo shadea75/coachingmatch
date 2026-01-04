@@ -82,9 +82,10 @@ interface PendingPayout {
   coacheeName: string
   sessionNumber: number
   grossAmount: number // Importo coach (70%)
-  netAmount: number // Imponibile
-  vatAmount: number // IVA
-  platformFee: number // Commissione piattaforma
+  netAmount: number // Guadagno CoachaMi netto
+  vatAmount: number // IVA su commissione CoachaMi
+  platformFee: number // Commissione piattaforma (30%)
+  amountPaid: number // Importo pagato dal coachee
   paidAt: Date
   coachInvoice: {
     required: boolean
@@ -218,13 +219,16 @@ export default function AdminPaymentsPage() {
             const scheduledDate = new Date(paidDate)
             scheduledDate.setDate(scheduledDate.getDate() + daysUntilMonday)
             
-            // Calcoli corretti:
-            // - coachPayout = 70% del pagato dal coachee (es. €70 su €100)
-            // - Questo è l'importo LORDO che il coach fattura a CoachaMi
-            // - Se il coach è forfettario: €70 sono tutti suoi
-            // - Se il coach è ordinario: €70 = €57,38 + €12,62 IVA (lui versa l'IVA)
-            // - platformFee = 30% = €30 (nostro incasso lordo)
-            // - platformFee netto = €30 / 1.22 = €24,59 (nostro guadagno dopo IVA)
+            // Calcoli corretti partendo dall'importo pagato dal coachee:
+            // - amount = importo pagato dal coachee (es. €100)
+            // - Coach riceve 70% LORDO = €70 (questo è quello che fattura)
+            // - CoachaMi tiene 30% LORDO = €30
+            // - Guadagno netto CoachaMi = €30 / 1.22 = €24,59
+            
+            const amountPaid = inst.amount // Importo pagato dal coachee
+            const coachPayoutCorrect = amountPaid * 0.70 // 70% al coach
+            const platformFeeCorrect = amountPaid * 0.30 // 30% a CoachaMi
+            const platformFeeNet = platformFeeCorrect / 1.22 // Netto IVA
             
             generatedPayouts.push({
               id: trackingId,
@@ -236,10 +240,11 @@ export default function AdminPaymentsPage() {
               coacheeId: offer.coacheeId,
               coacheeName: offer.coacheeName,
               sessionNumber: inst.sessionNumber,
-              grossAmount: inst.coachPayout, // 70% - importo che paghiamo al coach
-              netAmount: inst.platformFee / 1.22, // Nostro guadagno netto (30% scorporato IVA)
-              vatAmount: inst.platformFee - (inst.platformFee / 1.22), // IVA su nostra commissione
-              platformFee: inst.platformFee, // 30% lordo
+              grossAmount: coachPayoutCorrect, // 70% - importo che paghiamo al coach
+              netAmount: platformFeeNet, // Nostro guadagno netto
+              vatAmount: platformFeeCorrect - platformFeeNet, // IVA su nostra commissione
+              platformFee: platformFeeCorrect, // 30% lordo
+              amountPaid: amountPaid, // Importo originale pagato
               paidAt: inst.paidAt,
               coachInvoice: tracking?.coachInvoice || {
                 required: true,
@@ -378,15 +383,19 @@ export default function AdminPaymentsPage() {
 
       offer.installments.forEach(inst => {
         if (inst.status === 'paid') {
-          totals[offer.coachId].totalEarnings += inst.coachPayout
-          totals[offer.coachId].totalPlatformFee += inst.platformFee
+          // Calcolo corretto dal pagato
+          const coachEarning = inst.amount * 0.70 // 70% al coach
+          const platformFee = inst.amount * 0.30 // 30% a CoachaMi
+          
+          totals[offer.coachId].totalEarnings += coachEarning
+          totals[offer.coachId].totalPlatformFee += platformFee
           totals[offer.coachId].paidSessions += 1
 
           if (inst.paidAt) {
             const date = new Date(inst.paidAt)
             const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
             totals[offer.coachId].monthlyBreakdown[monthKey] = 
-              (totals[offer.coachId].monthlyBreakdown[monthKey] || 0) + inst.coachPayout
+              (totals[offer.coachId].monthlyBreakdown[monthKey] || 0) + coachEarning
           }
         } else {
           totals[offer.coachId].pendingSessions += 1
@@ -404,12 +413,13 @@ export default function AdminPaymentsPage() {
     return Object.values(totals).sort((a, b) => b.totalEarnings - a.totalEarnings)
   }
 
-  // Stats globali
+  // Stats globali - ricalcolo corretto dai dati
   const filteredPayments = getFilteredPayments()
   const totalRevenue = filteredPayments.reduce((sum, p) => sum + p.amount, 0)
-  const platformEarningsGross = filteredPayments.reduce((sum, p) => sum + p.platformFee, 0)
+  // Calcolo corretto: 30% del totale incassato, poi scorporo IVA
+  const platformEarningsGross = totalRevenue * 0.30 // 30% commissione
   const platformEarningsNet = platformEarningsGross / 1.22 // Scorporo IVA 22%
-  const coachPayouts = filteredPayments.reduce((sum, p) => sum + p.coachPayout, 0)
+  const coachPayouts = totalRevenue * 0.70 // 70% al coach
   const subscriptionRevenue = subscriptions.length * 29
 
   // Verifica fattura coach
