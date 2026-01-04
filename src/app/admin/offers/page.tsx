@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import AdminLayout from '@/components/AdminLayout'
 import { 
   ShoppingBag, 
@@ -14,7 +14,15 @@ import {
   ChevronDown,
   ChevronUp,
   User,
-  TrendingUp
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  Target,
+  Percent,
+  Filter,
+  Users,
+  Award,
+  AlertTriangle
 } from 'lucide-react'
 import { db } from '@/lib/firebase'
 import { collection, getDocs, doc, updateDoc, query, orderBy } from 'firebase/firestore'
@@ -67,6 +75,22 @@ interface Session {
   duration: number
 }
 
+interface CoachStats {
+  coachId: string
+  coachName: string
+  totalOffers: number
+  acceptedOffers: number
+  rejectedOffers: number
+  pendingOffers: number
+  expiredOffers: number
+  closingRate: number
+  totalRevenue: number
+  platformRevenue: number
+  avgOfferValue: number
+  totalSessions: number
+  completedSessions: number
+}
+
 // Formatta valuta
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('it-IT', {
@@ -75,13 +99,20 @@ function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
+// Formatta percentuale
+function formatPercent(value: number): string {
+  return `${value.toFixed(1)}%`
+}
+
 export default function AdminOffersPage() {
   const [offers, setOffers] = useState<Offer[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'offers' | 'sessions'>('offers')
+  const [activeTab, setActiveTab] = useState<'offers' | 'sessions' | 'analytics'>('offers')
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterCoach, setFilterCoach] = useState<string>('all')
   const [sessionFilterStatus, setSessionFilterStatus] = useState<string>('all')
+  const [sessionFilterCoach, setSessionFilterCoach] = useState<string>('all')
   const [expandedOffer, setExpandedOffer] = useState<string | null>(null)
 
   useEffect(() => {
@@ -147,6 +178,165 @@ export default function AdminOffersPage() {
     }
   }
 
+  // Lista coach unici
+  const uniqueCoaches = useMemo(() => {
+    const coaches = new Map<string, string>()
+    offers.forEach(o => {
+      if (o.coachId && o.coachName) {
+        coaches.set(o.coachId, o.coachName)
+      }
+    })
+    sessions.forEach(s => {
+      if (s.coachId && s.coachName) {
+        coaches.set(s.coachId, s.coachName)
+      }
+    })
+    return Array.from(coaches.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  }, [offers, sessions])
+
+  // Statistiche per coach
+  const coachStats = useMemo((): CoachStats[] => {
+    const statsMap = new Map<string, CoachStats>()
+    
+    offers.forEach(offer => {
+      if (!offer.coachId) return
+      
+      let stats = statsMap.get(offer.coachId)
+      if (!stats) {
+        stats = {
+          coachId: offer.coachId,
+          coachName: offer.coachName,
+          totalOffers: 0,
+          acceptedOffers: 0,
+          rejectedOffers: 0,
+          pendingOffers: 0,
+          expiredOffers: 0,
+          closingRate: 0,
+          totalRevenue: 0,
+          platformRevenue: 0,
+          avgOfferValue: 0,
+          totalSessions: 0,
+          completedSessions: 0
+        }
+        statsMap.set(offer.coachId, stats)
+      }
+      
+      stats.totalOffers++
+      
+      // Conta per stato
+      if (['accepted', 'active', 'paid', 'completed'].includes(offer.status)) {
+        stats.acceptedOffers++
+      } else if (offer.status === 'rejected') {
+        stats.rejectedOffers++
+      } else if (offer.status === 'pending') {
+        stats.pendingOffers++
+      } else if (offer.status === 'expired') {
+        stats.expiredOffers++
+      }
+      
+      // Revenue
+      const paidAmount = offer.installments
+        .filter(i => i.status === 'paid')
+        .reduce((s, i) => s + i.amount, 0)
+      stats.totalRevenue += paidAmount
+      
+      const platformFees = offer.installments
+        .filter(i => i.status === 'paid')
+        .reduce((s, i) => s + i.platformFee, 0)
+      stats.platformRevenue += platformFees
+    })
+    
+    // Aggiungi sessioni
+    sessions.forEach(session => {
+      if (!session.coachId) return
+      let stats = statsMap.get(session.coachId)
+      if (stats) {
+        stats.totalSessions++
+        if (session.status === 'completed') {
+          stats.completedSessions++
+        }
+      }
+    })
+    
+    // Calcola closing rate e valore medio
+    statsMap.forEach(stats => {
+      const decidedOffers = stats.acceptedOffers + stats.rejectedOffers + stats.expiredOffers
+      stats.closingRate = decidedOffers > 0 ? (stats.acceptedOffers / decidedOffers) * 100 : 0
+      stats.avgOfferValue = stats.acceptedOffers > 0 ? stats.totalRevenue / stats.acceptedOffers : 0
+    })
+    
+    return Array.from(statsMap.values()).sort((a, b) => b.closingRate - a.closingRate)
+  }, [offers, sessions])
+
+  // Statistiche globali
+  const globalStats = useMemo(() => {
+    const totalOffers = offers.length
+    const acceptedOffers = offers.filter(o => ['accepted', 'active', 'paid', 'completed'].includes(o.status)).length
+    const rejectedOffers = offers.filter(o => o.status === 'rejected').length
+    const expiredOffers = offers.filter(o => o.status === 'expired').length
+    const pendingOffers = offers.filter(o => o.status === 'pending').length
+    const decidedOffers = acceptedOffers + rejectedOffers + expiredOffers
+    
+    const closingRate = decidedOffers > 0 ? (acceptedOffers / decidedOffers) * 100 : 0
+    const rejectionRate = decidedOffers > 0 ? (rejectedOffers / decidedOffers) * 100 : 0
+    const expirationRate = decidedOffers > 0 ? (expiredOffers / decidedOffers) * 100 : 0
+    
+    const totalRevenue = offers.reduce((sum, o) => {
+      return sum + o.installments.filter(i => i.status === 'paid').reduce((s, i) => s + i.amount, 0)
+    }, 0)
+    
+    const platformRevenue = offers.reduce((sum, o) => {
+      return sum + o.installments.filter(i => i.status === 'paid').reduce((s, i) => s + i.platformFee, 0)
+    }, 0)
+    
+    const coachRevenue = offers.reduce((sum, o) => {
+      return sum + o.installments.filter(i => i.status === 'paid').reduce((s, i) => s + i.coachPayout, 0)
+    }, 0)
+    
+    const avgOfferValue = acceptedOffers > 0 ? totalRevenue / acceptedOffers : 0
+    
+    const totalSessions = sessions.length
+    const completedSessions = sessions.filter(s => s.status === 'completed').length
+    const cancelledSessions = sessions.filter(s => s.status === 'cancelled').length
+    const noShowSessions = sessions.filter(s => s.status === 'no_show').length
+    const upcomingSessions = sessions.filter(s => s.status === 'confirmed' && new Date(s.scheduledAt) > new Date()).length
+    
+    const sessionCompletionRate = (completedSessions + cancelledSessions + noShowSessions) > 0 
+      ? (completedSessions / (completedSessions + cancelledSessions + noShowSessions)) * 100 
+      : 0
+    
+    const freeSessions = sessions.filter(s => s.type === 'free_consultation').length
+    const paidSessions = sessions.filter(s => s.type !== 'free_consultation').length
+    const freeToConversionRate = freeSessions > 0 
+      ? (offers.filter(o => ['accepted', 'active', 'paid', 'completed'].includes(o.status)).length / freeSessions) * 100 
+      : 0
+
+    return {
+      totalOffers,
+      acceptedOffers,
+      rejectedOffers,
+      expiredOffers,
+      pendingOffers,
+      closingRate,
+      rejectionRate,
+      expirationRate,
+      totalRevenue,
+      platformRevenue,
+      coachRevenue,
+      avgOfferValue,
+      totalSessions,
+      completedSessions,
+      cancelledSessions,
+      noShowSessions,
+      upcomingSessions,
+      sessionCompletionRate,
+      freeSessions,
+      paidSessions,
+      freeToConversionRate,
+      activeCoaches: coachStats.filter(c => c.totalOffers > 0).length
+    }
+  }, [offers, sessions, coachStats])
+
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-700',
@@ -179,38 +369,29 @@ export default function AdminOffersPage() {
     )
   }
 
-  const filteredOffers = filterStatus === 'all' 
-    ? offers 
-    : offers.filter(o => o.status === filterStatus)
+  // Filtro offerte
+  const filteredOffers = useMemo(() => {
+    return offers.filter(o => {
+      const statusMatch = filterStatus === 'all' || o.status === filterStatus
+      const coachMatch = filterCoach === 'all' || o.coachId === filterCoach
+      return statusMatch && coachMatch
+    })
+  }, [offers, filterStatus, filterCoach])
 
-  const filteredSessions = sessionFilterStatus === 'all'
-    ? sessions
-    : sessions.filter(s => s.status === sessionFilterStatus)
+  // Filtro sessioni
+  const filteredSessions = useMemo(() => {
+    return sessions.filter(s => {
+      const statusMatch = sessionFilterStatus === 'all' || s.status === sessionFilterStatus
+      const coachMatch = sessionFilterCoach === 'all' || s.coachId === sessionFilterCoach
+      return statusMatch && coachMatch
+    })
+  }, [sessions, sessionFilterStatus, sessionFilterCoach])
 
-  // Calcola statistiche avanzate
-  const stats = {
-    pending: offers.filter(o => o.status === 'pending').length,
-    active: offers.filter(o => o.status === 'active').length,
-    totalRevenue: offers.reduce((sum, o) => {
-      const paidAmount = o.installments
-        .filter(i => i.status === 'paid')
-        .reduce((s, i) => s + i.amount, 0)
-      return sum + paidAmount
-    }, 0),
-    platformRevenue: offers.reduce((sum, o) => {
-      const platformFees = o.installments
-        .filter(i => i.status === 'paid')
-        .reduce((s, i) => s + i.platformFee, 0)
-      return sum + platformFees
-    }, 0),
-    coachRevenue: offers.reduce((sum, o) => {
-      const coachPayouts = o.installments
-        .filter(i => i.status === 'paid')
-        .reduce((s, i) => s + i.coachPayout, 0)
-      return sum + coachPayouts
-    }, 0),
-    totalSessions: sessions.length,
-    upcomingSessions: sessions.filter(s => s.status === 'confirmed' && new Date(s.scheduledAt) > new Date()).length
+  // Closing rate badge color
+  const getClosingRateColor = (rate: number) => {
+    if (rate >= 60) return 'text-green-600 bg-green-50'
+    if (rate >= 40) return 'text-yellow-600 bg-yellow-50'
+    return 'text-red-600 bg-red-50'
   }
 
   return (
@@ -221,15 +402,15 @@ export default function AdminOffersPage() {
           <p className="text-gray-500">Gestisci le offerte dei coach e le sessioni prenotate</p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        {/* Stats Overview */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
           <div className="bg-white p-4 rounded-xl border">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
                 <Clock className="w-5 h-5 text-yellow-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-charcoal">{stats.pending}</p>
+                <p className="text-2xl font-bold text-charcoal">{globalStats.pendingOffers}</p>
                 <p className="text-xs text-gray-500">In attesa</p>
               </div>
             </div>
@@ -240,8 +421,19 @@ export default function AdminOffersPage() {
                 <CheckCircle className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-charcoal">{stats.active}</p>
-                <p className="text-xs text-gray-500">Attive</p>
+                <p className="text-2xl font-bold text-charcoal">{globalStats.acceptedOffers}</p>
+                <p className="text-xs text-gray-500">Accettate</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getClosingRateColor(globalStats.closingRate)}`}>
+                <Target className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-charcoal">{formatPercent(globalStats.closingRate)}</p>
+                <p className="text-xs text-gray-500">% Chiusura</p>
               </div>
             </div>
           </div>
@@ -251,8 +443,8 @@ export default function AdminOffersPage() {
                 <Euro className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-xl font-bold text-charcoal">{formatCurrency(stats.totalRevenue)}</p>
-                <p className="text-xs text-gray-500">Totale incassato</p>
+                <p className="text-lg font-bold text-charcoal">{formatCurrency(globalStats.totalRevenue)}</p>
+                <p className="text-xs text-gray-500">Incassato</p>
               </div>
             </div>
           </div>
@@ -262,8 +454,8 @@ export default function AdminOffersPage() {
                 <TrendingUp className="w-5 h-5 text-primary-600" />
               </div>
               <div>
-                <p className="text-xl font-bold text-primary-600">{formatCurrency(stats.platformRevenue)}</p>
-                <p className="text-xs text-gray-500">Guadagno CoachaMi</p>
+                <p className="text-lg font-bold text-primary-600">{formatCurrency(globalStats.platformRevenue)}</p>
+                <p className="text-xs text-gray-500">CoachaMi</p>
               </div>
             </div>
           </div>
@@ -273,8 +465,8 @@ export default function AdminOffersPage() {
                 <User className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-xl font-bold text-charcoal">{formatCurrency(stats.coachRevenue)}</p>
-                <p className="text-xs text-gray-500">Pagato ai coach</p>
+                <p className="text-lg font-bold text-charcoal">{formatCurrency(globalStats.coachRevenue)}</p>
+                <p className="text-xs text-gray-500">Ai coach</p>
               </div>
             </div>
           </div>
@@ -284,19 +476,19 @@ export default function AdminOffersPage() {
                 <Calendar className="w-5 h-5 text-indigo-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-charcoal">{stats.totalSessions}</p>
-                <p className="text-xs text-gray-500">Sessioni totali</p>
+                <p className="text-2xl font-bold text-charcoal">{globalStats.totalSessions}</p>
+                <p className="text-xs text-gray-500">Sessioni</p>
               </div>
             </div>
           </div>
           <div className="bg-white p-4 rounded-xl border">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-teal-600" />
+                <Users className="w-5 h-5 text-teal-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-charcoal">{stats.upcomingSessions}</p>
-                <p className="text-xs text-gray-500">In programma</p>
+                <p className="text-2xl font-bold text-charcoal">{globalStats.activeCoaches}</p>
+                <p className="text-xs text-gray-500">Coach attivi</p>
               </div>
             </div>
           </div>
@@ -322,6 +514,15 @@ export default function AdminOffersPage() {
             <Calendar size={16} className="inline mr-2" />
             Sessioni ({sessions.length})
           </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'analytics' ? 'bg-charcoal text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <BarChart3 size={16} className="inline mr-2" />
+            Analytics
+          </button>
         </div>
 
         {/* Content */}
@@ -332,20 +533,47 @@ export default function AdminOffersPage() {
             </div>
           ) : activeTab === 'offers' ? (
             <>
-              {/* Filter */}
-              <div className="p-4 border-b bg-gray-50 flex gap-2 flex-wrap">
-                {['all', 'pending', 'active', 'completed'].map(status => (
-                  <button
-                    key={status}
-                    onClick={() => setFilterStatus(status)}
-                    className={`px-3 py-1 text-sm rounded-full transition-colors ${
-                      filterStatus === status ? 'bg-charcoal text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
-                    }`}
+              {/* Filtri Offerte */}
+              <div className="p-4 border-b bg-gray-50 space-y-3">
+                {/* Filtro Status */}
+                <div className="flex gap-2 flex-wrap">
+                  {['all', 'pending', 'active', 'completed', 'rejected', 'expired'].map(status => (
+                    <button
+                      key={status}
+                      onClick={() => setFilterStatus(status)}
+                      className={`px-3 py-1 text-sm rounded-full transition-colors ${
+                        filterStatus === status ? 'bg-charcoal text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {status === 'all' ? 'Tutte' : 
+                       status === 'pending' ? 'In attesa' : 
+                       status === 'active' ? 'Attive' : 
+                       status === 'completed' ? 'Completate' :
+                       status === 'rejected' ? 'Rifiutate' : 'Scadute'}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Filtro Coach */}
+                <div className="flex items-center gap-2">
+                  <Filter size={16} className="text-gray-400" />
+                  <select
+                    value={filterCoach}
+                    onChange={(e) => setFilterCoach(e.target.value)}
+                    className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   >
-                    {status === 'all' ? 'Tutte' : status === 'pending' ? 'In attesa' : 
-                     status === 'active' ? 'Attive' : 'Completate'}
-                  </button>
-                ))}
+                    <option value="all">Tutti i coach</option>
+                    {uniqueCoaches.map(coach => (
+                      <option key={coach.id} value={coach.id}>{coach.name}</option>
+                    ))}
+                  </select>
+                  
+                  {filterCoach !== 'all' && (
+                    <span className="text-sm text-gray-500">
+                      {filteredOffers.length} offerte
+                    </span>
+                  )}
+                </div>
               </div>
               
               {filteredOffers.length === 0 ? (
@@ -521,31 +749,48 @@ export default function AdminOffersPage() {
                 </div>
               )}
             </>
-          ) : (
+          ) : activeTab === 'sessions' ? (
             /* Tab Sessioni */
             <>
               {/* Filtri Sessioni */}
-              <div className="p-4 border-b border-gray-100 flex flex-wrap gap-2">
-                {[
-                  { value: 'all', label: 'Tutte', count: sessions.length },
-                  { value: 'pending', label: 'In attesa', count: sessions.filter(s => s.status === 'pending').length },
-                  { value: 'confirmed', label: 'Confermate', count: sessions.filter(s => s.status === 'confirmed').length },
-                  { value: 'completed', label: 'Completate', count: sessions.filter(s => s.status === 'completed').length },
-                  { value: 'cancelled', label: 'Annullate', count: sessions.filter(s => s.status === 'cancelled').length },
-                  { value: 'rescheduled', label: 'Rimandate', count: sessions.filter(s => s.status === 'rescheduled').length },
-                ].map(filter => (
-                  <button
-                    key={filter.value}
-                    onClick={() => setSessionFilterStatus(filter.value)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      sessionFilterStatus === filter.value
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
+              <div className="p-4 border-b border-gray-100 space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: 'all', label: 'Tutte', count: sessions.length },
+                    { value: 'pending', label: 'In attesa', count: sessions.filter(s => s.status === 'pending').length },
+                    { value: 'confirmed', label: 'Confermate', count: sessions.filter(s => s.status === 'confirmed').length },
+                    { value: 'completed', label: 'Completate', count: sessions.filter(s => s.status === 'completed').length },
+                    { value: 'cancelled', label: 'Annullate', count: sessions.filter(s => s.status === 'cancelled').length },
+                    { value: 'rescheduled', label: 'Rimandate', count: sessions.filter(s => s.status === 'rescheduled').length },
+                  ].map(filter => (
+                    <button
+                      key={filter.value}
+                      onClick={() => setSessionFilterStatus(filter.value)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        sessionFilterStatus === filter.value
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {filter.label} ({filter.count})
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Filtro Coach */}
+                <div className="flex items-center gap-2">
+                  <Filter size={16} className="text-gray-400" />
+                  <select
+                    value={sessionFilterCoach}
+                    onChange={(e) => setSessionFilterCoach(e.target.value)}
+                    className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   >
-                    {filter.label} ({filter.count})
-                  </button>
-                ))}
+                    <option value="all">Tutti i coach</option>
+                    {uniqueCoaches.map(coach => (
+                      <option key={coach.id} value={coach.id}>{coach.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               
               {filteredSessions.length === 0 ? (
@@ -589,6 +834,172 @@ export default function AdminOffersPage() {
               </table>
               )}
             </>
+          ) : (
+            /* Tab Analytics */
+            <div className="p-6 space-y-6">
+              {/* Overview Cards */}
+              <div className="grid md:grid-cols-4 gap-4">
+                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-5 border border-green-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-green-700 font-medium">Closing Rate</span>
+                    <Target className="text-green-600" size={20} />
+                  </div>
+                  <p className="text-3xl font-bold text-green-700">{formatPercent(globalStats.closingRate)}</p>
+                  <p className="text-sm text-green-600 mt-1">{globalStats.acceptedOffers} su {globalStats.acceptedOffers + globalStats.rejectedOffers + globalStats.expiredOffers} decise</p>
+                </div>
+                
+                <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-5 border border-red-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-red-700 font-medium">Rejection Rate</span>
+                    <XCircle className="text-red-600" size={20} />
+                  </div>
+                  <p className="text-3xl font-bold text-red-700">{formatPercent(globalStats.rejectionRate)}</p>
+                  <p className="text-sm text-red-600 mt-1">{globalStats.rejectedOffers} rifiutate</p>
+                </div>
+                
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-5 border border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-700 font-medium">Expiration Rate</span>
+                    <AlertTriangle className="text-gray-600" size={20} />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-700">{formatPercent(globalStats.expirationRate)}</p>
+                  <p className="text-sm text-gray-600 mt-1">{globalStats.expiredOffers} scadute</p>
+                </div>
+                
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-5 border border-blue-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-blue-700 font-medium">Valore Medio</span>
+                    <Euro className="text-blue-600" size={20} />
+                  </div>
+                  <p className="text-3xl font-bold text-blue-700">{formatCurrency(globalStats.avgOfferValue)}</p>
+                  <p className="text-sm text-blue-600 mt-1">per offerta accettata</p>
+                </div>
+              </div>
+              
+              {/* Session Stats */}
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="bg-white rounded-xl p-5 border">
+                  <h3 className="font-semibold text-charcoal mb-3">Sessioni</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Gratuite</span>
+                      <span className="font-medium">{globalStats.freeSessions}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">A pagamento</span>
+                      <span className="font-medium">{globalStats.paidSessions}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Completate</span>
+                      <span className="font-medium text-green-600">{globalStats.completedSessions}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Cancellate</span>
+                      <span className="font-medium text-red-600">{globalStats.cancelledSessions}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-xl p-5 border">
+                  <h3 className="font-semibold text-charcoal mb-3">Conversion</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Free → Paid</span>
+                      <span className="font-medium">{formatPercent(globalStats.freeToConversionRate)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Session Completion</span>
+                      <span className="font-medium">{formatPercent(globalStats.sessionCompletionRate)}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-xl p-5 border">
+                  <h3 className="font-semibold text-charcoal mb-3">Revenue</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Totale incassato</span>
+                      <span className="font-medium">{formatCurrency(globalStats.totalRevenue)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">CoachaMi (30%)</span>
+                      <span className="font-medium text-primary-600">{formatCurrency(globalStats.platformRevenue)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Coach (70%)</span>
+                      <span className="font-medium text-green-600">{formatCurrency(globalStats.coachRevenue)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Coach Leaderboard */}
+              <div className="bg-white rounded-xl border">
+                <div className="p-4 border-b">
+                  <h3 className="font-semibold text-charcoal flex items-center gap-2">
+                    <Award className="text-primary-500" size={20} />
+                    Performance Coach
+                  </h3>
+                  <p className="text-sm text-gray-500">Classifica per % di chiusura offerte</p>
+                </div>
+                
+                {coachStats.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">
+                    <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>Nessun dato disponibile</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b">
+                        <tr>
+                          <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">#</th>
+                          <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Coach</th>
+                          <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Offerte</th>
+                          <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Accettate</th>
+                          <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Rifiutate</th>
+                          <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">% Chiusura</th>
+                          <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase">Revenue</th>
+                          <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase">CoachaMi</th>
+                          <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Sessioni</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {coachStats.map((coach, idx) => (
+                          <tr key={coach.coachId} className="hover:bg-gray-50">
+                            <td className="px-6 py-4">
+                              {idx < 3 ? (
+                                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                  idx === 0 ? 'bg-yellow-100 text-yellow-700' :
+                                  idx === 1 ? 'bg-gray-100 text-gray-700' :
+                                  'bg-orange-100 text-orange-700'
+                                }`}>
+                                  {idx + 1}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">{idx + 1}</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 font-medium text-charcoal">{coach.coachName}</td>
+                            <td className="px-6 py-4 text-center text-gray-600">{coach.totalOffers}</td>
+                            <td className="px-6 py-4 text-center text-green-600 font-medium">{coach.acceptedOffers}</td>
+                            <td className="px-6 py-4 text-center text-red-600">{coach.rejectedOffers}</td>
+                            <td className="px-6 py-4 text-center">
+                              <span className={`px-2 py-1 rounded-full text-sm font-medium ${getClosingRateColor(coach.closingRate)}`}>
+                                {formatPercent(coach.closingRate)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right font-medium">{formatCurrency(coach.totalRevenue)}</td>
+                            <td className="px-6 py-4 text-right text-primary-600 font-medium">{formatCurrency(coach.platformRevenue)}</td>
+                            <td className="px-6 py-4 text-center text-gray-600">{coach.totalSessions}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>
