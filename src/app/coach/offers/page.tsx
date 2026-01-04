@@ -45,7 +45,7 @@ interface Offer {
   completedSessions: number
   priceTotal: number
   pricePerSession: number
-  coachPayoutTotal: number // Dal DB (potrebbe essere sbagliato)
+  coachPayoutTotal: number
   paidInstallments: number
   status: string
   createdAt: Date
@@ -127,8 +127,7 @@ export default function CoachOffersPage() {
   const stats = {
     total: offers.length,
     pending: offers.filter(o => o.status === 'pending').length,
-    active: offers.filter(o => ['accepted', 'active'].includes(o.status)).length,
-    // Guadagno totale = 70% del prezzo totale delle offerte attive/completate
+    active: offers.filter(o => ['accepted', 'active', 'fully_paid'].includes(o.status)).length,
     totalRevenue: offers
       .filter(o => ['active', 'completed', 'fully_paid'].includes(o.status))
       .reduce((sum, o) => sum + calculateCoachPayout(o.priceTotal), 0)
@@ -345,17 +344,12 @@ export default function CoachOffersPage() {
                           <Euro size={14} />
                           {formatCurrency(offer.priceTotal)}
                         </span>
-                        {/* Mostra guadagno coach (70%) */}
-                        <span className="flex items-center gap-1 text-green-600 font-medium">
-                          Guadagno: {formatCurrency(calculateCoachPayout(offer.priceTotal))}
-                        </span>
+                        {offer.status === 'active' && (
+                          <span className="text-green-600">
+                            {offer.paidInstallments}/{offer.totalSessions} pagate
+                          </span>
+                        )}
                       </div>
-                      
-                      {offer.status === 'active' && (
-                        <p className="text-sm text-green-600 mt-2">
-                          {offer.paidInstallments}/{offer.totalSessions} sessioni pagate
-                        </p>
-                      )}
                       
                       <p className="text-xs text-gray-400 mt-2">
                         Creata il {format(offer.createdAt, 'dd MMM yyyy', { locale: it })}
