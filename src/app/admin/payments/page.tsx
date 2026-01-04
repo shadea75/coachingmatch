@@ -218,7 +218,7 @@ export default function AdminPaymentsPage() {
       
       // Carica dati billing di tutti i coach coinvolti
       const coachBillingMap: Record<string, any> = {}
-      const uniqueCoachIds = [...new Set(loadedOffers.map(o => o.coachId).filter(Boolean))]
+      const uniqueCoachIds = Array.from(new Set(loadedOffers.map(o => o.coachId).filter(Boolean)))
       await Promise.all(uniqueCoachIds.map(async (coachId) => {
         try {
           const coachDoc = await getDoc(doc(db, 'users', coachId))
