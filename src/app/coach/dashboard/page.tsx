@@ -434,92 +434,6 @@ export default function CoachDashboardPage() {
     )
   }
   
-  const NavItems = () => (
-    <>
-      <Link
-        href="/coach/dashboard"
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary-50 text-primary-600"
-      >
-        <BarChart3 size={20} />
-        <span className="font-medium">Dashboard</span>
-      </Link>
-      
-      <Link
-        href="/coach/sessions"
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
-      >
-        <Video size={20} />
-        <span className="font-medium">Sessioni</span>
-        {stats.pendingSessions > 0 && (
-          <span className="ml-auto bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">
-            {stats.pendingSessions}
-          </span>
-        )}
-      </Link>
-      
-      <Link
-        href="/coach/office"
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
-      >
-        <Building2 size={20} />
-        <span className="font-medium">Ufficio Virtuale</span>
-      </Link>
-      
-      <Link
-        href="/coach/reviews"
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
-      >
-        <Star size={20} />
-        <span className="font-medium">Recensioni</span>
-        {stats.pendingReviews > 0 && (
-          <span className="ml-auto bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full">
-            {stats.pendingReviews}
-          </span>
-        )}
-      </Link>
-      
-      <Link
-        href="/community/my-points"
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
-      >
-        <Trophy size={20} />
-        <span className="font-medium">I miei punti</span>
-      </Link>
-      
-      <Link
-        href="/coach/availability"
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
-      >
-        <Calendar size={20} />
-        <span className="font-medium">Disponibilità</span>
-      </Link>
-      
-      <Link
-        href="/community"
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
-      >
-        <Users size={20} />
-        <span className="font-medium">Community</span>
-      </Link>
-      
-      <Link
-        href="/coach/settings"
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
-      >
-        <Settings size={20} />
-        <span className="font-medium">Impostazioni</span>
-      </Link>
-      
-      <button
-        onClick={handleSignOut}
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
-      >
-        <LogOut size={20} />
-        <span className="font-medium">Esci</span>
-      </button>
-    </>
-  )
-  
   return (
     <div className="p-4 lg:p-8">
       {isLoading ? (
@@ -528,13 +442,13 @@ export default function CoachDashboardPage() {
         </div>
       ) : (
         <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-6"
-          >
-            <h1 className="text-2xl font-display font-bold text-charcoal">
-              Dashboard Coach
-            </h1>
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="space-y-6"
+        >
+          <h1 className="text-2xl font-display font-bold text-charcoal">
+            Dashboard Coach
+          </h1>
             
             {/* Stats Grid */}
             <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
