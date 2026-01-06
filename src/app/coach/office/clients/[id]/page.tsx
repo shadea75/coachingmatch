@@ -141,8 +141,7 @@ export default function ClientDetailPage() {
             const externalOffersQuery = query(
               collection(db, 'externalOffers'),
               where('clientId', '==', clientId),
-              where('coachId', '==', user.id),
-              orderBy('createdAt', 'desc')
+              where('coachId', '==', user.id)
             )
             const externalOffersSnap = await getDocs(externalOffersQuery)
             clientOffers = externalOffersSnap.docs.map(doc => {
@@ -166,8 +165,7 @@ export default function ClientDetailPage() {
             const externalSessionsQuery = query(
               collection(db, 'externalSessions'),
               where('clientId', '==', clientId),
-              where('coachId', '==', user.id),
-              orderBy('scheduledAt', 'desc')
+              where('coachId', '==', user.id)
             )
             const externalSessionsSnap = await getDocs(externalSessionsQuery)
             clientSessions = externalSessionsSnap.docs.map(doc => {
@@ -224,8 +222,7 @@ export default function ClientDetailPage() {
             const sessionsQuery = query(
               collection(db, 'sessions'),
               where('coacheeId', '==', clientId),
-              where('coachId', '==', user.id),
-              orderBy('scheduledAt', 'desc')
+              where('coachId', '==', user.id)
             )
             const sessionsSnap = await getDocs(sessionsQuery)
             clientSessions = sessionsSnap.docs.map(doc => {
