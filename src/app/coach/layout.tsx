@@ -81,14 +81,37 @@ export default function CoachLayoutWrapper({
           else if (points >= 100) level = 'Pro'
         }
 
-        // Conta sessioni pending
-        const sessionsQuery = query(
-          collection(db, 'sessions'),
-          where('coachId', '==', user.id),
-          where('status', '==', 'pending')
-        )
-        const sessionsSnap = await getDocs(sessionsQuery)
-        const pendingSessions = sessionsSnap.size
+        // Conta sessioni attive (pending + confirmed future)
+        let pendingSessions = 0
+        try {
+          // Conta pending
+          const pendingQuery = query(
+            collection(db, 'sessions'),
+            where('coachId', '==', user.id),
+            where('status', '==', 'pending')
+          )
+          const pendingSnap = await getDocs(pendingQuery)
+          
+          // Conta confirmed future
+          const confirmedQuery = query(
+            collection(db, 'sessions'),
+            where('coachId', '==', user.id),
+            where('status', '==', 'confirmed')
+          )
+          const confirmedSnap = await getDocs(confirmedQuery)
+          
+          // Filtra solo le sessioni future
+          const now = new Date()
+          const futureConfirmed = confirmedSnap.docs.filter(doc => {
+            const data = doc.data()
+            const scheduledAt = data.scheduledAt?.toDate?.() || new Date(data.scheduledAt)
+            return scheduledAt > now
+          })
+          
+          pendingSessions = pendingSnap.size + futureConfirmed.length
+        } catch (e) {
+          console.error('Errore conteggio sessioni:', e)
+        }
 
         // Conta recensioni pending
         let pendingReviews = 0
