@@ -24,10 +24,10 @@ export default function StripeConnectSetup() {
   
   // Controlla lo stato all'avvio e dopo redirect da Stripe
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.id) {
       checkStripeStatus()
     }
-  }, [user?.uid])
+  }, [user?.id])
   
   // Gestisci parametri URL dopo redirect da Stripe
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function StripeConnectSetup() {
   const checkStripeStatus = async () => {
     try {
       setLoading(true)
-      const res = await fetch(`/api/stripe/connect/status?coachId=${user?.uid}`)
+      const res = await fetch(`/api/stripe/connect/status?coachId=${user?.id}`)
       const data = await res.json()
       setStatus(data)
     } catch (err) {
@@ -68,7 +68,7 @@ export default function StripeConnectSetup() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          coachId: user?.uid,
+          coachId: user?.id,
           coachEmail: user?.email,
           coachName: user?.displayName || '',
         })
@@ -101,7 +101,7 @@ export default function StripeConnectSetup() {
       const res = await fetch('/api/stripe/connect/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ coachId: user?.uid })
+        body: JSON.stringify({ coachId: user?.id })
       })
       
       const data = await res.json()
@@ -125,7 +125,7 @@ export default function StripeConnectSetup() {
       const res = await fetch('/api/stripe/connect/dashboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ coachId: user?.uid })
+        body: JSON.stringify({ coachId: user?.id })
       })
       
       const data = await res.json()
