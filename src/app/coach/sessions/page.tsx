@@ -43,9 +43,11 @@ interface Session {
   scheduledAt: Date
   duration: number
   status: 'pending' | 'confirmed' | 'rescheduled' | 'cancelled' | 'completed' | 'no_show'
-  type: 'free_consultation' | 'paid_session'
+  type: 'free_consultation' | 'paid_session' | 'external_paid_session'
   notes?: string
   createdAt: Date
+  source?: 'coachami' | 'external'
+  offerTitle?: string
 }
 
 export default function CoachSessionsPage() {
@@ -99,8 +101,36 @@ export default function CoachSessionsPage() {
             status: data.status || 'pending',
             type: data.type || 'free_consultation',
             notes: data.notes,
-            createdAt: data.createdAt?.toDate?.() || new Date()
+            createdAt: data.createdAt?.toDate?.() || new Date(),
+            source: 'coachami' as const
           }
+        })
+        
+        // Carica anche sessioni esterne (clienti fuori piattaforma)
+        const externalQuery = query(
+          collection(db, 'externalSessions'),
+          where('coachId', '==', user.id)
+        )
+        const externalSnap = await getDocs(externalQuery)
+        
+        console.log('Sessioni esterne trovate:', externalSnap.size) // Debug
+        
+        externalSnap.docs.forEach(doc => {
+          const data = doc.data()
+          loadedSessions.push({
+            id: doc.id,
+            coacheeId: data.clientId,
+            coacheeName: data.clientName || 'Cliente',
+            coacheeEmail: data.clientEmail || '',
+            scheduledAt: data.scheduledAt?.toDate?.() || new Date(data.scheduledAt),
+            duration: data.duration || 60,
+            status: data.status || 'pending',
+            type: 'external_paid_session',
+            notes: data.notes,
+            createdAt: data.createdAt?.toDate?.() || new Date(),
+            source: 'external' as const,
+            offerTitle: data.offerTitle
+          })
         })
         
         // Ordina per data (ascending)
@@ -137,15 +167,20 @@ export default function CoachSessionsPage() {
   const handleConfirm = async (sessionId: string) => {
     setActionLoading(sessionId)
     try {
+      // Trova la sessione nella lista per sapere se è esterna
+      const sessionInfo = sessions.find(s => s.id === sessionId)
+      const isExternal = sessionInfo?.source === 'external'
+      const collectionName = isExternal ? 'externalSessions' : 'sessions'
+      
       // Recupera i dati della sessione
-      const sessionDoc = await getDoc(doc(db, 'sessions', sessionId))
+      const sessionDoc = await getDoc(doc(db, collectionName, sessionId))
       if (!sessionDoc.exists()) {
         throw new Error('Sessione non trovata')
       }
       const sessionData = sessionDoc.data()
       
       // Aggiorna stato
-      await updateDoc(doc(db, 'sessions', sessionId), {
+      await updateDoc(doc(db, collectionName, sessionId), {
         status: 'confirmed',
         confirmedAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -160,14 +195,15 @@ export default function CoachSessionsPage() {
           coachId: user?.id,
           coachName: user?.name || 'Coach',
           coachEmail: user?.email,
-          coacheeId: sessionData.coacheeId,
-          coacheeName: sessionData.coacheeName || 'Coachee',
-          coacheeEmail: sessionData.coacheeEmail,
+          coacheeId: isExternal ? sessionData.clientId : sessionData.coacheeId,
+          coacheeName: isExternal ? sessionData.clientName : (sessionData.coacheeName || 'Coachee'),
+          coacheeEmail: isExternal ? sessionData.clientEmail : sessionData.coacheeEmail,
           date: format(scheduledAt, "EEEE d MMMM yyyy", { locale: it }),
           time: format(scheduledAt, "HH:mm"),
           duration: sessionData.duration || 30,
           sessionDate: scheduledAt.toISOString(),
-          type: sessionData.type
+          type: sessionData.type,
+          isExternal
         }
       }
       
@@ -195,14 +231,19 @@ export default function CoachSessionsPage() {
     
     setActionLoading(sessionId)
     try {
+      // Trova la sessione nella lista per sapere se è esterna
+      const sessionInfo = sessions.find(s => s.id === sessionId)
+      const isExternal = sessionInfo?.source === 'external'
+      const collectionName = isExternal ? 'externalSessions' : 'sessions'
+      
       // Recupera i dati della sessione
-      const sessionDoc = await getDoc(doc(db, 'sessions', sessionId))
+      const sessionDoc = await getDoc(doc(db, collectionName, sessionId))
       if (!sessionDoc.exists()) {
         throw new Error('Sessione non trovata')
       }
       const sessionData = sessionDoc.data()
       
-      await updateDoc(doc(db, 'sessions', sessionId), {
+      await updateDoc(doc(db, collectionName, sessionId), {
         status: 'cancelled',
         cancelledBy: 'coach',
         cancelledAt: serverTimestamp(),
@@ -219,8 +260,8 @@ export default function CoachSessionsPage() {
           data: {
             coachName: user?.name || 'Coach',
             coachEmail: user?.email,
-            coacheeName: sessionData.coacheeName || 'Coachee',
-            coacheeEmail: sessionData.coacheeEmail,
+            coacheeName: isExternal ? sessionData.clientName : (sessionData.coacheeName || 'Coachee'),
+            coacheeEmail: isExternal ? sessionData.clientEmail : sessionData.coacheeEmail,
             date: format(scheduledAt, "EEEE d MMMM yyyy", { locale: it }),
             time: format(scheduledAt, "HH:mm"),
             reason: 'rejected'
@@ -245,14 +286,19 @@ export default function CoachSessionsPage() {
     
     setActionLoading(sessionId)
     try {
+      // Trova la sessione nella lista per sapere se è esterna
+      const sessionInfo = sessions.find(s => s.id === sessionId)
+      const isExternal = sessionInfo?.source === 'external'
+      const collectionName = isExternal ? 'externalSessions' : 'sessions'
+      
       // Recupera i dati della sessione
-      const sessionDoc = await getDoc(doc(db, 'sessions', sessionId))
+      const sessionDoc = await getDoc(doc(db, collectionName, sessionId))
       if (!sessionDoc.exists()) {
         throw new Error('Sessione non trovata')
       }
       const sessionData = sessionDoc.data()
       
-      await updateDoc(doc(db, 'sessions', sessionId), {
+      await updateDoc(doc(db, collectionName, sessionId), {
         status: 'cancelled',
         cancelledBy: 'coach',
         cancelledAt: serverTimestamp(),
@@ -269,8 +315,8 @@ export default function CoachSessionsPage() {
           data: {
             coachName: user?.name || 'Coach',
             coachEmail: user?.email,
-            coacheeName: sessionData.coacheeName || 'Coachee',
-            coacheeEmail: sessionData.coacheeEmail,
+            coacheeName: isExternal ? sessionData.clientName : (sessionData.coacheeName || 'Coachee'),
+            coacheeEmail: isExternal ? sessionData.clientEmail : sessionData.coacheeEmail,
             date: format(scheduledAt, "EEEE d MMMM yyyy", { locale: it }),
             time: format(scheduledAt, "HH:mm"),
             reason: 'cancelled'
@@ -297,7 +343,12 @@ export default function CoachSessionsPage() {
   const handleMarkCompleted = async (sessionId: string) => {
     setActionLoading(sessionId)
     try {
-      await updateDoc(doc(db, 'sessions', sessionId), {
+      // Trova la sessione nella lista per sapere se è esterna
+      const sessionInfo = sessions.find(s => s.id === sessionId)
+      const isExternal = sessionInfo?.source === 'external'
+      const collectionName = isExternal ? 'externalSessions' : 'sessions'
+      
+      await updateDoc(doc(db, collectionName, sessionId), {
         status: 'completed',
         completedAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -318,7 +369,12 @@ export default function CoachSessionsPage() {
     
     setActionLoading(sessionId)
     try {
-      await updateDoc(doc(db, 'sessions', sessionId), {
+      // Trova la sessione nella lista per sapere se è esterna
+      const sessionInfo = sessions.find(s => s.id === sessionId)
+      const isExternal = sessionInfo?.source === 'external'
+      const collectionName = isExternal ? 'externalSessions' : 'sessions'
+      
+      await updateDoc(doc(db, collectionName, sessionId), {
         status: 'no_show',
         updatedAt: serverTimestamp()
       })
@@ -589,8 +645,16 @@ export default function CoachSessionsPage() {
                               Gratuita
                             </span>
                           )}
+                          {session.source === 'external' && (
+                            <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700">
+                              Esterno
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-gray-500">{session.coacheeEmail}</p>
+                        {session.offerTitle && (
+                          <p className="text-sm text-primary-500 mt-1">{session.offerTitle}</p>
+                        )}
                         
                         <div className="flex items-center gap-4 mt-2 text-sm">
                           <span className="flex items-center gap-1 text-gray-600">
