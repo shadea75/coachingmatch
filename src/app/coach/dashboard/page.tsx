@@ -521,63 +521,13 @@ export default function CoachDashboardPage() {
   )
   
   return (
-    <div className="min-h-screen bg-cream">
-      {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
-        <Logo size="sm" />
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 hover:bg-gray-100 rounded-lg"
-        >
-          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
-      </header>
-
-      {/* Mobile Sidebar */}
-      {sidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setSidebarOpen(false)}>
-          <div className="absolute left-0 top-0 bottom-0 w-64 bg-white p-6" onClick={e => e.stopPropagation()}>
-            <div className="mb-6">
-              <p className="text-sm text-gray-500">Coach</p>
-              <p className="font-semibold text-charcoal">{user?.name || 'Coach'}</p>
-            </div>
-            <nav className="space-y-2">
-              <NavItems />
-            </nav>
-          </div>
+    <div className="p-4 lg:p-8">
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
         </div>
-      )}
-
-      {/* Desktop Sidebar */}
-      <aside className="fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-gray-100 p-6 hidden lg:block">
-        <Link href="/" className="block mb-8">
-          <Logo size="md" />
-        </Link>
-        
-        <div className="mb-6">
-          <p className="text-sm text-gray-500">Coach</p>
-          <p className="font-semibold text-charcoal">{user?.name || 'Coach'}</p>
-          <div className="flex items-center gap-1 mt-1">
-            <span className="text-lg">{LEVELS_CONFIG[stats.currentLevel as keyof typeof LEVELS_CONFIG]?.icon}</span>
-            <span className="text-xs text-gray-500">
-              {LEVELS_CONFIG[stats.currentLevel as keyof typeof LEVELS_CONFIG]?.label}
-            </span>
-          </div>
-        </div>
-        
-        <nav className="space-y-2">
-          <NavItems />
-        </nav>
-      </aside>
-      
-      {/* Main Content */}
-      <main className="lg:ml-64 p-4 lg:p-8 pt-20 lg:pt-8">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-          </div>
-        ) : (
-          <motion.div
+      ) : (
+        <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="space-y-6"
