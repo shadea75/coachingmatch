@@ -17,7 +17,8 @@ import {
   Mail,
   Copy,
   Check,
-  Send
+  Send,
+  CreditCard
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -51,7 +52,11 @@ export default function NewOfferPage() {
     totalSessions: 1,
     sessionDuration: 60,
     pricePerSession: 0,
-    description: ''
+    description: '',
+    // Opzioni pagamento
+    allowSinglePayment: true,
+    allowInstallments: true,
+    installmentFeePercent: 0 // Sovrapprezzo per rateale (0-15%)
   })
 
   useEffect(() => {
@@ -97,19 +102,26 @@ export default function NewOfferPage() {
       setError('Titolo e prezzo per sessione sono obbligatori')
       return
     }
+    if (!offerData.allowSinglePayment && !offerData.allowInstallments) {
+      setError('Devi permettere almeno un metodo di pagamento')
+      return
+    }
     
     setIsSubmitting(true)
     setError('')
     
     try {
       const priceTotal = offerData.totalSessions * offerData.pricePerSession
+      const installmentFee = offerData.installmentFeePercent / 100
+      const priceTotalWithFee = priceTotal * (1 + installmentFee)
+      const pricePerSessionWithFee = priceTotalWithFee / offerData.totalSessions
       
-      // Crea installments
+      // Crea installments (con eventuale sovrapprezzo)
       const installments: Installment[] = Array.from(
         { length: offerData.totalSessions },
         (_, i) => ({
           sessionNumber: i + 1,
-          amount: offerData.pricePerSession,
+          amount: Math.round(pricePerSessionWithFee * 100) / 100, // Arrotonda a 2 decimali
           status: 'pending' as const
         })
       )
@@ -127,10 +139,17 @@ export default function NewOfferPage() {
         totalSessions: offerData.totalSessions,
         sessionDuration: offerData.sessionDuration,
         pricePerSession: offerData.pricePerSession,
-        priceTotal,
+        priceTotal, // Prezzo base senza sovrapprezzo
+        // Opzioni pagamento
+        allowSinglePayment: offerData.allowSinglePayment,
+        allowInstallments: offerData.allowInstallments,
+        installmentFeePercent: offerData.installmentFeePercent,
+        priceTotalWithFee, // Prezzo con sovrapprezzo per rateale
+        pricePerSessionWithFee: Math.round(pricePerSessionWithFee * 100) / 100,
         installments,
         paidInstallments: 0,
         completedSessions: 0,
+        paymentMethod: null, // Sarà impostato quando il cliente sceglie
         status: 'active',
         source: 'external',
         createdAt: serverTimestamp(),
@@ -448,6 +467,102 @@ export default function NewOfferPage() {
                   </span>
                 </div>
               </div>
+            </div>
+          </motion.div>
+
+          {/* Opzioni Pagamento */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="bg-white rounded-2xl p-6 shadow-sm"
+          >
+            <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+              <CreditCard className="text-blue-500" size={20} />
+              Opzioni di Pagamento
+            </h2>
+            
+            <div className="space-y-4">
+              {/* Pagamento unico */}
+              <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-primary-300 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={offerData.allowSinglePayment}
+                  onChange={(e) => setOfferData({ ...offerData, allowSinglePayment: e.target.checked })}
+                  className="mt-1 w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
+                />
+                <div className="flex-1">
+                  <p className="font-medium text-charcoal">Pagamento unico</p>
+                  <p className="text-sm text-gray-500">
+                    Il cliente paga tutto subito: <strong>€{(offerData.totalSessions * offerData.pricePerSession).toFixed(2)}</strong>
+                  </p>
+                </div>
+              </label>
+
+              {/* Pagamento rateale */}
+              <div className={`p-4 border rounded-xl transition-colors ${
+                offerData.allowInstallments ? 'border-primary-300 bg-primary-50/30' : 'border-gray-200'
+              }`}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={offerData.allowInstallments}
+                    onChange={(e) => setOfferData({ ...offerData, allowInstallments: e.target.checked })}
+                    className="mt-1 w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
+                  />
+                  <div className="flex-1">
+                    <p className="font-medium text-charcoal">Pagamento rateale</p>
+                    <p className="text-sm text-gray-500">
+                      Il cliente paga una sessione alla volta
+                    </p>
+                  </div>
+                </label>
+
+                {offerData.allowInstallments && (
+                  <div className="mt-4 pl-8">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Sovrapprezzo rateale (0-15%)
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min="0"
+                        max="15"
+                        step="1"
+                        value={offerData.installmentFeePercent}
+                        onChange={(e) => setOfferData({ ...offerData, installmentFeePercent: parseInt(e.target.value) })}
+                        className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-500"
+                      />
+                      <div className="w-16 text-center">
+                        <span className="text-lg font-bold text-primary-600">{offerData.installmentFeePercent}%</span>
+                      </div>
+                    </div>
+                    
+                    {offerData.installmentFeePercent > 0 && (
+                      <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-sm text-amber-800">
+                          <strong>Totale rateale:</strong> €{((offerData.totalSessions * offerData.pricePerSession) * (1 + offerData.installmentFeePercent / 100)).toFixed(2)}
+                        </p>
+                        <p className="text-xs text-amber-600 mt-1">
+                          {offerData.totalSessions} rate da €{((offerData.pricePerSession) * (1 + offerData.installmentFeePercent / 100)).toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {offerData.installmentFeePercent === 0 && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        Nessun sovrapprezzo applicato
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {!offerData.allowSinglePayment && !offerData.allowInstallments && (
+                <p className="text-red-500 text-sm">
+                  ⚠️ Devi selezionare almeno un metodo di pagamento
+                </p>
+              )}
             </div>
           </motion.div>
 

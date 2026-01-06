@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { adminDb } from '@/lib/firebase-admin'
+import { adminDb, FieldValue } from '@/lib/firebase-admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,11 +13,11 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(request: NextRequest) {
   try {
-    const { offerId, installmentNumber } = await request.json()
+    const { offerId, paymentType, installmentNumber } = await request.json()
     
-    if (!offerId || !installmentNumber) {
+    if (!offerId || !paymentType) {
       return NextResponse.json(
-        { error: 'Dati mancanti: offerId e installmentNumber richiesti' },
+        { error: 'Dati mancanti: offerId e paymentType richiesti' },
         { status: 400 }
       )
     }
@@ -30,14 +30,13 @@ export async function POST(request: NextRequest) {
     }
     
     const offer = offerDoc.data() as any
-    const installment = offer.installments?.[installmentNumber - 1]
     
-    if (!installment) {
-      return NextResponse.json({ error: 'Rata non trovata' }, { status: 404 })
+    // Verifica che il metodo di pagamento sia permesso
+    if (paymentType === 'single' && !offer.allowSinglePayment) {
+      return NextResponse.json({ error: 'Pagamento unico non disponibile per questa offerta' }, { status: 400 })
     }
-    
-    if (installment.status === 'paid') {
-      return NextResponse.json({ error: 'Rata già pagata' }, { status: 400 })
+    if (paymentType === 'installment' && !offer.allowInstallments) {
+      return NextResponse.json({ error: 'Pagamento rateale non disponibile per questa offerta' }, { status: 400 })
     }
     
     // Recupera account Stripe Connect del coach
@@ -61,7 +60,45 @@ export async function POST(request: NextRequest) {
     
     const coachStripeAccountId = coachStripeData.stripeAccountId
     
-    const amountInCents = Math.round(installment.amount * 100)
+    let amountInCents: number
+    let productName: string
+    let successUrl: string
+    
+    if (paymentType === 'single') {
+      // Pagamento unico - prezzo base senza sovrapprezzo
+      amountInCents = Math.round(offer.priceTotal * 100)
+      productName = `${offer.title} - Pagamento completo (${offer.totalSessions} sessioni)`
+      successUrl = `${process.env.NEXT_PUBLIC_APP_URL}/external-offer/${offerId}/success?session_id={CHECKOUT_SESSION_ID}&type=single`
+      
+      // Aggiorna l'offerta con il metodo di pagamento scelto
+      await adminDb.collection('externalOffers').doc(offerId).update({
+        paymentMethod: 'single',
+        updatedAt: FieldValue.serverTimestamp()
+      })
+    } else {
+      // Pagamento rateale - usa prezzo con sovrapprezzo
+      const installment = offer.installments?.[installmentNumber - 1]
+      
+      if (!installment) {
+        return NextResponse.json({ error: 'Rata non trovata' }, { status: 404 })
+      }
+      
+      if (installment.status === 'paid') {
+        return NextResponse.json({ error: 'Rata già pagata' }, { status: 400 })
+      }
+      
+      amountInCents = Math.round(installment.amount * 100)
+      productName = `${offer.title} - Sessione ${installmentNumber}/${offer.totalSessions}`
+      successUrl = `${process.env.NEXT_PUBLIC_APP_URL}/external-offer/${offerId}/success?session_id={CHECKOUT_SESSION_ID}&type=installment&installment=${installmentNumber}`
+      
+      // Aggiorna l'offerta con il metodo di pagamento scelto (solo prima rata)
+      if (installmentNumber === 1) {
+        await adminDb.collection('externalOffers').doc(offerId).update({
+          paymentMethod: 'installments',
+          updatedAt: FieldValue.serverTimestamp()
+        })
+      }
+    }
     
     // Crea sessione checkout - 100% al coach (destination charge senza application_fee)
     const session = await stripe.checkout.sessions.create({
@@ -72,7 +109,7 @@ export async function POST(request: NextRequest) {
           currency: 'eur',
           unit_amount: amountInCents,
           product_data: {
-            name: `${offer.title} - Sessione ${installmentNumber}/${offer.totalSessions}`,
+            name: productName,
             description: `Sessione di coaching con ${offer.coachName} (${offer.sessionDuration} min)`,
           },
         },
@@ -86,8 +123,9 @@ export async function POST(request: NextRequest) {
         },
         metadata: {
           type: 'external_offer',
+          paymentType,
           offerId,
-          installmentNumber: String(installmentNumber),
+          installmentNumber: paymentType === 'installment' ? String(installmentNumber) : 'all',
           coachId: offer.coachId,
           clientId: offer.clientId,
         }
@@ -95,8 +133,9 @@ export async function POST(request: NextRequest) {
       
       metadata: {
         type: 'external_coaching_session',
+        paymentType,
         offerId,
-        installmentNumber: String(installmentNumber),
+        installmentNumber: paymentType === 'installment' ? String(installmentNumber) : 'all',
         coachId: offer.coachId,
         coachName: offer.coachName,
         coachEmail: offer.coachEmail,
@@ -108,7 +147,7 @@ export async function POST(request: NextRequest) {
       
       customer_email: offer.clientEmail,
       
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/external-offer/${offerId}/success?session_id={CHECKOUT_SESSION_ID}&installment=${installmentNumber}`,
+      success_url: successUrl,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/external-offer/${offerId}?cancelled=true`,
       
       expires_at: Math.floor(Date.now() / 1000) + 1800,
