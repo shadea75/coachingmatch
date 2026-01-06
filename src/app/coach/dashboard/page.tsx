@@ -24,7 +24,8 @@ import {
   Mail,
   Check,
   Video,
-  AlertCircle
+  AlertCircle,
+  Building2
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -430,6 +431,14 @@ export default function CoachDashboardPage() {
       >
         <ShoppingBag size={20} />
         <span className="font-medium">Le mie Offerte</span>
+      </Link>
+      
+      <Link
+        href="/coach/office"
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+      >
+        <Building2 size={20} />
+        <span className="font-medium">Ufficio Virtuale</span>
       </Link>
       
       <Link
