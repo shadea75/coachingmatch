@@ -23,7 +23,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore'
 
 interface Installment {
   sessionNumber: number
@@ -70,12 +70,74 @@ export default function NewClientPage() {
     setError('')
     
     try {
+      // ========== CONTROLLI ANTI-DUPLICATO ==========
+      
+      // 1. Controlla se email esiste già in users (coachee registrati)
+      const emailQuery = query(
+        collection(db, 'users'),
+        where('email', '==', clientData.email.toLowerCase().trim())
+      )
+      const emailSnap = await getDocs(emailQuery)
+      if (!emailSnap.empty) {
+        setError('Questa email appartiene a un utente già registrato su CoachaMi. Cerca il cliente nella sezione "CoachaMi" dell\'Ufficio Virtuale.')
+        setIsSubmitting(false)
+        return
+      }
+      
+      // 2. Controlla se email esiste già nei tuoi clienti esterni
+      const existingClientQuery = query(
+        collection(db, 'coachClients'),
+        where('coachId', '==', user.id),
+        where('email', '==', clientData.email.toLowerCase().trim())
+      )
+      const existingClientSnap = await getDocs(existingClientQuery)
+      if (!existingClientSnap.empty) {
+        setError('Hai già un cliente con questa email.')
+        setIsSubmitting(false)
+        return
+      }
+      
+      // 3. Se fornito telefono, controlla se esiste in users
+      if (clientData.phone && clientData.phone.trim()) {
+        const phoneNormalized = clientData.phone.replace(/\s+/g, '').replace(/[^0-9+]/g, '')
+        const phoneQuery = query(
+          collection(db, 'users'),
+          where('phone', '==', phoneNormalized)
+        )
+        const phoneSnap = await getDocs(phoneQuery)
+        if (!phoneSnap.empty) {
+          setError('Questo numero di telefono appartiene a un utente già registrato su CoachaMi.')
+          setIsSubmitting(false)
+          return
+        }
+      }
+      
+      // 4. Controlla se nome completo esiste già in users (case-insensitive)
+      const nameLower = clientData.name.toLowerCase().trim()
+      const usersSnap = await getDocs(collection(db, 'users'))
+      const nameExists = usersSnap.docs.some(doc => {
+        const userData = doc.data()
+        const userName = (userData.name || userData.displayName || '').toLowerCase().trim()
+        return userName === nameLower
+      })
+      if (nameExists) {
+        setError('Esiste già un utente registrato su CoachaMi con questo nome. Se è la stessa persona, cercala nella sezione "CoachaMi".')
+        setIsSubmitting(false)
+        return
+      }
+      
+      // ========== FINE CONTROLLI ==========
+      
+      // Normalizza i dati
+      const emailNormalized = clientData.email.toLowerCase().trim()
+      const phoneNormalized = clientData.phone ? clientData.phone.replace(/\s+/g, '').replace(/[^0-9+]/g, '') : null
+      
       // Crea il cliente
       const clientRef = await addDoc(collection(db, 'coachClients'), {
         coachId: user.id,
-        name: clientData.name,
-        email: clientData.email,
-        phone: clientData.phone || null,
+        name: clientData.name.trim(),
+        email: emailNormalized,
+        phone: phoneNormalized,
         notes: clientData.notes || null,
         source: 'external',
         totalSessions: createOffer ? offerData.totalSessions : 0,
@@ -177,6 +239,22 @@ export default function NewClientPage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6">
+        {/* Banner informativo */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-start gap-3"
+        >
+          <AlertCircle className="text-blue-500 mt-0.5 flex-shrink-0" size={20} />
+          <div className="text-sm">
+            <p className="font-medium text-blue-800">Clienti Esterni</p>
+            <p className="text-blue-600">
+              Questa sezione è per clienti che <strong>non sono registrati</strong> su CoachaMi. 
+              Se il tuo cliente ha già un account CoachaMi, lo troverai automaticamente nella lista clienti e potrai creare percorsi direttamente da lì.
+            </p>
+          </div>
+        </motion.div>
+
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Dati Cliente */}
           <motion.div
