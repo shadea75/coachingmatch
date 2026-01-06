@@ -86,13 +86,33 @@ export default function NewOfferPage() {
       
       setIsLoading(true)
       try {
-        const clientDoc = await getDoc(doc(db, 'coachClients', clientId))
-        if (clientDoc.exists()) {
-          const data = clientDoc.data()
-          setClient({
-            name: data.name,
-            email: data.email
-          })
+        let clientData = null
+        
+        if (isCoachaMiClient && coacheeId) {
+          // Cliente CoachaMi - cerca nella collection 'users' usando coacheeId
+          const userDoc = await getDoc(doc(db, 'users', coacheeId))
+          if (userDoc.exists()) {
+            const data = userDoc.data()
+            clientData = {
+              name: data.name || data.displayName || 'Coachee',
+              email: data.email,
+              coacheeId: coacheeId
+            }
+          }
+        } else {
+          // Cliente esterno - cerca nella collection 'coachClients'
+          const clientDoc = await getDoc(doc(db, 'coachClients', clientId))
+          if (clientDoc.exists()) {
+            const data = clientDoc.data()
+            clientData = {
+              name: data.name,
+              email: data.email
+            }
+          }
+        }
+        
+        if (clientData) {
+          setClient(clientData)
         } else {
           setError('Cliente non trovato')
         }
@@ -127,7 +147,7 @@ export default function NewOfferPage() {
     if (user) {
       loadClient()
     }
-  }, [clientId, user, isCoachaMiClient])
+  }, [clientId, user, isCoachaMiClient, coacheeId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
