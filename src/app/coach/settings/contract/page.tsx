@@ -22,36 +22,63 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 
 const DEFAULT_CONTRACT_TEMPLATE = `**CONDIZIONI GENERALI DEL PERCORSO DI COACHING**
 
-**1. OGGETTO**
-Il presente contratto regola la fornitura di servizi di coaching personalizzato tra il Coach e il Cliente, secondo le modalità indicate nell'offerta accettata.
+**1. OGGETTO DEL CONTRATTO**
+Il presente contratto regola la fornitura di servizi di coaching personalizzato tra il Coach e il Cliente, secondo le modalità indicate nell'offerta accettata. Il coaching è un processo di sviluppo personale e/o professionale volto a supportare il Cliente nel raggiungimento dei propri obiettivi.
 
 **2. DURATA E SESSIONI**
-Il percorso si compone di {{totalSessions}} sessioni della durata di {{sessionDuration}} minuti ciascuna. Il calendario delle sessioni verrà concordato tra le parti.
+Il percorso si compone di {{totalSessions}} sessioni della durata di {{sessionDuration}} minuti ciascuna. Il calendario delle sessioni verrà concordato tra le parti in base alla disponibilità reciproca. Il percorso ha validità di 12 mesi dalla data di acquisto; le sessioni non utilizzate entro tale termine si intenderanno decadute.
 
-**3. PAGAMENTO**
+**3. MODALITÀ DI SVOLGIMENTO**
+Le sessioni si svolgeranno in modalità online tramite piattaforma di videoconferenza (Zoom, Google Meet o similare). Il link di accesso verrà comunicato via email prima di ogni sessione. Il Cliente si impegna a garantire una connessione internet stabile, un ambiente tranquillo e riservato, e la disponibilità di webcam e microfono funzionanti.
+
+**4. PAGAMENTO**
 La quota di partecipazione è pari a €{{priceTotal}}. 
 {{#if allowInstallments}}
 È possibile il pagamento rateale in {{totalSessions}} rate da €{{pricePerSession}} ciascuna{{#if installmentFeePercent}}, con una maggiorazione del {{installmentFeePercent}}% (totale rateale: €{{priceTotalWithFee}}){{/if}}.
 {{/if}}
-I pagamenti avverranno tramite la piattaforma CoachaMi.
+I pagamenti avverranno tramite la piattaforma CoachaMi con metodi di pagamento sicuri. Ogni sessione dovrà essere pagata prima della sua prenotazione.
 
-**4. RECESSO E RIMBORSI**
-In caso di recesso da parte del Cliente, le sessioni già pagate non saranno rimborsate. Il Cliente può riprogrammare una sessione con almeno 24 ore di preavviso.
+**5. POLITICA DI CANCELLAZIONE E RIPROGRAMMAZIONE**
+- **Cancellazione con più di 24 ore di preavviso**: la sessione potrà essere riprogrammata senza alcuna penale.
+- **Cancellazione con meno di 24 ore di preavviso**: la sessione sarà considerata effettuata e non potrà essere recuperata né rimborsata.
+- **Mancata presentazione (no-show)**: in caso di assenza del Cliente senza preavviso, la sessione sarà considerata effettuata.
+- **Cancellazione da parte del Coach**: in caso di impossibilità del Coach, la sessione verrà riprogrammata in data da concordare.
 
-**5. RISERVATEZZA**
-Entrambe le parti si impegnano a mantenere la massima riservatezza su quanto emerso durante le sessioni di coaching.
+**6. RECESSO E RIMBORSI**
+Il Cliente può recedere dal contratto in qualsiasi momento. In caso di recesso:
+- Le sessioni già effettuate non sono rimborsabili.
+- Le sessioni già pagate ma non ancora effettuate non sono rimborsabili, ma possono essere riprogrammate entro la validità del percorso.
+- In caso di gravi motivi documentati, il Coach valuterà eventuali eccezioni a sua discrezione.
 
-**6. PROPRIETÀ INTELLETTUALE**
-Il materiale didattico eventualmente fornito rimane di proprietà esclusiva del Coach e non può essere riprodotto o distribuito senza autorizzazione scritta.
+**7. RISERVATEZZA E PRIVACY**
+Entrambe le parti si impegnano a mantenere la massima riservatezza su quanto emerso durante le sessioni di coaching. Il Coach non registrerà le sessioni senza esplicito consenso scritto del Cliente. I dati personali saranno trattati nel rispetto del GDPR (Regolamento UE 2016/679).
 
-**7. LIMITAZIONE DI RESPONSABILITÀ**
-Il coaching non sostituisce terapie mediche, psicologiche o psichiatriche. Il Cliente dichiara di essere consapevole della natura del servizio di coaching.
+**8. NATURA DEL SERVIZIO E LIMITAZIONI**
+Il Cliente dichiara di essere consapevole che:
+- Il coaching NON è una terapia psicologica, psichiatrica o medica.
+- Il coaching NON sostituisce cure mediche, psicologiche o farmacologiche.
+- Il Coach non fornisce diagnosi né prescrizioni di alcun tipo.
+- Il Cliente è l'unico responsabile delle proprie azioni, decisioni e risultati.
+- I risultati del coaching dipendono dall'impegno e dalla partecipazione attiva del Cliente.
 
-**8. FORO COMPETENTE**
-Per qualsiasi controversia sarà competente il Foro di {{coachCity}}.
+**9. FORZA MAGGIORE**
+In caso di eventi di forza maggiore (malattia grave, emergenze familiari, calamità naturali, etc.) che impediscano lo svolgimento delle sessioni, le parti concorderanno la riprogrammazione senza penali. La parte impossibilitata dovrà comunicare tempestivamente l'impedimento.
 
-**9. ACCETTAZIONE**
-Il Cliente dichiara di aver letto, compreso e accettato integralmente le presenti condizioni generali.`
+**10. PROPRIETÀ INTELLETTUALE**
+Il materiale didattico, gli esercizi e i contenuti eventualmente forniti dal Coach durante il percorso rimangono di proprietà esclusiva del Coach e non possono essere riprodotti, distribuiti o utilizzati per scopi commerciali senza autorizzazione scritta.
+
+**11. COMUNICAZIONI**
+Le comunicazioni tra le parti avverranno principalmente tramite email agli indirizzi indicati nel presente contratto o tramite la piattaforma CoachaMi.
+
+**12. FORO COMPETENTE**
+Per qualsiasi controversia derivante dal presente contratto sarà competente in via esclusiva il Foro di {{coachCity}}.
+
+**13. ACCETTAZIONE**
+Con l'accettazione del presente contratto, il Cliente dichiara di:
+- Aver letto e compreso integralmente tutte le condizioni sopra riportate.
+- Accettare senza riserve le presenti condizioni generali.
+- Essere maggiorenne e legalmente capace di sottoscrivere contratti.
+- Aver fornito dati veritieri e corretti.`
 
 export default function ContractSettingsPage() {
   const router = useRouter()
