@@ -695,15 +695,22 @@ export default function ClientDetailPage() {
             {/* Offers Tab */}
             {activeTab === 'offers' && (
               <div className="space-y-4">
-                {source === 'external' && (
-                  <Link
-                    href={`/coach/office/clients/${clientId}/new-offer`}
-                    className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl text-gray-500 hover:border-primary-300 hover:text-primary-500 transition-colors"
-                  >
-                    <Plus size={20} />
-                    Nuovo Percorso
-                  </Link>
-                )}
+                {/* Pulsante nuovo percorso - per tutti i clienti */}
+                <Link
+                  href={source === 'external' 
+                    ? `/coach/office/clients/${clientId}/new-offer`
+                    : `/coach/office/clients/${clientId}/new-offer?source=coachami&coacheeId=${client?.coacheeId}`
+                  }
+                  className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl text-gray-500 hover:border-primary-300 hover:text-primary-500 transition-colors"
+                >
+                  <Plus size={20} />
+                  Nuovo Percorso
+                  {source === 'coachami' && (
+                    <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full ml-2">
+                      30% commissione
+                    </span>
+                  )}
+                </Link>
                 
                 {offers.length === 0 ? (
                   <div className="text-center py-8">
