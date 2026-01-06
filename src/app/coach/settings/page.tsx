@@ -51,7 +51,8 @@ export default function CoachSettingsPage() {
     location: '',
     bio: '',
     motivation: '',
-    lifeArea: '',
+    lifeArea: '',        // Manteniamo per retrocompatibilità
+    lifeAreas: [] as string[], // Nuovo: fino a 3 aree
     languages: ['Italiano'],
     averagePrice: 80,
     freeCallAvailable: true,
@@ -101,6 +102,7 @@ export default function CoachSettingsPage() {
             bio: data.bio || '',
             motivation: data.motivation || '',
             lifeArea: data.lifeArea || '',
+            lifeAreas: data.lifeAreas || (data.lifeArea ? [data.lifeArea] : []), // Retrocompatibilità
             languages: data.languages || ['Italiano'],
             averagePrice: data.averagePrice || 80,
             freeCallAvailable: data.freeCallAvailable !== false,
@@ -151,7 +153,8 @@ export default function CoachSettingsPage() {
         location: profile.location,
         bio: profile.bio,
         motivation: profile.motivation,
-        lifeArea: profile.lifeArea,
+        lifeArea: profile.lifeAreas[0] || '', // Prima area per retrocompatibilità
+        lifeAreas: profile.lifeAreas,         // Tutte le aree selezionate
         languages: profile.languages,
         averagePrice: profile.averagePrice,
         freeCallAvailable: profile.freeCallAvailable,
@@ -361,35 +364,74 @@ export default function CoachSettingsPage() {
                 
                 {/* Area competenza */}
                 <div className="bg-white rounded-2xl p-6 border border-gray-200">
-                  <h2 className="text-lg font-semibold text-charcoal mb-4">Area di competenza principale</h2>
+                  <h2 className="text-lg font-semibold text-charcoal mb-4">Aree di competenza</h2>
                   <p className="text-sm text-gray-500 mb-4">
-                    Seleziona l'area della vita in cui sei specializzato
+                    Seleziona fino a 3 aree della vita in cui sei specializzato
+                    <span className="ml-2 font-medium">
+                      ({profile.lifeAreas.length}/3 selezionate)
+                    </span>
                   </p>
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {LIFE_AREAS.map(area => (
-                      <button
-                        key={area.id}
-                        onClick={() => setProfile({ ...profile, lifeArea: area.id })}
-                        className={`p-4 rounded-xl border-2 transition-all text-center ${
-                          profile.lifeArea === area.id
-                            ? 'border-current shadow-md'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                        style={{
-                          borderColor: profile.lifeArea === area.id ? area.color : undefined,
-                          backgroundColor: profile.lifeArea === area.id ? `${area.color}10` : undefined
-                        }}
-                      >
-                        <span 
-                          className="text-sm font-medium"
-                          style={{ color: profile.lifeArea === area.id ? area.color : '#6B7280' }}
+                    {LIFE_AREAS.map(area => {
+                      const isSelected = profile.lifeAreas.includes(area.id)
+                      const canSelect = isSelected || profile.lifeAreas.length < 3
+                      
+                      return (
+                        <button
+                          key={area.id}
+                          onClick={() => {
+                            if (isSelected) {
+                              // Rimuovi area
+                              setProfile({ 
+                                ...profile, 
+                                lifeAreas: profile.lifeAreas.filter(a => a !== area.id)
+                              })
+                            } else if (canSelect) {
+                              // Aggiungi area
+                              setProfile({ 
+                                ...profile, 
+                                lifeAreas: [...profile.lifeAreas, area.id]
+                              })
+                            }
+                          }}
+                          disabled={!canSelect && !isSelected}
+                          className={`p-4 rounded-xl border-2 transition-all text-center relative ${
+                            isSelected
+                              ? 'border-current shadow-md'
+                              : canSelect
+                                ? 'border-gray-200 hover:border-gray-300'
+                                : 'border-gray-100 opacity-50 cursor-not-allowed'
+                          }`}
+                          style={{
+                            borderColor: isSelected ? area.color : undefined,
+                            backgroundColor: isSelected ? `${area.color}10` : undefined
+                          }}
                         >
-                          {area.label}
-                        </span>
-                      </button>
-                    ))}
+                          {isSelected && (
+                            <div 
+                              className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                              style={{ backgroundColor: area.color }}
+                            >
+                              {profile.lifeAreas.indexOf(area.id) + 1}
+                            </div>
+                          )}
+                          <span 
+                            className="text-sm font-medium"
+                            style={{ color: isSelected ? area.color : canSelect ? '#6B7280' : '#D1D5DB' }}
+                          >
+                            {area.label}
+                          </span>
+                        </button>
+                      )
+                    })}
                   </div>
+                  
+                  {profile.lifeAreas.length === 0 && (
+                    <p className="text-sm text-amber-600 mt-3">
+                      ⚠️ Seleziona almeno un'area di competenza
+                    </p>
+                  )}
                 </div>
                 
                 {/* Bio e motivazione */}
