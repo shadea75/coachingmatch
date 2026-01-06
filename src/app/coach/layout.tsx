@@ -81,10 +81,10 @@ export default function CoachLayoutWrapper({
           else if (points >= 100) level = 'Pro'
         }
 
-        // Conta sessioni attive (pending + confirmed future)
+        // Conta sessioni attive (pending + confirmed future) da entrambe le collection
         let pendingSessions = 0
         try {
-          // Conta pending
+          // Conta pending da sessions
           const pendingQuery = query(
             collection(db, 'sessions'),
             where('coachId', '==', user.id),
@@ -92,7 +92,7 @@ export default function CoachLayoutWrapper({
           )
           const pendingSnap = await getDocs(pendingQuery)
           
-          // Conta confirmed future
+          // Conta confirmed future da sessions
           const confirmedQuery = query(
             collection(db, 'sessions'),
             where('coachId', '==', user.id),
@@ -108,7 +108,29 @@ export default function CoachLayoutWrapper({
             return scheduledAt > now
           })
           
-          pendingSessions = pendingSnap.size + futureConfirmed.length
+          // Conta pending da externalSessions
+          const extPendingQuery = query(
+            collection(db, 'externalSessions'),
+            where('coachId', '==', user.id),
+            where('status', '==', 'pending')
+          )
+          const extPendingSnap = await getDocs(extPendingQuery)
+          
+          // Conta confirmed future da externalSessions
+          const extConfirmedQuery = query(
+            collection(db, 'externalSessions'),
+            where('coachId', '==', user.id),
+            where('status', '==', 'confirmed')
+          )
+          const extConfirmedSnap = await getDocs(extConfirmedQuery)
+          
+          const extFutureConfirmed = extConfirmedSnap.docs.filter(doc => {
+            const data = doc.data()
+            const scheduledAt = data.scheduledAt?.toDate?.() || new Date(data.scheduledAt)
+            return scheduledAt > now
+          })
+          
+          pendingSessions = pendingSnap.size + futureConfirmed.length + extPendingSnap.size + extFutureConfirmed.length
         } catch (e) {
           console.error('Errore conteggio sessioni:', e)
         }
