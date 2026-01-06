@@ -520,7 +520,7 @@ ${clientInfo}
         {/* Pulsante Accetta */}
         <button
           onClick={handleAccept}
-          disabled={isSubmitting || !acceptedTerms || !acceptedPrivacy || !clientName.trim()}
+          disabled={isSubmitting || !acceptedTerms || !acceptedPrivacy || !clientData.name.trim() || !clientData.fiscalCode.trim()}
           className="w-full py-4 bg-primary-500 text-white rounded-xl hover:bg-primary-600 disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
         >
           {isSubmitting ? (
