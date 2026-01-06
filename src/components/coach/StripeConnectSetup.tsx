@@ -70,7 +70,7 @@ export default function StripeConnectSetup() {
         body: JSON.stringify({
           coachId: user?.id,
           coachEmail: user?.email,
-          coachName: user?.displayName || '',
+          coachName: user?.name || '',
         })
       })
       
