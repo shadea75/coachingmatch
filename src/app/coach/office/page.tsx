@@ -67,7 +67,9 @@ export default function CoachOfficePage() {
     coachamiClients: 0,
     externalClients: 0,
     totalRevenue: 0,
-    activeSessions: 0
+    confirmedSessions: 0, // Sessioni confermate future
+    monthlyAvailableSlots: 0, // Slot disponibili nel mese
+    pendingToBook: 0 // Sessioni pagate da prenotare
   })
 
   useEffect(() => {
@@ -179,14 +181,113 @@ export default function CoachOfficePage() {
         
         // Calcola statistiche
         const totalRevenue = allClients.reduce((sum, c) => sum + c.totalRevenue, 0)
-        const activeSessions = allClients.reduce((sum, c) => sum + (c.totalSessions - c.completedSessions), 0)
+        
+        // Calcola sessioni confermate future (da sessions + externalSessions)
+        const now = new Date()
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+        
+        // Query sessioni confermate (CoachaMi)
+        const confirmedQuery = query(
+          collection(db, 'sessions'),
+          where('coachId', '==', user.id),
+          where('status', '==', 'confirmed')
+        )
+        const confirmedSnap = await getDocs(confirmedQuery)
+        const confirmedFuture = confirmedSnap.docs.filter(d => {
+          const scheduledAt = d.data().scheduledAt?.toDate?.() || new Date(d.data().scheduledAt)
+          return scheduledAt > now
+        })
+        
+        // Query sessioni confermate esterne
+        const confirmedExtQuery = query(
+          collection(db, 'externalSessions'),
+          where('coachId', '==', user.id),
+          where('status', '==', 'confirmed')
+        )
+        const confirmedExtSnap = await getDocs(confirmedExtQuery)
+        const confirmedExtFuture = confirmedExtSnap.docs.filter(d => {
+          const scheduledAt = d.data().scheduledAt?.toDate?.() || new Date(d.data().scheduledAt)
+          return scheduledAt > now
+        })
+        
+        const confirmedSessions = confirmedFuture.length + confirmedExtFuture.length
+        
+        // Calcola sessioni nel mese corrente (pending + confirmed)
+        const pendingQuery = query(
+          collection(db, 'sessions'),
+          where('coachId', '==', user.id),
+          where('status', 'in', ['pending', 'confirmed'])
+        )
+        const pendingSnap = await getDocs(pendingQuery)
+        const sessionsThisMonth = pendingSnap.docs.filter(d => {
+          const scheduledAt = d.data().scheduledAt?.toDate?.() || new Date(d.data().scheduledAt)
+          return scheduledAt > now && scheduledAt <= endOfMonth
+        }).length
+        
+        const pendingExtQuery = query(
+          collection(db, 'externalSessions'),
+          where('coachId', '==', user.id),
+          where('status', 'in', ['pending', 'confirmed'])
+        )
+        const pendingExtSnap = await getDocs(pendingExtQuery)
+        const extSessionsThisMonth = pendingExtSnap.docs.filter(d => {
+          const scheduledAt = d.data().scheduledAt?.toDate?.() || new Date(d.data().scheduledAt)
+          return scheduledAt > now && scheduledAt <= endOfMonth
+        }).length
+        
+        const totalSessionsThisMonth = sessionsThisMonth + extSessionsThisMonth
+        
+        // Calcola slot disponibili nel mese
+        const availDoc = await getDoc(doc(db, 'coachAvailability', user.id))
+        let monthlyAvailableSlots = 0
+        
+        if (availDoc.exists()) {
+          const weeklySlots = availDoc.data().weeklySlots || {}
+          
+          // Conta i giorni rimanenti nel mese per ogni giorno della settimana
+          let currentDate = new Date(now)
+          currentDate.setHours(0, 0, 0, 0)
+          
+          while (currentDate <= endOfMonth) {
+            const dayOfWeek = currentDate.getDay()
+            const slotsForDay = weeklySlots[dayOfWeek] || weeklySlots[dayOfWeek.toString()] || []
+            monthlyAvailableSlots += slotsForDay.length
+            currentDate.setDate(currentDate.getDate() + 1)
+          }
+        }
+        
+        // Slot effettivamente disponibili = totale - già prenotati
+        const actualAvailableSlots = Math.max(0, monthlyAvailableSlots - totalSessionsThisMonth)
+        
+        // Sessioni pagate da prenotare
+        let pendingToBook = 0
+        // Da offerte CoachaMi
+        offersSnap.docs.forEach(d => {
+          const od = d.data()
+          if (od.status === 'active' || od.status === 'accepted') {
+            pendingToBook += (od.paidInstallments || 0) - (od.completedSessions || 0)
+          }
+        })
+        // Da offerte esterne
+        const extOffersQuery = query(
+          collection(db, 'externalOffers'),
+          where('coachId', '==', user.id),
+          where('status', '==', 'active')
+        )
+        const extOffersSnap = await getDocs(extOffersQuery)
+        extOffersSnap.docs.forEach(d => {
+          const od = d.data()
+          pendingToBook += (od.paidInstallments || 0) - (od.completedSessions || 0)
+        })
         
         setStats({
           totalClients: allClients.length,
           coachamiClients: coachamiClients.length,
           externalClients: externalClients.length,
           totalRevenue,
-          activeSessions
+          confirmedSessions,
+          monthlyAvailableSlots: actualAvailableSlots,
+          pendingToBook
         })
         
       } catch (err) {
@@ -282,9 +383,14 @@ export default function CoachOfficePage() {
             <div className="p-2 bg-amber-100 rounded-lg">
               <Calendar className="text-amber-600" size={20} />
             </div>
-            <span className="text-gray-500 text-sm">Sessioni Attive</span>
+            <span className="text-gray-500 text-sm">Sessioni Confermate</span>
           </div>
-          <p className="text-2xl font-bold text-charcoal">{stats.activeSessions}</p>
+          <p className="text-2xl font-bold text-charcoal">{stats.confirmedSessions}</p>
+          {stats.pendingToBook > 0 && (
+            <p className="text-xs text-orange-500 mt-1">
+              +{stats.pendingToBook} da prenotare
+            </p>
+          )}
         </motion.div>
 
         <motion.div
@@ -293,17 +399,16 @@ export default function CoachOfficePage() {
           transition={{ delay: 0.3 }}
           className="bg-white rounded-2xl p-4 shadow-sm"
         >
-          <Link href="/coach/office/clients/new" className="block h-full">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-primary-100 rounded-lg">
-                <UserPlus className="text-primary-600" size={20} />
-              </div>
-              <span className="text-gray-500 text-sm">Nuovo Cliente</span>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <TrendingUp className="text-purple-600" size={20} />
             </div>
-            <p className="text-primary-500 font-medium flex items-center gap-1">
-              Aggiungi <ChevronRight size={16} />
-            </p>
-          </Link>
+            <span className="text-gray-500 text-sm">Disponibilità Mese</span>
+          </div>
+          <p className="text-2xl font-bold text-charcoal">{stats.monthlyAvailableSlots}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            slot liberi a {new Date().toLocaleDateString('it-IT', { month: 'short' })}
+          </p>
         </motion.div>
       </div>
 
