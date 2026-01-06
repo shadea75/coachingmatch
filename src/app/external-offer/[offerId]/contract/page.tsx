@@ -28,6 +28,17 @@ function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(amount)
 }
 
+// Funzione per renderizzare markdown semplice in HTML
+function renderMarkdown(text: string): string {
+  return text
+    // Headers
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    // Line breaks
+    .replace(/\n/g, '<br />')
+    // Lists
+    .replace(/^- /gm, '• ')
+}
+
 export default function AcceptContractPage() {
   const params = useParams()
   const router = useRouter()
@@ -368,11 +379,10 @@ ${clientInfo}
           </div>
           
           <div className="p-6 bg-gray-50 max-h-96 overflow-y-auto">
-            <div className="prose prose-sm max-w-none">
-              <pre className="whitespace-pre-wrap font-sans text-sm text-gray-700 bg-transparent p-0 m-0">
-                {contractText}
-              </pre>
-            </div>
+            <div 
+              className="prose prose-sm max-w-none text-gray-700"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(contractText) }}
+            />
           </div>
           
           <div className="p-6 space-y-6">
