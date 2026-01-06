@@ -23,7 +23,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
-import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, updateDoc, getDoc, arrayUnion } from 'firebase/firestore'
 
 interface Installment {
   sessionNumber: number
@@ -69,6 +69,67 @@ export default function NewClientPage() {
     setIsSubmitting(true)
     setError('')
     
+    // Funzione per registrare tentativo sospetto
+    const reportSuspiciousAttempt = async (type: string, matchedData: string, matchedUserId?: string) => {
+      try {
+        // 1. Salva nel database del coach
+        const coachRef = doc(db, 'users', user.id)
+        await updateDoc(coachRef, {
+          suspiciousAttempts: arrayUnion({
+            type,
+            attemptedData: {
+              name: clientData.name,
+              email: clientData.email,
+              phone: clientData.phone || null
+            },
+            matchedData,
+            matchedUserId: matchedUserId || null,
+            timestamp: new Date().toISOString()
+          }),
+          lastSuspiciousAttempt: new Date().toISOString()
+        })
+        
+        // 2. Crea un record separato per l'admin
+        await addDoc(collection(db, 'suspiciousAttempts'), {
+          coachId: user.id,
+          coachName: user.name || 'Coach',
+          coachEmail: user.email,
+          type,
+          attemptedData: {
+            name: clientData.name,
+            email: clientData.email,
+            phone: clientData.phone || null
+          },
+          matchedData,
+          matchedUserId: matchedUserId || null,
+          createdAt: serverTimestamp(),
+          reviewed: false
+        })
+        
+        // 3. Invia email all'admin
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'suspicious_attempt_alert',
+            data: {
+              coachId: user.id,
+              coachName: user.name || 'Coach',
+              coachEmail: user.email,
+              attemptType: type,
+              attemptedName: clientData.name,
+              attemptedEmail: clientData.email,
+              attemptedPhone: clientData.phone || 'Non fornito',
+              matchedData,
+              timestamp: new Date().toLocaleString('it-IT')
+            }
+          })
+        })
+      } catch (err) {
+        console.error('Errore report tentativo sospetto:', err)
+      }
+    }
+    
     try {
       // ========== CONTROLLI ANTI-DUPLICATO ==========
       
@@ -79,12 +140,14 @@ export default function NewClientPage() {
       )
       const emailSnap = await getDocs(emailQuery)
       if (!emailSnap.empty) {
+        const matchedUser = emailSnap.docs[0]
+        await reportSuspiciousAttempt('email_duplicata', clientData.email, matchedUser.id)
         setError('Questa email appartiene a un utente già registrato su CoachaMi. Cerca il cliente nella sezione "CoachaMi" dell\'Ufficio Virtuale.')
         setIsSubmitting(false)
         return
       }
       
-      // 2. Controlla se email esiste già nei tuoi clienti esterni
+      // 2. Controlla se email esiste già nei tuoi clienti esterni (questo non è sospetto, solo errore)
       const existingClientQuery = query(
         collection(db, 'coachClients'),
         where('coachId', '==', user.id),
@@ -106,6 +169,8 @@ export default function NewClientPage() {
         )
         const phoneSnap = await getDocs(phoneQuery)
         if (!phoneSnap.empty) {
+          const matchedUser = phoneSnap.docs[0]
+          await reportSuspiciousAttempt('telefono_duplicato', clientData.phone, matchedUser.id)
           setError('Questo numero di telefono appartiene a un utente già registrato su CoachaMi.')
           setIsSubmitting(false)
           return
@@ -115,12 +180,18 @@ export default function NewClientPage() {
       // 4. Controlla se nome completo esiste già in users (case-insensitive)
       const nameLower = clientData.name.toLowerCase().trim()
       const usersSnap = await getDocs(collection(db, 'users'))
-      const nameExists = usersSnap.docs.some(doc => {
-        const userData = doc.data()
+      let matchedUserByName: { id: string; name: string } | null = null
+      const nameExists = usersSnap.docs.some(docSnap => {
+        const userData = docSnap.data()
         const userName = (userData.name || userData.displayName || '').toLowerCase().trim()
-        return userName === nameLower
+        if (userName === nameLower) {
+          matchedUserByName = { id: docSnap.id, name: userData.name || userData.displayName }
+          return true
+        }
+        return false
       })
-      if (nameExists) {
+      if (nameExists && matchedUserByName) {
+        await reportSuspiciousAttempt('nome_duplicato', matchedUserByName.name, matchedUserByName.id)
         setError('Esiste già un utente registrato su CoachaMi con questo nome. Se è la stessa persona, cercala nella sezione "CoachaMi".')
         setIsSubmitting(false)
         return
