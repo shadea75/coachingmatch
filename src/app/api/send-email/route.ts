@@ -770,6 +770,81 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, result })
     }
 
+    // =====================================================
+    // EMAIL ALERT TENTATIVO SOSPETTO (per Admin)
+    // =====================================================
+    if (type === 'suspicious_attempt_alert') {
+      const adminEmail = 'debora.carofiglio@gmail.com' // Email admin
+      
+      const attemptTypeLabels: Record<string, string> = {
+        'email_duplicata': '📧 Email già registrata su CoachaMi',
+        'telefono_duplicato': '📱 Telefono già registrato su CoachaMi',
+        'nome_duplicato': '👤 Nome già registrato su CoachaMi'
+      }
+      
+      const result = await resend.emails.send({
+        from: 'CoachaMi Alert <noreply@coachami.it>',
+        to: adminEmail,
+        subject: `⚠️ ALERT: Tentativo sospetto da ${data.coachName}`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr><td>${logoHeader}
+                <table width="100%" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                  <tr><td style="padding: 30px;">
+                    <div style="background: #FEE2E2; border: 1px solid #EF4444; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                      <h2 style="margin: 0; color: #DC2626;">⚠️ Tentativo Sospetto Rilevato</h2>
+                    </div>
+                    
+                    <p>Un coach ha tentato di creare un cliente esterno con dati che corrispondono a un utente già registrato su CoachaMi.</p>
+                    
+                    <h3 style="color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px;">👤 Coach</h3>
+                    <table width="100%" style="margin-bottom: 20px;">
+                      <tr><td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;"><strong>Nome:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">${data.coachName}</td></tr>
+                      <tr><td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;"><strong>Email:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">${data.coachEmail}</td></tr>
+                      <tr><td style="padding: 8px 0;"><strong>ID:</strong></td><td style="padding: 8px 0;">${data.coachId}</td></tr>
+                    </table>
+                    
+                    <h3 style="color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px;">🚨 Tipo di Violazione</h3>
+                    <p style="background: #FEF3C7; padding: 10px; border-radius: 6px; color: #92400E;">
+                      <strong>${attemptTypeLabels[data.attemptType] || data.attemptType}</strong>
+                    </p>
+                    
+                    <h3 style="color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px;">📝 Dati Inseriti dal Coach</h3>
+                    <table width="100%" style="margin-bottom: 20px;">
+                      <tr><td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;"><strong>Nome:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">${data.attemptedName}</td></tr>
+                      <tr><td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;"><strong>Email:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">${data.attemptedEmail}</td></tr>
+                      <tr><td style="padding: 8px 0;"><strong>Telefono:</strong></td><td style="padding: 8px 0;">${data.attemptedPhone}</td></tr>
+                    </table>
+                    
+                    <h3 style="color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px;">🔍 Dato Corrispondente</h3>
+                    <p style="background: #DBEAFE; padding: 10px; border-radius: 6px; color: #1E40AF;">
+                      ${data.matchedData}
+                    </p>
+                    
+                    <p style="color: #666; font-size: 14px; margin-top: 20px;">
+                      <strong>Data/Ora:</strong> ${data.timestamp}
+                    </p>
+                    
+                    <div style="background: #F3F4F6; border-radius: 8px; padding: 15px; margin-top: 20px;">
+                      <p style="margin: 0; font-size: 14px; color: #4B5563;">
+                        <strong>💡 Azione consigliata:</strong> Verifica se questo coach sta tentando di evitare le commissioni. 
+                        Puoi vedere tutti i tentativi sospetti nella collection <code>suspiciousAttempts</code> di Firebase 
+                        o nel profilo del coach alla voce <code>suspiciousAttempts</code>.
+                      </p>
+                    </div>
+                  </td></tr>
+                </table>
+                ${footer}
+              </td></tr>
+            </table>
+          </body></html>`
+      })
+      
+      console.log('✅ Email alert sospetto inviata:', result)
+      return NextResponse.json({ success: true, result })
+    }
+
     return NextResponse.json({ error: 'Tipo email non supportato' }, { status: 400 })
 
   } catch (error: any) {
