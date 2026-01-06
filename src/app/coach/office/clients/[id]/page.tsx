@@ -25,7 +25,9 @@ import {
   X,
   MessageSquare,
   TrendingUp,
-  Target
+  Target,
+  MapPin,
+  Building
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -55,6 +57,13 @@ interface ClientData {
   source: 'coachami' | 'external'
   coacheeId?: string
   createdAt: Date
+  // Dati per contratto
+  address?: string
+  city?: string
+  postalCode?: string
+  province?: string
+  fiscalCode?: string
+  vatNumber?: string
 }
 
 interface Offer {
@@ -95,7 +104,18 @@ export default function ClientDetailPage() {
   const [offers, setOffers] = useState<Offer[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [isEditing, setIsEditing] = useState(false)
-  const [editData, setEditData] = useState({ name: '', email: '', phone: '', notes: '' })
+  const [editData, setEditData] = useState({ 
+    name: '', 
+    email: '', 
+    phone: '', 
+    notes: '',
+    address: '',
+    city: '',
+    postalCode: '',
+    province: '',
+    fiscalCode: '',
+    vatNumber: ''
+  })
   const [isSaving, setIsSaving] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [activeTab, setActiveTab] = useState<'info' | 'offers' | 'sessions'>('info')
@@ -249,7 +269,13 @@ export default function ClientDetailPage() {
             name: clientData.name,
             email: clientData.email,
             phone: clientData.phone || '',
-            notes: clientData.notes || ''
+            notes: clientData.notes || '',
+            address: clientData.address || '',
+            city: clientData.city || '',
+            postalCode: clientData.postalCode || '',
+            province: clientData.province || '',
+            fiscalCode: clientData.fiscalCode || '',
+            vatNumber: clientData.vatNumber || ''
           })
         }
         
@@ -283,6 +309,12 @@ export default function ClientDetailPage() {
         email: editData.email,
         phone: editData.phone || null,
         notes: editData.notes || null,
+        address: editData.address || null,
+        city: editData.city || null,
+        postalCode: editData.postalCode || null,
+        province: editData.province || null,
+        fiscalCode: editData.fiscalCode?.toUpperCase() || null,
+        vatNumber: editData.vatNumber || null,
         updatedAt: serverTimestamp()
       })
       
@@ -461,6 +493,93 @@ export default function ClientDetailPage() {
                         className="w-full px-4 py-3 border border-gray-200 rounded-xl"
                       />
                     </div>
+                    
+                    {/* Sezione Residenza */}
+                    <div className="pt-4 border-t border-gray-200">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                        <MapPin size={16} />
+                        Residenza (per contratto)
+                      </h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm text-gray-500 mb-1">Indirizzo</label>
+                          <input
+                            type="text"
+                            value={editData.address}
+                            onChange={(e) => setEditData({ ...editData, address: e.target.value })}
+                            placeholder="Via Roma 1"
+                            className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                          />
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-sm text-gray-500 mb-1">CAP</label>
+                            <input
+                              type="text"
+                              value={editData.postalCode}
+                              onChange={(e) => setEditData({ ...editData, postalCode: e.target.value })}
+                              placeholder="00100"
+                              maxLength={5}
+                              className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm text-gray-500 mb-1">Città</label>
+                            <input
+                              type="text"
+                              value={editData.city}
+                              onChange={(e) => setEditData({ ...editData, city: e.target.value })}
+                              placeholder="Roma"
+                              className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm text-gray-500 mb-1">Prov.</label>
+                            <input
+                              type="text"
+                              value={editData.province}
+                              onChange={(e) => setEditData({ ...editData, province: e.target.value.toUpperCase() })}
+                              placeholder="RM"
+                              maxLength={2}
+                              className="w-full px-4 py-2 border border-gray-200 rounded-xl uppercase"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Sezione Dati Fiscali */}
+                    <div className="pt-4 border-t border-gray-200">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                        <Building size={16} />
+                        Dati Fiscali (per contratto)
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm text-gray-500 mb-1">Codice Fiscale</label>
+                          <input
+                            type="text"
+                            value={editData.fiscalCode}
+                            onChange={(e) => setEditData({ ...editData, fiscalCode: e.target.value.toUpperCase() })}
+                            placeholder="RSSMRA80A01H501Z"
+                            maxLength={16}
+                            className="w-full px-4 py-2 border border-gray-200 rounded-xl uppercase font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-500 mb-1">P.IVA (opzionale)</label>
+                          <input
+                            type="text"
+                            value={editData.vatNumber}
+                            onChange={(e) => setEditData({ ...editData, vatNumber: e.target.value })}
+                            placeholder="IT12345678901"
+                            maxLength={13}
+                            className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
                       <textarea
@@ -506,6 +625,38 @@ export default function ClientDetailPage() {
                       <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                         <Phone className="text-gray-400" size={18} />
                         <span>{client.phone}</span>
+                      </div>
+                    )}
+                    
+                    {/* Dati Residenza */}
+                    {(client.address || client.city) && (
+                      <div className="p-4 bg-blue-50 rounded-xl">
+                        <div className="flex items-center gap-2 text-blue-600 text-sm mb-2">
+                          <MapPin size={16} />
+                          <span>Residenza</span>
+                        </div>
+                        <p className="text-charcoal">
+                          {client.address && <>{client.address}<br /></>}
+                          {client.postalCode} {client.city} {client.province && `(${client.province})`}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Dati Fiscali */}
+                    {(client.fiscalCode || client.vatNumber) && (
+                      <div className="p-4 bg-green-50 rounded-xl">
+                        <div className="flex items-center gap-2 text-green-600 text-sm mb-2">
+                          <Building size={16} />
+                          <span>Dati Fiscali</span>
+                        </div>
+                        <div className="space-y-1 text-charcoal">
+                          {client.fiscalCode && (
+                            <p><span className="text-gray-500 text-sm">C.F.:</span> <span className="font-mono">{client.fiscalCode}</span></p>
+                          )}
+                          {client.vatNumber && (
+                            <p><span className="text-gray-500 text-sm">P.IVA:</span> <span className="font-mono">{client.vatNumber}</span></p>
+                          )}
+                        </div>
                       </div>
                     )}
                     
