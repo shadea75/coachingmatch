@@ -53,6 +53,7 @@ interface CoacheeData {
   offerId?: string
   offerStatus?: string
   lastSessionDate?: Date
+  source?: 'coachami' | 'external' // Nuovo campo
 }
 
 export default function CoachDashboardPage() {
@@ -196,9 +197,40 @@ export default function CoachDashboardPage() {
               areasToImprove: userData.areasToImprove,
               wheelCompletedAt: userData.wheelCompletedAt?.toDate?.() || null,
               offerId: coacheeOffers[coacheeId]?.offerId,
-              offerStatus: coacheeOffers[coacheeId]?.status
+              offerStatus: coacheeOffers[coacheeId]?.status,
+              source: 'coachami'
             })
           }
+        }
+        
+        // Carica anche clienti esterni
+        const externalClientsQuery = query(
+          collection(db, 'coachClients'),
+          where('coachId', '==', user.id)
+        )
+        const externalSnap = await getDocs(externalClientsQuery)
+        
+        for (const clientDoc of externalSnap.docs) {
+          const clientData = clientDoc.data()
+          
+          // Cerca offerta attiva per questo cliente
+          const extOfferQuery = query(
+            collection(db, 'externalOffers'),
+            where('coachId', '==', user.id),
+            where('clientId', '==', clientDoc.id),
+            where('status', 'in', ['active', 'accepted'])
+          )
+          const extOfferSnap = await getDocs(extOfferQuery)
+          const activeOffer = extOfferSnap.docs[0]
+          
+          loadedCoachees.push({
+            id: clientDoc.id,
+            name: clientData.name || 'Cliente',
+            email: clientData.email || '',
+            source: 'external',
+            offerId: activeOffer?.id,
+            offerStatus: activeOffer?.data()?.status
+          })
         }
         
         setCoachees(loadedCoachees)
@@ -735,7 +767,10 @@ export default function CoachDashboardPage() {
                     <div 
                       key={coachee.id}
                       className="border border-gray-100 rounded-xl p-4 hover:border-primary-200 hover:shadow-sm transition-all cursor-pointer"
-                      onClick={() => openCoacheeDetails(coachee)}
+                      onClick={() => coachee.source === 'external' 
+                        ? window.location.href = `/coach/office/clients/${coachee.id}?source=external`
+                        : openCoacheeDetails(coachee)
+                      }
                     >
                       <div className="flex items-center gap-3 mb-3">
                         {coachee.photo ? (
@@ -745,20 +780,31 @@ export default function CoachDashboardPage() {
                             className="w-12 h-12 rounded-full object-cover"
                           />
                         ) : (
-                          <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center">
-                            <span className="text-primary-600 font-semibold text-lg">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                            coachee.source === 'external' ? 'bg-purple-100' : 'bg-primary-100'
+                          }`}>
+                            <span className={`font-semibold text-lg ${
+                              coachee.source === 'external' ? 'text-purple-600' : 'text-primary-600'
+                            }`}>
                               {coachee.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-charcoal truncate">{coachee.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-charcoal truncate">{coachee.name}</p>
+                            {coachee.source === 'external' && (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 flex-shrink-0">
+                                Esterno
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-gray-400 truncate">{coachee.email}</p>
                         </div>
                       </div>
                       
-                      {/* Mini preview ruota */}
-                      {coachee.areaScores && Object.keys(coachee.areaScores).length > 0 ? (
+                      {/* Mini preview ruota - solo per coachami */}
+                      {coachee.source !== 'external' && coachee.areaScores && Object.keys(coachee.areaScores).length > 0 ? (
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1 text-xs text-green-600">
                             <Target size={14} />
@@ -769,12 +815,17 @@ export default function CoachDashboardPage() {
                             Vedi
                           </button>
                         </div>
-                      ) : (
+                      ) : coachee.source !== 'external' ? (
                         <div className="flex items-center gap-1 text-xs text-gray-400">
                           <Clock size={14} />
                           <span>Ruota non compilata</span>
                         </div>
-                      )}
+                      ) : (
+                        <div className="flex items-center gap-1 text-xs text-purple-500">
+                          <Building2 size={14} />
+                          <span>Cliente esterno</span>
+                        </div>
+                      )}}
                       
                       {/* Status offerta */}
                       {coachee.offerStatus && (
