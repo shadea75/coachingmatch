@@ -3,8 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { db } from '@/lib/firebase'
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
+import { adminDb } from '@/lib/firebase-admin'
+import { FieldValue } from 'firebase-admin/firestore'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10'
