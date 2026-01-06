@@ -1,14 +1,18 @@
 // src/app/api/checkout/route.ts
-// MODELLO A: CoachaMi incassa tutto, poi trasferisce al coach
+// MODELLO B: Stripe Connect - Split automatico 70% coach / 30% CoachaMi
 
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { db } from '@/lib/firebase'
-import { doc, getDoc } from 'firebase/firestore'
+import { adminDb } from '@/lib/firebase-admin'
+
+export const dynamic = 'force-dynamic'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10'
 })
+
+// Configurazione split
+const PLATFORM_FEE_PERCENT = 30 // 30% a CoachaMi
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,14 +26,13 @@ export async function POST(request: NextRequest) {
     }
     
     // Recupera offerta
-    const offerRef = doc(db, 'offers', offerId)
-    const offerDoc = await getDoc(offerRef)
+    const offerDoc = await adminDb.collection('offers').doc(offerId).get()
     
-    if (!offerDoc.exists()) {
+    if (!offerDoc.exists) {
       return NextResponse.json({ error: 'Offerta non trovata' }, { status: 404 })
     }
     
-    const offer = offerDoc.data()
+    const offer = offerDoc.data() as any
     const installment = offer.installments?.[installmentNumber - 1]
     
     if (!installment) {
@@ -40,15 +43,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Rata già pagata' }, { status: 400 })
     }
     
-    // MODELLO A: CoachaMi incassa tutto
-    // NESSUN transfer_data o application_fee_amount
+    // Recupera account Stripe Connect del coach
+    const coachStripeDoc = await adminDb.collection('coachStripeAccounts').doc(offer.coachId).get()
+    
+    if (!coachStripeDoc.exists) {
+      return NextResponse.json({ 
+        error: 'Il coach non ha ancora configurato i pagamenti. Contatta il coach.',
+        code: 'COACH_STRIPE_NOT_CONFIGURED'
+      }, { status: 400 })
+    }
+    
+    const coachStripeData = coachStripeDoc.data() as any
+    
+    if (!coachStripeData.chargesEnabled) {
+      return NextResponse.json({ 
+        error: 'L\'account pagamenti del coach è in attesa di verifica. Riprova più tardi.',
+        code: 'COACH_STRIPE_PENDING'
+      }, { status: 400 })
+    }
+    
+    const coachStripeAccountId = coachStripeData.stripeAccountId
+    
+    // Calcola la fee della piattaforma (30% in centesimi)
+    const amountInCents = Math.round(installment.amount * 100)
+    const platformFeeInCents = Math.round(amountInCents * (PLATFORM_FEE_PERCENT / 100))
+    
+    // Crea sessione checkout con split automatico
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
       line_items: [{
         price_data: {
           currency: 'eur',
-          unit_amount: Math.round(installment.amount * 100), // Converti in centesimi
+          unit_amount: amountInCents,
           product_data: {
             name: `${offer.title} - Sessione ${installmentNumber}/${offer.totalSessions}`,
             description: `Sessione di coaching con ${offer.coachName} (${offer.sessionDuration} min)`,
@@ -57,7 +84,20 @@ export async function POST(request: NextRequest) {
         quantity: 1,
       }],
       
-      // Metadata per tracking
+      // STRIPE CONNECT: Split automatico
+      payment_intent_data: {
+        application_fee_amount: platformFeeInCents,
+        transfer_data: {
+          destination: coachStripeAccountId,
+        },
+        metadata: {
+          offerId,
+          installmentNumber: String(installmentNumber),
+          coachId: offer.coachId,
+          coacheeId: offer.coacheeId,
+        }
+      },
+      
       metadata: {
         type: 'coaching_session',
         offerId,
@@ -66,34 +106,14 @@ export async function POST(request: NextRequest) {
         coacheeId: offer.coacheeId,
         coachName: offer.coachName,
         coachEmail: offer.coachEmail,
+        coachStripeAccountId,
       },
       
-      // Stripe Invoicing - fattura automatica al coachee
-      invoice_creation: {
-        enabled: true,
-        invoice_data: {
-          description: `Sessione di coaching - ${offer.title}`,
-          metadata: {
-            offerId,
-            coachName: offer.coachName,
-            sessionNumber: String(installmentNumber),
-          },
-          // TODO: Inserire dati fiscali reali di CoachaMi
-          custom_fields: [
-            { name: 'P.IVA', value: 'IT______________' }, // Inserire P.IVA reale
-          ],
-          footer: 'CoachaMi Srl - Via __________, Città - P.IVA IT______________',
-        },
-      },
-      
-      // Email coachee per invio fattura
       customer_email: offer.coacheeEmail,
       
-      // Redirect URLs
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/pay/success?session_id={CHECKOUT_SESSION_ID}&offerId=${offerId}&installment=${installmentNumber}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pay/cancel?offerId=${offerId}`,
       
-      // Scadenza sessione checkout (30 minuti)
       expires_at: Math.floor(Date.now() / 1000) + 1800,
     })
     
@@ -104,6 +124,16 @@ export async function POST(request: NextRequest) {
     
   } catch (error: any) {
     console.error('Checkout error:', error)
+    
+    if (error.type === 'StripeInvalidRequestError') {
+      if (error.message.includes('destination')) {
+        return NextResponse.json({
+          error: 'Problema con l\'account del coach. Contatta l\'assistenza.',
+          code: 'STRIPE_CONNECT_ERROR'
+        }, { status: 500 })
+      }
+    }
+    
     return NextResponse.json(
       { error: error.message || 'Errore durante la creazione del checkout' },
       { status: 500 }
