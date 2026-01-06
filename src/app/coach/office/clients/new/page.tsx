@@ -180,18 +180,22 @@ export default function NewClientPage() {
       // 4. Controlla se nome completo esiste già in users (case-insensitive)
       const nameLower = clientData.name.toLowerCase().trim()
       const usersSnap = await getDocs(collection(db, 'users'))
-      let matchedUserByName: { id: string; name: string } | null = null
-      const nameExists = usersSnap.docs.some(docSnap => {
+      
+      let foundUserId: string | null = null
+      let foundUserName: string | null = null
+      
+      for (const docSnap of usersSnap.docs) {
         const userData = docSnap.data()
         const userName = (userData.name || userData.displayName || '').toLowerCase().trim()
         if (userName === nameLower) {
-          matchedUserByName = { id: docSnap.id, name: userData.name || userData.displayName }
-          return true
+          foundUserId = docSnap.id
+          foundUserName = userData.name || userData.displayName
+          break
         }
-        return false
-      })
-      if (nameExists && matchedUserByName) {
-        await reportSuspiciousAttempt('nome_duplicato', matchedUserByName.name, matchedUserByName.id)
+      }
+      
+      if (foundUserId && foundUserName) {
+        await reportSuspiciousAttempt('nome_duplicato', foundUserName, foundUserId)
         setError('Esiste già un utente registrato su CoachaMi con questo nome. Se è la stessa persona, cercala nella sezione "CoachaMi".')
         setIsSubmitting(false)
         return
