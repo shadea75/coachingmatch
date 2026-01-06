@@ -241,13 +241,13 @@ export default function CoachOfficePage() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white rounded-2xl p-4 shadow-sm"
         >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Users className="text-blue-600" size={20} />
-              </div>
-              <span className="text-gray-500 text-sm">Totale Clienti</span>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Users className="text-blue-600" size={20} />
             </div>
-            <p className="text-2xl font-bold text-charcoal">{stats.totalClients}</p>
+            <span className="text-gray-500 text-sm">Totale Clienti</span>
+          </div>
+          <p className="text-2xl font-bold text-charcoal">{stats.totalClients}</p>
             <div className="flex gap-2 mt-2 text-xs">
               <span className="text-primary-500">{stats.coachamiClients} CoachaMi</span>
               <span className="text-gray-400">•</span>
