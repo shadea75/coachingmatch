@@ -78,14 +78,10 @@ export default function ExternalBookingPage() {
         setOffer(offerData)
         
         // Carica disponibilità coach
-        const availQuery = query(
-          collection(db, 'coachAvailability'),
-          where('coachId', '==', offerData.coachId)
-        )
-        const availSnap = await getDocs(availQuery)
+        const availDoc = await getDoc(doc(db, 'coachAvailability', offerData.coachId))
         
-        if (!availSnap.empty) {
-          const availData = availSnap.docs[0].data()
+        if (availDoc.exists()) {
+          const availData = availDoc.data()
           setAvailability(availData.slots || {})
         }
         
