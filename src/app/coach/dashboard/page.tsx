@@ -825,7 +825,7 @@ export default function CoachDashboardPage() {
                           <Building2 size={14} />
                           <span>Cliente esterno</span>
                         </div>
-                      )}}
+                      )}
                       
                       {/* Status offerta */}
                       {coachee.offerStatus && (
