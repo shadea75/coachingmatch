@@ -13,7 +13,11 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
-  User
+  User,
+  Mail,
+  Copy,
+  Check,
+  Send
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -37,6 +41,9 @@ export default function NewOfferPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [offerLink, setOfferLink] = useState('')
+  const [linkCopied, setLinkCopied] = useState(false)
+  const [sendEmail, setSendEmail] = useState(true)
   const [client, setClient] = useState<{ name: string; email: string } | null>(null)
   
   const [offerData, setOfferData] = useState({
@@ -108,7 +115,7 @@ export default function NewOfferPage() {
       )
       
       // Crea l'offerta
-      await addDoc(collection(db, 'externalOffers'), {
+      const offerRef = await addDoc(collection(db, 'externalOffers'), {
         coachId: user.id,
         coachName: user.name || 'Coach',
         coachEmail: user.email,
@@ -141,10 +148,35 @@ export default function NewOfferPage() {
         })
       }
       
+      // Genera il link
+      const generatedLink = `${window.location.origin}/external-offer/${offerRef.id}`
+      setOfferLink(generatedLink)
+      
+      // Invia email se richiesto
+      if (sendEmail) {
+        try {
+          await fetch('/api/emails/external-offer-created', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              clientEmail: client.email,
+              clientName: client.name,
+              coachName: user.name || 'Coach',
+              offerTitle: offerData.title,
+              totalSessions: offerData.totalSessions,
+              sessionDuration: offerData.sessionDuration,
+              pricePerSession: offerData.pricePerSession,
+              priceTotal,
+              description: offerData.description,
+              offerId: offerRef.id
+            })
+          })
+        } catch (emailErr) {
+          console.error('Errore invio email:', emailErr)
+        }
+      }
+      
       setSuccess(true)
-      setTimeout(() => {
-        router.push(`/coach/office/clients/${clientId}?source=external`)
-      }, 1500)
       
     } catch (err) {
       console.error('Errore:', err)
@@ -152,6 +184,12 @@ export default function NewOfferPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(offerLink)
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2000)
   }
 
   if (authLoading || isLoading) {
@@ -178,18 +216,87 @@ export default function NewOfferPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center p-4">
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-white rounded-2xl p-8 text-center max-w-md"
-        >
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="text-green-500" size={32} />
+      <div className="min-h-screen bg-cream">
+        <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
+          <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+            <h1 className="text-xl font-bold text-charcoal">Offerta Creata!</h1>
+            <Logo size="sm" />
           </div>
-          <h2 className="text-xl font-bold text-charcoal mb-2">Percorso Creato!</h2>
-          <p className="text-gray-500">Reindirizzamento in corso...</p>
-        </motion.div>
+        </header>
+
+        <main className="max-w-2xl mx-auto px-4 py-6">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-2xl p-8 shadow-sm"
+          >
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="text-green-500" size={32} />
+              </div>
+              <h2 className="text-xl font-bold text-charcoal mb-2">Offerta inviata!</h2>
+              <p className="text-gray-500">
+                {sendEmail 
+                  ? `Abbiamo inviato l'offerta a ${client?.email}`
+                  : 'Condividi il link con il tuo cliente'
+                }
+              </p>
+            </div>
+
+            {/* Link da condividere */}
+            <div className="bg-gray-50 rounded-xl p-4 mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Link per il cliente
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={offerLink}
+                  readOnly
+                  className="flex-1 px-4 py-3 border border-gray-200 rounded-xl bg-white text-sm"
+                />
+                <button
+                  onClick={copyLink}
+                  className={`px-4 py-3 rounded-xl flex items-center gap-2 transition-colors ${
+                    linkCopied 
+                      ? 'bg-green-500 text-white' 
+                      : 'bg-primary-500 text-white hover:bg-primary-600'
+                  }`}
+                >
+                  {linkCopied ? <Check size={18} /> : <Copy size={18} />}
+                  {linkCopied ? 'Copiato!' : 'Copia'}
+                </button>
+              </div>
+            </div>
+
+            {sendEmail && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+                <Mail className="text-green-500 mt-0.5" size={20} />
+                <div>
+                  <p className="font-medium text-green-800">Email inviata</p>
+                  <p className="text-sm text-green-600">
+                    {client?.name} ha ricevuto l'offerta all'indirizzo {client?.email}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Link
+                href={`/coach/office/clients/${clientId}?source=external`}
+                className="flex-1 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 text-center font-medium"
+              >
+                Torna al cliente
+              </Link>
+              <Link
+                href="/coach/office"
+                className="flex-1 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 text-center font-medium"
+              >
+                Ufficio Virtuale
+              </Link>
+            </div>
+          </motion.div>
+        </main>
       </div>
     )
   }
@@ -344,6 +451,41 @@ export default function NewOfferPage() {
             </div>
           </motion.div>
 
+          {/* Opzione invio email */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white rounded-2xl p-6 shadow-sm"
+          >
+            <label className="flex items-center justify-between cursor-pointer">
+              <div className="flex items-center gap-3">
+                <Send className="text-blue-500" size={24} />
+                <div>
+                  <p className="font-medium text-charcoal">Invia email al cliente</p>
+                  <p className="text-sm text-gray-500">
+                    {client?.name} riceverà l'offerta a {client?.email}
+                  </p>
+                </div>
+              </div>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={sendEmail}
+                  onChange={(e) => setSendEmail(e.target.checked)}
+                  className="sr-only"
+                />
+                <div className={`w-12 h-6 rounded-full transition-colors ${
+                  sendEmail ? 'bg-primary-500' : 'bg-gray-200'
+                }`}>
+                  <div className={`w-5 h-5 rounded-full bg-white shadow-sm transform transition-transform ${
+                    sendEmail ? 'translate-x-6' : 'translate-x-0.5'
+                  } mt-0.5`} />
+                </div>
+              </div>
+            </label>
+          </motion.div>
+
           {/* Error */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3 text-red-700">
@@ -361,12 +503,12 @@ export default function NewOfferPage() {
             {isSubmitting ? (
               <>
                 <Loader2 className="animate-spin" size={20} />
-                Salvataggio...
+                Creazione in corso...
               </>
             ) : (
               <>
                 <Save size={20} />
-                Crea Percorso
+                Crea e {sendEmail ? 'Invia' : 'Genera Link'}
               </>
             )}
           </button>
@@ -375,4 +517,3 @@ export default function NewOfferPage() {
     </div>
   )
 }
-
