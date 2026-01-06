@@ -6,6 +6,8 @@ import Stripe from 'stripe'
 import { adminDb } from '@/lib/firebase-admin'
 import { FieldValue } from 'firebase-admin/firestore'
 
+export const dynamic = 'force-dynamic'
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10'
 })
@@ -22,15 +24,15 @@ export async function POST(request: NextRequest) {
     }
     
     // Controlla se il coach ha già un account Stripe collegato
-    const existingAccountDoc = await getDoc(doc(db, 'coachStripeAccounts', coachId))
+    const accountDoc = await adminDb.collection('coachStripeAccounts').doc(coachId).get()
     
     let stripeAccountId: string
     
-    if (existingAccountDoc.exists()) {
-      const existingData = existingAccountDoc.data()
+    if (accountDoc.exists) {
+      const existingData = accountDoc.data()
       
       // Se l'onboarding è già completato, non serve rifare
-      if (existingData.onboardingComplete && existingData.chargesEnabled) {
+      if (existingData?.onboardingComplete && existingData?.chargesEnabled) {
         return NextResponse.json({
           success: true,
           message: 'Account Stripe già configurato',
@@ -39,7 +41,7 @@ export async function POST(request: NextRequest) {
       }
       
       // Altrimenti usa l'account esistente per continuare l'onboarding
-      stripeAccountId = existingData.stripeAccountId
+      stripeAccountId = existingData?.stripeAccountId
     } else {
       // Crea un nuovo account Stripe Connect (Express)
       const account = await stripe.accounts.create({
@@ -69,7 +71,7 @@ export async function POST(request: NextRequest) {
       stripeAccountId = account.id
       
       // Salva in Firebase
-      await setDoc(doc(db, 'coachStripeAccounts', coachId), {
+      await adminDb.collection('coachStripeAccounts').doc(coachId).set({
         stripeAccountId: account.id,
         coachId,
         coachEmail,
@@ -77,8 +79,8 @@ export async function POST(request: NextRequest) {
         chargesEnabled: false,
         payoutsEnabled: false,
         onboardingComplete: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       })
     }
     
