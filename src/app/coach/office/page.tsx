@@ -69,7 +69,9 @@ export default function CoachOfficePage() {
     totalRevenue: 0,
     confirmedSessions: 0, // Sessioni confermate future
     monthlyAvailableSlots: 0, // Slot disponibili nel mese
-    pendingToBook: 0 // Sessioni pagate da prenotare
+    pendingToBook: 0, // Sessioni pagate da prenotare
+    potentialRevenue: 0, // Fatturato potenziale (slot liberi x tariffa)
+    hourlyRate: 0 // Tariffa oraria coach
   })
 
   useEffect(() => {
@@ -280,6 +282,16 @@ export default function CoachOfficePage() {
           pendingToBook += (od.paidInstallments || 0) - (od.completedSessions || 0)
         })
         
+        // Carica tariffa oraria del coach
+        const coachDoc = await getDoc(doc(db, 'coachApplications', user.id))
+        let hourlyRate = 80 // Default
+        if (coachDoc.exists()) {
+          hourlyRate = coachDoc.data().hourlyRate || coachDoc.data().averagePrice || 80
+        }
+        
+        // Calcola fatturato potenziale
+        const potentialRevenue = actualAvailableSlots * hourlyRate
+        
         setStats({
           totalClients: allClients.length,
           coachamiClients: coachamiClients.length,
@@ -287,7 +299,9 @@ export default function CoachOfficePage() {
           totalRevenue,
           confirmedSessions,
           monthlyAvailableSlots: actualAvailableSlots,
-          pendingToBook
+          pendingToBook,
+          potentialRevenue,
+          hourlyRate
         })
         
       } catch (err) {
@@ -406,9 +420,14 @@ export default function CoachOfficePage() {
             <span className="text-gray-500 text-sm">Disponibilità Mese</span>
           </div>
           <p className="text-2xl font-bold text-charcoal">{stats.monthlyAvailableSlots}</p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-gray-500">
             slot liberi a {new Date().toLocaleDateString('it-IT', { month: 'short' })}
           </p>
+          {stats.potentialRevenue > 0 && (
+            <p className="text-sm text-green-600 font-medium mt-2">
+              €{stats.potentialRevenue.toLocaleString('it-IT')} potenziali
+            </p>
+          )}
         </motion.div>
       </div>
 
