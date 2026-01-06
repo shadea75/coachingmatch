@@ -286,8 +286,16 @@ export default function ExternalOfferSuccessPage() {
 
           <div className="space-y-3">
             <Link
-              href={`/external-offer/${offerId}`}
+              href={`/external-offer/${offerId}/book?session=${paymentType === 'single' ? 1 : installmentNumber}`}
               className="w-full py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors flex items-center justify-center gap-2 font-medium"
+            >
+              <Calendar size={18} />
+              Prenota subito la sessione
+            </Link>
+            
+            <Link
+              href={`/external-offer/${offerId}`}
+              className="w-full py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 font-medium"
             >
               Vedi stato pagamenti
               <ArrowRight size={18} />
