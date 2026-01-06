@@ -3,8 +3,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { db } from '@/lib/firebase'
-import { doc, getDoc } from 'firebase/firestore'
+import { adminDb } from '@/lib/firebase-admin'
+
+export const dynamic = 'force-dynamic'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10'
@@ -22,16 +23,16 @@ export async function POST(request: NextRequest) {
     }
     
     // Recupera account esistente
-    const accountDoc = await getDoc(doc(db, 'coachStripeAccounts', coachId))
+    const accountDoc = await adminDb.collection('coachStripeAccounts').doc(coachId).get()
     
-    if (!accountDoc.exists()) {
+    if (!accountDoc.exists) {
       return NextResponse.json(
         { error: 'Nessun account Stripe collegato' },
         { status: 404 }
       )
     }
     
-    const { stripeAccountId, onboardingComplete } = accountDoc.data()
+    const { stripeAccountId, onboardingComplete } = accountDoc.data() as any
     
     if (!onboardingComplete) {
       return NextResponse.json(
