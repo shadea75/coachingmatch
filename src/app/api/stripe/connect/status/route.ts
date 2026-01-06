@@ -3,8 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { db } from '@/lib/firebase'
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { adminDb } from '@/lib/firebase-admin'
+import { FieldValue } from 'firebase-admin/firestore'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,9 +25,9 @@ export async function GET(request: NextRequest) {
     }
     
     // Recupera dati da Firebase
-    const accountDoc = await getDoc(doc(db, 'coachStripeAccounts', coachId))
+    const accountDoc = await adminDb.collection('coachStripeAccounts').doc(coachId).get()
     
-    if (!accountDoc.exists()) {
+    if (!accountDoc.exists) {
       return NextResponse.json({
         connected: false,
         message: 'Nessun account Stripe collegato'
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     }
     
     const accountData = accountDoc.data()
-    const stripeAccountId = accountData.stripeAccountId
+    const stripeAccountId = accountData?.stripeAccountId
     
     // Recupera stato aggiornato da Stripe
     const stripeAccount = await stripe.accounts.retrieve(stripeAccountId)
@@ -46,15 +46,15 @@ export async function GET(request: NextRequest) {
     const detailsSubmitted = stripeAccount.details_submitted
     
     if (
-      accountData.chargesEnabled !== chargesEnabled ||
-      accountData.payoutsEnabled !== payoutsEnabled ||
-      accountData.onboardingComplete !== detailsSubmitted
+      accountData?.chargesEnabled !== chargesEnabled ||
+      accountData?.payoutsEnabled !== payoutsEnabled ||
+      accountData?.onboardingComplete !== detailsSubmitted
     ) {
-      await updateDoc(doc(db, 'coachStripeAccounts', coachId), {
+      await adminDb.collection('coachStripeAccounts').doc(coachId).update({
         chargesEnabled,
         payoutsEnabled,
         onboardingComplete: detailsSubmitted,
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       })
     }
     
@@ -73,7 +73,6 @@ export async function GET(request: NextRequest) {
       payoutsEnabled,
       onboardingComplete: detailsSubmitted,
       actionRequired,
-      // Info aggiuntive (se disponibili)
       email: stripeAccount.email,
       country: stripeAccount.country,
     })
