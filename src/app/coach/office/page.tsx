@@ -241,7 +241,7 @@ export default function CoachOfficePage() {
         
         // Calcola slot disponibili nel mese
         const availDoc = await getDoc(doc(db, 'coachAvailability', user.id))
-        let monthlyAvailableSlots = 0
+        let monthlyTotalSlots = 0
         
         if (availDoc.exists()) {
           const weeklySlots = availDoc.data().weeklySlots || {}
@@ -253,15 +253,12 @@ export default function CoachOfficePage() {
           while (currentDate <= endOfMonth) {
             const dayOfWeek = currentDate.getDay()
             const slotsForDay = weeklySlots[dayOfWeek] || weeklySlots[dayOfWeek.toString()] || []
-            monthlyAvailableSlots += slotsForDay.length
+            monthlyTotalSlots += slotsForDay.length
             currentDate.setDate(currentDate.getDate() + 1)
           }
         }
         
-        // Slot effettivamente disponibili = totale - già prenotati
-        const actualAvailableSlots = Math.max(0, monthlyAvailableSlots - totalSessionsThisMonth)
-        
-        // Sessioni pagate da prenotare
+        // Sessioni pagate da prenotare (potrebbero prenotare nel mese)
         let pendingToBook = 0
         // Da offerte CoachaMi
         offersSnap.docs.forEach(d => {
@@ -281,6 +278,10 @@ export default function CoachOfficePage() {
           const od = d.data()
           pendingToBook += (od.paidInstallments || 0) - (od.completedSessions || 0)
         })
+        
+        // Slot effettivamente disponibili = totale - già prenotati - da prenotare
+        // (le sessioni "da prenotare" potrebbero essere prenotate nel mese)
+        const actualAvailableSlots = Math.max(0, monthlyTotalSlots - totalSessionsThisMonth - pendingToBook)
         
         // Carica tariffa oraria del coach
         const coachDoc = await getDoc(doc(db, 'coachApplications', user.id))
