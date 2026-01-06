@@ -219,6 +219,7 @@ export default function CoachSettingsPage() {
   const tabs = [
     { id: 'profile', label: 'Profilo', icon: User },
     { id: 'billing', label: 'Fatturazione', icon: FileText },
+    { id: 'contract', label: 'Contratto', icon: Shield, href: '/coach/settings/contract' },
     { id: 'availability', label: 'Disponibilità', icon: Calendar, href: '/coach/availability' },
     { id: 'notifications', label: 'Notifiche', icon: Bell },
   ]
