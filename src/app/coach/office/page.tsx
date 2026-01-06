@@ -211,38 +211,36 @@ export default function CoachOfficePage() {
 
   if (loading || isLoading) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
+      <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="p-4 lg:p-8">
       {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/coach/dashboard" className="p-2 hover:bg-gray-100 rounded-lg">
-              <ArrowLeft size={20} />
-            </Link>
-            <div className="flex items-center gap-2">
-              <Building2 className="text-primary-500" size={24} />
-              <h1 className="text-xl font-bold text-charcoal">Ufficio Virtuale</h1>
-            </div>
-          </div>
-          <Logo size="sm" />
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-3">
+          <Building2 className="text-primary-500" size={28} />
+          <h1 className="text-xl font-bold text-charcoal">Ufficio Virtuale</h1>
         </div>
-      </header>
+        <Link
+          href="/coach/office/clients/new"
+          className="btn btn-primary"
+        >
+          <Plus size={20} />
+          <span className="hidden sm:inline">Nuovo Cliente</span>
+        </Link>
+      </div>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl p-4 shadow-sm"
-          >
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl p-4 shadow-sm"
+        >
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Users className="text-blue-600" size={20} />
@@ -457,7 +455,7 @@ export default function CoachOfficePage() {
             </div>
           )}
         </div>
-      </main>
+      </div>
     </div>
   )
 }
