@@ -707,7 +707,7 @@ export default function ClientDetailPage() {
                   Nuovo Percorso
                   {source === 'coachami' && (
                     <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full ml-2">
-                      30% commissione
+                      con commissione
                     </span>
                   )}
                 </Link>
