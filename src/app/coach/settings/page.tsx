@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
+import StripeConnectSetup from '@/components/coach/StripeConnectSetup'
 import { db } from '@/lib/firebase'
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { LIFE_AREAS } from '@/types'
@@ -507,6 +508,9 @@ export default function CoachSettingsPage() {
                     <strong>⚠️ Importante:</strong> Questi dati sono necessari per ricevere i pagamenti e per emettere fatture a CoachaMi.
                   </p>
                 </div>
+                
+                {/* Stripe Connect - Ricevi pagamenti automatici */}
+                <StripeConnectSetup />
                 
                 {/* Dati aziendali */}
                 <div className="bg-white rounded-2xl p-6 border border-gray-200">
