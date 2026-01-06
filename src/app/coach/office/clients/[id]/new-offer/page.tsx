@@ -187,7 +187,12 @@ export default function NewOfferPage() {
               pricePerSession: offerData.pricePerSession,
               priceTotal,
               description: offerData.description,
-              offerId: offerRef.id
+              offerId: offerRef.id,
+              // Opzioni pagamento
+              allowSinglePayment: offerData.allowSinglePayment,
+              allowInstallments: offerData.allowInstallments,
+              installmentFeePercent: offerData.installmentFeePercent,
+              priceTotalWithFee
             })
           })
         } catch (emailErr) {
