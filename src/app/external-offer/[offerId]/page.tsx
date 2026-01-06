@@ -42,6 +42,13 @@ interface ExternalOffer {
   completedSessions: number
   status: string
   installments: Array<{ sessionNumber: number; amount: number; status: string }>
+  // Opzioni pagamento
+  allowSinglePayment: boolean
+  allowInstallments: boolean
+  installmentFeePercent: number
+  priceTotalWithFee: number
+  pricePerSessionWithFee: number
+  paymentMethod?: 'single' | 'installments'
 }
 
 export default function ExternalOfferPage() {
@@ -53,6 +60,7 @@ export default function ExternalOfferPage() {
   const [offer, setOffer] = useState<ExternalOffer | null>(null)
   const [error, setError] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'single' | 'installments' | null>(null)
 
   useEffect(() => {
     const loadOffer = async () => {
@@ -68,7 +76,7 @@ export default function ExternalOfferPage() {
         }
         
         const data = offerDoc.data()
-        setOffer({
+        const offerData: ExternalOffer = {
           id: offerDoc.id,
           coachId: data.coachId,
           coachName: data.coachName,
@@ -85,8 +93,25 @@ export default function ExternalOfferPage() {
           paidInstallments: data.paidInstallments || 0,
           completedSessions: data.completedSessions || 0,
           status: data.status,
-          installments: data.installments || []
-        })
+          installments: data.installments || [],
+          // Opzioni pagamento (default per retrocompatibilità)
+          allowSinglePayment: data.allowSinglePayment ?? true,
+          allowInstallments: data.allowInstallments ?? true,
+          installmentFeePercent: data.installmentFeePercent ?? 0,
+          priceTotalWithFee: data.priceTotalWithFee ?? data.priceTotal,
+          pricePerSessionWithFee: data.pricePerSessionWithFee ?? data.pricePerSession,
+          paymentMethod: data.paymentMethod
+        }
+        setOffer(offerData)
+        
+        // Se già scelto un metodo di pagamento o solo uno disponibile
+        if (data.paymentMethod) {
+          setSelectedPaymentMethod(data.paymentMethod)
+        } else if (data.allowSinglePayment && !data.allowInstallments) {
+          setSelectedPaymentMethod('single')
+        } else if (!data.allowSinglePayment && data.allowInstallments) {
+          setSelectedPaymentMethod('installments')
+        }
       } catch (err) {
         console.error('Errore:', err)
         setError('Errore nel caricamento dell\'offerta')
@@ -101,9 +126,10 @@ export default function ExternalOfferPage() {
   const nextInstallment = offer?.installments.find(i => i.status !== 'paid')
   const nextInstallmentNumber = nextInstallment?.sessionNumber || 1
   const allPaid = offer ? offer.paidInstallments >= offer.totalSessions : false
+  const hasStartedPaying = offer ? offer.paidInstallments > 0 : false
 
-  const handlePayment = async () => {
-    if (!offer || !nextInstallment) return
+  const handlePayment = async (type: 'single' | 'installment') => {
+    if (!offer) return
     
     setIsProcessing(true)
     setError('')
@@ -114,7 +140,8 @@ export default function ExternalOfferPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           offerId: offer.id,
-          installmentNumber: nextInstallmentNumber
+          paymentType: type, // 'single' o 'installment'
+          installmentNumber: type === 'installment' ? nextInstallmentNumber : null
         })
       })
       
@@ -284,8 +311,111 @@ export default function ExternalOfferPage() {
             </div>
           </div>
 
-          {/* Pulsante Pagamento */}
-          {!allPaid && nextInstallment && (
+          {/* Scelta metodo di pagamento */}
+          {!allPaid && !hasStartedPaying && (offer.allowSinglePayment || offer.allowInstallments) && (
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <h3 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+                <CreditCard className="text-green-500" size={20} />
+                Scegli come pagare
+              </h3>
+              
+              <div className="space-y-3">
+                {/* Opzione pagamento unico */}
+                {offer.allowSinglePayment && (
+                  <button
+                    onClick={() => setSelectedPaymentMethod('single')}
+                    className={`w-full p-4 border-2 rounded-xl text-left transition-all ${
+                      selectedPaymentMethod === 'single'
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-charcoal">Pagamento unico</p>
+                        <p className="text-sm text-gray-500">Paga tutto subito</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xl font-bold text-primary-600">
+                          {formatCurrency(offer.priceTotal)}
+                        </p>
+                        {offer.installmentFeePercent > 0 && (
+                          <p className="text-xs text-green-600">Risparmi {offer.installmentFeePercent}%</p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                )}
+
+                {/* Opzione pagamento rateale */}
+                {offer.allowInstallments && (
+                  <button
+                    onClick={() => setSelectedPaymentMethod('installments')}
+                    className={`w-full p-4 border-2 rounded-xl text-left transition-all ${
+                      selectedPaymentMethod === 'installments'
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-charcoal">Pagamento rateale</p>
+                        <p className="text-sm text-gray-500">
+                          {offer.totalSessions} rate da {formatCurrency(offer.pricePerSessionWithFee)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xl font-bold text-charcoal">
+                          {formatCurrency(offer.priceTotalWithFee)}
+                        </p>
+                        {offer.installmentFeePercent > 0 && (
+                          <p className="text-xs text-amber-600">+{offer.installmentFeePercent}% sovrapprezzo</p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                )}
+              </div>
+
+              {error && (
+                <div className="bg-red-50 rounded-xl p-4 mt-4 flex items-center gap-3 text-red-600">
+                  <AlertCircle size={20} />
+                  <span className="text-sm">{error}</span>
+                </div>
+              )}
+
+              {selectedPaymentMethod && (
+                <button
+                  onClick={() => handlePayment(selectedPaymentMethod === 'single' ? 'single' : 'installment')}
+                  disabled={isProcessing}
+                  className="w-full mt-4 py-4 bg-primary-500 text-white rounded-xl hover:bg-primary-600 disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="animate-spin" size={20} />
+                      Elaborazione...
+                    </>
+                  ) : (
+                    <>
+                      <Lock size={18} />
+                      {selectedPaymentMethod === 'single' 
+                        ? `Paga ${formatCurrency(offer.priceTotal)}`
+                        : `Paga prima rata ${formatCurrency(offer.pricePerSessionWithFee)}`
+                      }
+                    </>
+                  )}
+                </button>
+              )}
+              
+              <p className="text-xs text-gray-400 text-center mt-4 flex items-center justify-center gap-1">
+                <Lock size={12} />
+                Pagamento sicuro con Stripe
+              </p>
+            </div>
+          )}
+
+          {/* Pagamento rata successiva (già iniziato il rateale) */}
+          {!allPaid && hasStartedPaying && nextInstallment && (
             <div className="bg-white rounded-2xl p-6 shadow-sm">
               <h3 className="font-semibold text-charcoal mb-4">
                 Paga Sessione {nextInstallmentNumber}
@@ -299,7 +429,7 @@ export default function ExternalOfferPage() {
               )}
               
               <button
-                onClick={handlePayment}
+                onClick={() => handlePayment('installment')}
                 disabled={isProcessing}
                 className="w-full py-4 bg-primary-500 text-white rounded-xl hover:bg-primary-600 disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
               >

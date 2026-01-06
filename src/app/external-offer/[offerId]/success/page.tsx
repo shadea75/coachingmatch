@@ -20,15 +20,17 @@ export default function ExternalOfferSuccessPage() {
   const searchParams = useSearchParams()
   
   const offerId = params.offerId as string
+  const paymentType = searchParams.get('type') || 'installment'
   const installmentNumber = searchParams.get('installment')
   
   const [isUpdating, setIsUpdating] = useState(true)
   const [offer, setOffer] = useState<any>(null)
   const [error, setError] = useState('')
+  const [amountPaid, setAmountPaid] = useState(0)
 
   useEffect(() => {
     const updatePayment = async () => {
-      if (!offerId || !installmentNumber) {
+      if (!offerId) {
         setError('Parametri mancanti')
         setIsUpdating(false)
         return
@@ -47,34 +49,33 @@ export default function ExternalOfferSuccessPage() {
         const offerData = offerSnap.data()
         setOffer(offerData)
 
-        // Aggiorna lo stato della rata pagata
-        const installmentIndex = parseInt(installmentNumber) - 1
-        const installments = offerData.installments || []
-        
-        if (installments[installmentIndex] && installments[installmentIndex].status !== 'paid') {
-          installments[installmentIndex] = {
-            ...installments[installmentIndex],
+        if (paymentType === 'single') {
+          // Pagamento unico - segna tutte le rate come pagate
+          const installments = offerData.installments || []
+          const updatedInstallments = installments.map((inst: any) => ({
+            ...inst,
             status: 'paid',
             paidAt: new Date()
-          }
-
-          const paidCount = installments.filter((i: any) => i.status === 'paid').length
-
+          }))
+          
           await updateDoc(offerRef, {
-            installments,
-            paidInstallments: paidCount,
-            status: paidCount >= offerData.totalSessions ? 'completed' : 'active',
+            installments: updatedInstallments,
+            paidInstallments: offerData.totalSessions,
+            status: 'completed',
+            paymentMethod: 'single',
             updatedAt: serverTimestamp()
           })
-
-          // Aggiorna anche il totale revenue del cliente
+          
+          setAmountPaid(offerData.priceTotal)
+          
+          // Aggiorna revenue del cliente
           try {
             const clientRef = doc(db, 'coachClients', offerData.clientId)
             const clientSnap = await getDoc(clientRef)
             if (clientSnap.exists()) {
               const clientData = clientSnap.data()
               await updateDoc(clientRef, {
-                totalRevenue: (clientData.totalRevenue || 0) + installments[installmentIndex].amount,
+                totalRevenue: (clientData.totalRevenue || 0) + offerData.priceTotal,
                 updatedAt: serverTimestamp()
               })
             }
@@ -82,7 +83,7 @@ export default function ExternalOfferSuccessPage() {
             console.error('Errore aggiornamento cliente:', e)
           }
           
-          // Invia email di conferma
+          // Invia email
           try {
             await fetch('/api/emails/external-payment-success', {
               method: 'POST',
@@ -93,14 +94,85 @@ export default function ExternalOfferSuccessPage() {
                 coachEmail: offerData.coachEmail,
                 coachName: offerData.coachName,
                 offerTitle: offerData.title,
-                sessionNumber: parseInt(installmentNumber),
+                sessionNumber: 'tutte',
                 totalSessions: offerData.totalSessions,
-                amountPaid: installments[installmentIndex].amount,
-                offerId: offerId
+                amountPaid: offerData.priceTotal,
+                offerId: offerId,
+                paymentType: 'single'
               })
             })
           } catch (emailErr) {
             console.error('Errore invio email:', emailErr)
+          }
+          
+        } else {
+          // Pagamento rateale
+          if (!installmentNumber) {
+            setError('Numero rata mancante')
+            setIsUpdating(false)
+            return
+          }
+          
+          const installmentIndex = parseInt(installmentNumber) - 1
+          const installments = offerData.installments || []
+          
+          if (installments[installmentIndex] && installments[installmentIndex].status !== 'paid') {
+            const paidAmount = installments[installmentIndex].amount
+            
+            installments[installmentIndex] = {
+              ...installments[installmentIndex],
+              status: 'paid',
+              paidAt: new Date()
+            }
+
+            const paidCount = installments.filter((i: any) => i.status === 'paid').length
+
+            await updateDoc(offerRef, {
+              installments,
+              paidInstallments: paidCount,
+              status: paidCount >= offerData.totalSessions ? 'completed' : 'active',
+              paymentMethod: 'installments',
+              updatedAt: serverTimestamp()
+            })
+            
+            setAmountPaid(paidAmount)
+
+            // Aggiorna revenue del cliente
+            try {
+              const clientRef = doc(db, 'coachClients', offerData.clientId)
+              const clientSnap = await getDoc(clientRef)
+              if (clientSnap.exists()) {
+                const clientData = clientSnap.data()
+                await updateDoc(clientRef, {
+                  totalRevenue: (clientData.totalRevenue || 0) + paidAmount,
+                  updatedAt: serverTimestamp()
+                })
+              }
+            } catch (e) {
+              console.error('Errore aggiornamento cliente:', e)
+            }
+            
+            // Invia email
+            try {
+              await fetch('/api/emails/external-payment-success', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  clientEmail: offerData.clientEmail,
+                  clientName: offerData.clientName,
+                  coachEmail: offerData.coachEmail,
+                  coachName: offerData.coachName,
+                  offerTitle: offerData.title,
+                  sessionNumber: parseInt(installmentNumber),
+                  totalSessions: offerData.totalSessions,
+                  amountPaid: paidAmount,
+                  offerId: offerId,
+                  paymentType: 'installment'
+                })
+              })
+            } catch (emailErr) {
+              console.error('Errore invio email:', emailErr)
+            }
           }
         }
 
@@ -113,7 +185,7 @@ export default function ExternalOfferSuccessPage() {
     }
 
     updatePayment()
-  }, [offerId, installmentNumber])
+  }, [offerId, paymentType, installmentNumber])
 
   if (isUpdating) {
     return (
@@ -174,20 +246,26 @@ export default function ExternalOfferSuccessPage() {
           </h1>
           
           <p className="text-gray-500 mb-6">
-            Grazie per il tuo pagamento. {offer?.coachName} ti contatterà presto per programmare la sessione.
+            {paymentType === 'single' 
+              ? `Grazie per il tuo pagamento completo! ${offer?.coachName} ti contatterà presto per programmare le tue ${offer?.totalSessions} sessioni.`
+              : `Grazie per il tuo pagamento. ${offer?.coachName} ti contatterà presto per programmare la sessione.`
+            }
           </p>
 
           {offer && (
             <div className="bg-gray-50 rounded-xl p-4 mb-6 text-left">
               <h3 className="font-medium text-charcoal mb-2">{offer.title}</h3>
               <p className="text-sm text-gray-500">
-                Sessione {installmentNumber}/{offer.totalSessions} pagata
+                {paymentType === 'single'
+                  ? `Tutte le ${offer.totalSessions} sessioni pagate`
+                  : `Sessione ${installmentNumber}/${offer.totalSessions} pagata`
+                }
               </p>
               <div className="mt-3 pt-3 border-t border-gray-200">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Importo pagato</span>
                   <span className="font-semibold text-green-600">
-                    €{offer.pricePerSession?.toFixed(2)}
+                    €{amountPaid.toFixed(2)}
                   </span>
                 </div>
               </div>
