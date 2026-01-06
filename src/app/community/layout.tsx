@@ -67,7 +67,7 @@ export default function CommunityLayout({
             else if (points >= 100) level = 'Pro'
           }
 
-          // Conta sessioni attive
+          // Conta sessioni attive (da sessions + externalSessions)
           let pendingSessions = 0
           try {
             const pendingQuery = query(
@@ -91,7 +91,28 @@ export default function CommunityLayout({
               return scheduledAt > now
             })
             
-            pendingSessions = pendingSnap.size + futureConfirmed.length
+            // Conta anche sessioni esterne
+            const extPendingQuery = query(
+              collection(db, 'externalSessions'),
+              where('coachId', '==', user.id),
+              where('status', '==', 'pending')
+            )
+            const extPendingSnap = await getDocs(extPendingQuery)
+            
+            const extConfirmedQuery = query(
+              collection(db, 'externalSessions'),
+              where('coachId', '==', user.id),
+              where('status', '==', 'confirmed')
+            )
+            const extConfirmedSnap = await getDocs(extConfirmedQuery)
+            
+            const extFutureConfirmed = extConfirmedSnap.docs.filter(doc => {
+              const data = doc.data()
+              const scheduledAt = data.scheduledAt?.toDate?.() || new Date(data.scheduledAt)
+              return scheduledAt > now
+            })
+            
+            pendingSessions = pendingSnap.size + futureConfirmed.length + extPendingSnap.size + extFutureConfirmed.length
           } catch (e) {
             console.error('Errore conteggio sessioni:', e)
           }
@@ -285,4 +306,3 @@ export default function CommunityLayout({
     </div>
   )
 }
-
