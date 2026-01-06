@@ -248,76 +248,76 @@ export default function CoachOfficePage() {
             <span className="text-gray-500 text-sm">Totale Clienti</span>
           </div>
           <p className="text-2xl font-bold text-charcoal">{stats.totalClients}</p>
-            <div className="flex gap-2 mt-2 text-xs">
-              <span className="text-primary-500">{stats.coachamiClients} CoachaMi</span>
-              <span className="text-gray-400">•</span>
-              <span className="text-purple-500">{stats.externalClients} Esterni</span>
-            </div>
-          </motion.div>
+          <div className="flex gap-2 mt-2 text-xs">
+            <span className="text-primary-500">{stats.coachamiClients} CoachaMi</span>
+            <span className="text-gray-400">•</span>
+            <span className="text-purple-500">{stats.externalClients} Esterni</span>
+          </div>
+        </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white rounded-2xl p-4 shadow-sm"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Euro className="text-green-600" size={20} />
-              </div>
-              <span className="text-gray-500 text-sm">Fatturato</span>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white rounded-2xl p-4 shadow-sm"
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <Euro className="text-green-600" size={20} />
             </div>
-            <p className="text-2xl font-bold text-charcoal">
-              €{stats.totalRevenue.toLocaleString('it-IT')}
+            <span className="text-gray-500 text-sm">Fatturato</span>
+          </div>
+          <p className="text-2xl font-bold text-charcoal">
+            €{stats.totalRevenue.toLocaleString('it-IT')}
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white rounded-2xl p-4 shadow-sm"
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-amber-100 rounded-lg">
+              <Calendar className="text-amber-600" size={20} />
+            </div>
+            <span className="text-gray-500 text-sm">Sessioni Attive</span>
+          </div>
+          <p className="text-2xl font-bold text-charcoal">{stats.activeSessions}</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white rounded-2xl p-4 shadow-sm"
+        >
+          <Link href="/coach/office/clients/new" className="block h-full">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-primary-100 rounded-lg">
+                <UserPlus className="text-primary-600" size={20} />
+              </div>
+              <span className="text-gray-500 text-sm">Nuovo Cliente</span>
+            </div>
+            <p className="text-primary-500 font-medium flex items-center gap-1">
+              Aggiungi <ChevronRight size={16} />
             </p>
-          </motion.div>
+          </Link>
+        </motion.div>
+      </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white rounded-2xl p-4 shadow-sm"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <Calendar className="text-amber-600" size={20} />
-              </div>
-              <span className="text-gray-500 text-sm">Sessioni Attive</span>
-            </div>
-            <p className="text-2xl font-bold text-charcoal">{stats.activeSessions}</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white rounded-2xl p-4 shadow-sm"
-          >
-            <Link href="/coach/office/clients/new" className="block h-full">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-primary-100 rounded-lg">
-                  <UserPlus className="text-primary-600" size={20} />
-                </div>
-                <span className="text-gray-500 text-sm">Nuovo Cliente</span>
-              </div>
-              <p className="text-primary-500 font-medium flex items-center gap-1">
-                Aggiungi <ChevronRight size={16} />
-              </p>
-            </Link>
-          </motion.div>
-        </div>
-
-        {/* Search and Filter */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Cerca cliente per nome o email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+      {/* Search and Filter */}
+      <div className="bg-white rounded-2xl p-4 shadow-sm mb-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              placeholder="Cerca cliente per nome o email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
             </div>
             <div className="flex gap-2">
@@ -456,6 +456,5 @@ export default function CoachOfficePage() {
           )}
         </div>
       </div>
-    </div>
   )
 }

@@ -790,7 +790,6 @@ export default function CoachDashboardPage() {
             </div>
           </motion.div>
         )}
-      </main>
       
       {/* Modal dettaglio coachee con ruota */}
       {showCoacheeModal && selectedCoachee && (
