@@ -80,7 +80,7 @@ export default function CoachOfficePage() {
     availableSlots: 0,
     potentialRevenue: 0
   })
-  const [weeklySlots, setWeeklySlots] = useState<Record<number, string[]>>({})
+  const [weeklySlots, setWeeklySlots] = useState<Record<string | number, string[]>>({})
   const [hourlyRate, setHourlyRate] = useState(80)
 
   useEffect(() => {
