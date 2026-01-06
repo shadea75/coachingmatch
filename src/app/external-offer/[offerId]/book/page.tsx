@@ -82,7 +82,8 @@ export default function ExternalBookingPage() {
         
         if (availDoc.exists()) {
           const availData = availDoc.data()
-          setAvailability(availData.slots || {})
+          // weeklySlots usa chiavi numeriche: 0=Dom, 1=Lun, 2=Mar, etc.
+          setAvailability(availData.weeklySlots || availData.slots || {})
         }
         
         // Carica date bloccate
@@ -147,16 +148,12 @@ export default function ExternalBookingPage() {
 
   // Genera giorni della settimana
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i))
-  
-  // Mappa giorni settimana per disponibilità
-  const dayMap: Record<number, string> = {
-    0: 'sunday',
-    1: 'monday', 
-    2: 'tuesday',
-    3: 'wednesday',
-    4: 'thursday',
-    5: 'friday',
-    6: 'saturday'
+
+  // Check se una data ha disponibilità configurata
+  const hasAvailability = (date: Date): boolean => {
+    const dayNum = date.getDay()
+    const slots = availability[dayNum] || availability[dayNum.toString()] || []
+    return slots.length > 0
   }
 
   // Check se una data è bloccata
@@ -177,8 +174,9 @@ export default function ExternalBookingPage() {
 
   // Ottieni slot disponibili per una data
   const getAvailableSlots = (date: Date): TimeSlot[] => {
-    const dayName = dayMap[date.getDay()]
-    const slots = availability[dayName] || []
+    // weeklySlots usa chiavi numeriche: 0=Dom, 1=Lun, 2=Mar, etc.
+    const dayNum = date.getDay()
+    const slots = availability[dayNum] || availability[dayNum.toString()] || []
     
     return slots.map(time => ({
       time,
@@ -383,8 +381,8 @@ export default function ExternalBookingPage() {
             ))}
             
             {weekDays.map(day => {
-              const dayName = dayMap[day.getDay()]
-              const hasSlots = (availability[dayName] || []).length > 0
+              const dayNum = day.getDay()
+              const hasSlots = hasAvailability(day)
               const isBlocked = isDateBlocked(day)
               const isPast = isBefore(day, new Date()) && !isSameDay(day, new Date())
               const isSelected = selectedDate && isSameDay(day, selectedDate)
