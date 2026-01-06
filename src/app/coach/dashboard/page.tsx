@@ -458,14 +458,6 @@ export default function CoachDashboardPage() {
       </Link>
       
       <Link
-        href="/coach/offers"
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
-      >
-        <ShoppingBag size={20} />
-        <span className="font-medium">Le mie Offerte</span>
-      </Link>
-      
-      <Link
         href="/coach/office"
         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
       >
@@ -851,15 +843,15 @@ export default function CoachDashboardPage() {
             {/* Quick Actions */}
             <div className="grid sm:grid-cols-3 gap-4">
               <Link
-                href="/coach/offers/new"
+                href="/coach/office"
                 className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"
               >
-                <div className="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-                  <ShoppingBag className="text-primary-500" size={24} />
+                <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                  <Building2 className="text-purple-500" size={24} />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-charcoal">Nuova Offerta</p>
-                  <p className="text-sm text-gray-500">Crea percorso</p>
+                  <p className="font-medium text-charcoal">Ufficio Virtuale</p>
+                  <p className="text-sm text-gray-500">Gestisci clienti esterni</p>
                 </div>
                 <ChevronRight className="text-gray-400" />
               </Link>
