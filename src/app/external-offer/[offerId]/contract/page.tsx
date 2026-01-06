@@ -14,7 +14,9 @@ import {
   Calendar,
   Euro,
   Lock,
-  Download
+  Download,
+  MapPin,
+  Building
 } from 'lucide-react'
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
@@ -34,11 +36,20 @@ export default function AcceptContractPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [offer, setOffer] = useState<any>(null)
   const [contract, setContract] = useState<any>(null)
+  const [coachBilling, setCoachBilling] = useState<any>(null)
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   
-  // Form
-  const [clientName, setClientName] = useState('')
+  // Form dati cliente
+  const [clientData, setClientData] = useState({
+    name: '',
+    address: '',
+    city: '',
+    postalCode: '',
+    province: '',
+    fiscalCode: '',
+    vatNumber: '' // Opzionale
+  })
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false)
 
@@ -57,7 +68,7 @@ export default function AcceptContractPage() {
         
         const offerData = offerDoc.data()
         setOffer(offerData)
-        setClientName(offerData.clientName || '')
+        setClientData(prev => ({ ...prev, name: offerData.clientName || '' }))
         
         // Verifica se contratto già accettato
         if (offerData.contractAccepted) {
@@ -73,6 +84,13 @@ export default function AcceptContractPage() {
         } else {
           // Nessun contratto configurato, redirect diretto a pagamento
           router.push(`/external-offer/${offerId}`)
+          return
+        }
+        
+        // Carica dati fatturazione coach
+        const coachDoc = await getDoc(doc(db, 'coachApplications', offerData.coachId))
+        if (coachDoc.exists() && coachDoc.data().billing) {
+          setCoachBilling(coachDoc.data().billing)
         }
         
       } catch (err) {
@@ -90,7 +108,44 @@ export default function AcceptContractPage() {
   const generateContractText = () => {
     if (!contract || !offer) return ''
     
-    let text = contract.template
+    // Costruisci la sezione dati delle parti
+    const coachInfo = coachBilling ? `
+**COACH (Prestatore del servizio)**
+${coachBilling.businessName || offer.coachName}
+${coachBilling.address ? `${coachBilling.address}, ${coachBilling.postalCode} ${coachBilling.city} (${coachBilling.province})` : ''}
+${coachBilling.fiscalCode ? `C.F.: ${coachBilling.fiscalCode}` : ''}
+${coachBilling.vatNumber ? `P.IVA: ${coachBilling.vatNumber}` : ''}
+Email: ${offer.coachEmail}
+` : `
+**COACH (Prestatore del servizio)**
+${offer.coachName}
+Email: ${offer.coachEmail}
+`
+
+    const clientInfo = `
+**CLIENTE (Committente)**
+${clientData.name}
+${clientData.address ? `${clientData.address}, ${clientData.postalCode} ${clientData.city} (${clientData.province})` : ''}
+${clientData.fiscalCode ? `C.F.: ${clientData.fiscalCode}` : ''}
+${clientData.vatNumber ? `P.IVA: ${clientData.vatNumber}` : ''}
+Email: ${offer.clientEmail}
+`
+
+    // Header contratto con dati parti
+    let text = `**CONTRATTO DI COACHING**
+
+Data: ${format(new Date(), "d MMMM yyyy", { locale: it })}
+
+**TRA LE PARTI**
+${coachInfo}
+${clientInfo}
+
+---
+
+`
+    
+    // Aggiungi il template del coach
+    text += contract.template
       .replace(/\{\{totalSessions\}\}/g, offer.totalSessions)
       .replace(/\{\{sessionDuration\}\}/g, offer.sessionDuration)
       .replace(/\{\{priceTotal\}\}/g, offer.priceTotal?.toFixed(2))
@@ -120,8 +175,21 @@ export default function AcceptContractPage() {
   }
 
   const handleAccept = async () => {
-    if (!acceptedTerms || !acceptedPrivacy || !clientName.trim()) {
-      setError('Compila tutti i campi obbligatori')
+    // Validazione
+    if (!clientData.name.trim()) {
+      setError('Inserisci il tuo nome completo')
+      return
+    }
+    if (!clientData.address.trim() || !clientData.city.trim() || !clientData.postalCode.trim()) {
+      setError('Inserisci il tuo indirizzo completo')
+      return
+    }
+    if (!clientData.fiscalCode.trim()) {
+      setError('Inserisci il tuo Codice Fiscale')
+      return
+    }
+    if (!acceptedTerms || !acceptedPrivacy) {
+      setError('Devi accettare le condizioni contrattuali e la privacy')
       return
     }
     
@@ -132,22 +200,32 @@ export default function AcceptContractPage() {
       const contractText = generateContractText()
       const signedAt = new Date()
       
-      // Salva contratto firmato
+      // Salva contratto firmato con tutti i dati
       const signedContractRef = await addDoc(collection(db, 'signedContracts'), {
         offerId,
         coachId: offer.coachId,
         coachName: offer.coachName,
         coachEmail: offer.coachEmail,
+        coachBilling: coachBilling || null,
         clientId: offer.clientId,
-        clientName: clientName.trim(),
+        clientName: clientData.name.trim(),
         clientEmail: offer.clientEmail,
+        clientData: {
+          name: clientData.name.trim(),
+          address: clientData.address.trim(),
+          city: clientData.city.trim(),
+          postalCode: clientData.postalCode.trim(),
+          province: clientData.province.trim(),
+          fiscalCode: clientData.fiscalCode.trim().toUpperCase(),
+          vatNumber: clientData.vatNumber?.trim() || null
+        },
         offerTitle: offer.title,
         contractText,
         acceptedTerms: true,
         acceptedPrivacy: true,
         signedAt: serverTimestamp(),
         signedAtISO: signedAt.toISOString(),
-        ipAddress: null, // Potrebbe essere aggiunto lato server
+        ipAddress: null,
         userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null
       })
       
@@ -156,7 +234,27 @@ export default function AcceptContractPage() {
         contractAccepted: true,
         contractSignedAt: serverTimestamp(),
         signedContractId: signedContractRef.id,
-        clientNameConfirmed: clientName.trim(),
+        clientNameConfirmed: clientData.name.trim(),
+        clientData: {
+          name: clientData.name.trim(),
+          address: clientData.address.trim(),
+          city: clientData.city.trim(),
+          postalCode: clientData.postalCode.trim(),
+          province: clientData.province.trim(),
+          fiscalCode: clientData.fiscalCode.trim().toUpperCase(),
+          vatNumber: clientData.vatNumber?.trim() || null
+        },
+        updatedAt: serverTimestamp()
+      })
+      
+      // Aggiorna anche i dati del cliente in coachClients
+      await updateDoc(doc(db, 'coachClients', offer.clientId), {
+        fiscalCode: clientData.fiscalCode.trim().toUpperCase(),
+        vatNumber: clientData.vatNumber?.trim() || null,
+        address: clientData.address.trim(),
+        city: clientData.city.trim(),
+        postalCode: clientData.postalCode.trim(),
+        province: clientData.province.trim(),
         updatedAt: serverTimestamp()
       })
       
@@ -260,19 +358,115 @@ export default function AcceptContractPage() {
             </div>
           </div>
           
-          <div className="p-6 space-y-4">
-            {/* Nome Cliente */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nome e Cognome (come firma) *
-              </label>
-              <input
-                type="text"
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                placeholder="Inserisci il tuo nome completo"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              />
+          <div className="p-6 space-y-6">
+            {/* Sezione Dati Cliente */}
+            <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+              <h3 className="font-medium text-blue-800 mb-4 flex items-center gap-2">
+                <User size={18} />
+                I tuoi dati (per il contratto)
+              </h3>
+              
+              <div className="space-y-4">
+                {/* Nome */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nome e Cognome *
+                  </label>
+                  <input
+                    type="text"
+                    value={clientData.name}
+                    onChange={(e) => setClientData({ ...clientData, name: e.target.value })}
+                    placeholder="Mario Rossi"
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                </div>
+                
+                {/* Indirizzo */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Indirizzo *
+                  </label>
+                  <input
+                    type="text"
+                    value={clientData.address}
+                    onChange={(e) => setClientData({ ...clientData, address: e.target.value })}
+                    placeholder="Via Roma 1"
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                </div>
+                
+                {/* Città, CAP, Provincia */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      CAP *
+                    </label>
+                    <input
+                      type="text"
+                      value={clientData.postalCode}
+                      onChange={(e) => setClientData({ ...clientData, postalCode: e.target.value })}
+                      placeholder="00100"
+                      maxLength={5}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Città *
+                    </label>
+                    <input
+                      type="text"
+                      value={clientData.city}
+                      onChange={(e) => setClientData({ ...clientData, city: e.target.value })}
+                      placeholder="Roma"
+                      className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Prov.
+                    </label>
+                    <input
+                      type="text"
+                      value={clientData.province}
+                      onChange={(e) => setClientData({ ...clientData, province: e.target.value.toUpperCase() })}
+                      placeholder="RM"
+                      maxLength={2}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 uppercase"
+                    />
+                  </div>
+                </div>
+                
+                {/* Codice Fiscale e P.IVA */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Codice Fiscale *
+                    </label>
+                    <input
+                      type="text"
+                      value={clientData.fiscalCode}
+                      onChange={(e) => setClientData({ ...clientData, fiscalCode: e.target.value.toUpperCase() })}
+                      placeholder="RSSMRA80A01H501Z"
+                      maxLength={16}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 uppercase font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      P.IVA (opzionale)
+                    </label>
+                    <input
+                      type="text"
+                      value={clientData.vatNumber}
+                      onChange={(e) => setClientData({ ...clientData, vatNumber: e.target.value })}
+                      placeholder="IT12345678901"
+                      maxLength={13}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
             
             {/* Checkbox Termini */}
