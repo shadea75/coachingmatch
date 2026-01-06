@@ -93,6 +93,23 @@ export default function AcceptContractPage() {
           setCoachBilling(coachDoc.data().billing)
         }
         
+        // Carica dati cliente esistenti (se già inseriti in precedenza)
+        if (offerData.clientId) {
+          const clientDoc = await getDoc(doc(db, 'coachClients', offerData.clientId))
+          if (clientDoc.exists()) {
+            const clientInfo = clientDoc.data()
+            setClientData({
+              name: clientInfo.name || offerData.clientName || '',
+              address: clientInfo.address || '',
+              city: clientInfo.city || '',
+              postalCode: clientInfo.postalCode || '',
+              province: clientInfo.province || '',
+              fiscalCode: clientInfo.fiscalCode || '',
+              vatNumber: clientInfo.vatNumber || ''
+            })
+          }
+        }
+        
       } catch (err) {
         console.error('Errore:', err)
         setError('Errore nel caricamento')
