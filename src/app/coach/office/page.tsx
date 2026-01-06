@@ -85,10 +85,11 @@ export default function CoachOfficePage() {
         // Carica clienti da coachClients (clienti esterni)
         const externalClientsQuery = query(
           collection(db, 'coachClients'),
-          where('coachId', '==', user.id),
-          orderBy('createdAt', 'desc')
+          where('coachId', '==', user.id)
         )
         const externalSnap = await getDocs(externalClientsQuery)
+        
+        console.log('Clienti esterni trovati:', externalSnap.size)
         
         const externalClients: Client[] = externalSnap.docs.map(doc => {
           const data = doc.data()
