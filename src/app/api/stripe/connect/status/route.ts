@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 // src/app/api/stripe/connect/status/route.ts
 // Endpoint per verificare lo stato dell'account Stripe Connect di un coach
 
