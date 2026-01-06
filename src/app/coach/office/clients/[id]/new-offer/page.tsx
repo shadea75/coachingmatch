@@ -45,7 +45,8 @@ export default function NewOfferPage() {
   const isCoachaMiClient = searchParams.get('source') === 'coachami'
   const coacheeId = searchParams.get('coacheeId')
   
-  const COACHAMI_COMMISSION = 0.30 // 30% commissione per clienti CoachaMi
+  // Commissione caricata da settings (default 3.5%)
+  const [officeCommission, setOfficeCommission] = useState(0.035)
   
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -104,6 +105,17 @@ export default function NewOfferPage() {
           setContractEnabled(contractData.enabled || false)
           setIncludeContract(contractData.enabled || false)
         }
+        
+        // Carica commissione ufficio virtuale da settings
+        if (isCoachaMiClient) {
+          const settingsDoc = await getDoc(doc(db, 'settings', 'platform'))
+          if (settingsDoc.exists()) {
+            const settingsData = settingsDoc.data()
+            // Commissione in percentuale (es. 3.5) -> convertita in decimale (0.035)
+            const commissionPercent = settingsData.officeCommissionPercentage ?? 3.5
+            setOfficeCommission(commissionPercent / 100)
+          }
+        }
       } catch (err) {
         console.error('Errore:', err)
         setError('Errore nel caricamento')
@@ -115,7 +127,7 @@ export default function NewOfferPage() {
     if (user) {
       loadClient()
     }
-  }, [clientId, user])
+  }, [clientId, user, isCoachaMiClient])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -178,9 +190,9 @@ export default function NewOfferPage() {
           completedSessions: 0,
           paymentMethod: null,
           // Commissione CoachaMi
-          commissionRate: COACHAMI_COMMISSION,
-          commissionAmount: priceTotal * COACHAMI_COMMISSION,
-          coachEarnings: priceTotal * (1 - COACHAMI_COMMISSION),
+          commissionRate: officeCommission,
+          commissionAmount: priceTotal * officeCommission,
+          coachEarnings: priceTotal * (1 - officeCommission),
           // Validità
           status: 'pending', // Pending finché il coachee non accetta
           validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 giorni
@@ -433,12 +445,12 @@ export default function NewOfferPage() {
                     <span>€{(offerData.totalSessions * offerData.pricePerSession).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Commissione CoachaMi (30%):</span>
-                    <span>-€{((offerData.totalSessions * offerData.pricePerSession) * COACHAMI_COMMISSION).toFixed(2)}</span>
+                    <span>Commissione CoachaMi ({(officeCommission * 100).toFixed(1)}%):</span>
+                    <span>-€{((offerData.totalSessions * offerData.pricePerSession) * officeCommission).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-bold pt-1 border-t border-orange-200">
                     <span>Il tuo guadagno:</span>
-                    <span className="text-green-600">€{((offerData.totalSessions * offerData.pricePerSession) * (1 - COACHAMI_COMMISSION)).toFixed(2)}</span>
+                    <span className="text-green-600">€{((offerData.totalSessions * offerData.pricePerSession) * (1 - officeCommission)).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -492,9 +504,9 @@ export default function NewOfferPage() {
           >
             <Info className="text-orange-500 mt-0.5 flex-shrink-0" size={20} />
             <div>
-              <p className="font-medium text-orange-800">Cliente CoachaMi - Commissione 30%</p>
+              <p className="font-medium text-orange-800">Cliente CoachaMi - Commissione {(officeCommission * 100).toFixed(1)}%</p>
               <p className="text-sm text-orange-600">
-                Per i percorsi venduti a clienti della piattaforma, CoachaMi trattiene il 30% come commissione per il servizio di matching e gestione pagamenti.
+                Per i percorsi venduti a clienti della piattaforma, CoachaMi trattiene il {(officeCommission * 100).toFixed(1)}% come commissione per il servizio di gestione pagamenti.
               </p>
             </div>
           </motion.div>
@@ -640,18 +652,18 @@ export default function NewOfferPage() {
                     <div className="flex items-start gap-2 text-sm">
                       <Info size={16} className="text-orange-500 mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="text-orange-600 font-medium">Commissione CoachaMi 30%</p>
+                        <p className="text-orange-600 font-medium">Commissione CoachaMi {(officeCommission * 100).toFixed(1)}%</p>
                         <div className="text-gray-500 mt-1 space-y-1">
                           <div className="flex justify-between">
                             <span>Commissione piattaforma:</span>
                             <span className="text-orange-600">
-                              -€{((offerData.totalSessions * offerData.pricePerSession) * COACHAMI_COMMISSION).toFixed(2)}
+                              -€{((offerData.totalSessions * offerData.pricePerSession) * officeCommission).toFixed(2)}
                             </span>
                           </div>
                           <div className="flex justify-between font-medium text-charcoal">
                             <span>Il tuo guadagno netto:</span>
                             <span className="text-green-600">
-                              €{((offerData.totalSessions * offerData.pricePerSession) * (1 - COACHAMI_COMMISSION)).toFixed(2)}
+                              €{((offerData.totalSessions * offerData.pricePerSession) * (1 - officeCommission)).toFixed(2)}
                             </span>
                           </div>
                         </div>

@@ -12,6 +12,7 @@ export default function AdminSettingsPage() {
     supportEmail: 'supporto@coachami.it',
     coachEmail: 'coach@coachami.it',
     platformFeePercentage: 30,
+    officeCommissionPercentage: 3.5, // Commissione per percorsi venduti da ufficio virtuale
     freeCallDuration: 15,
     maxAreasPerCoach: 1,
     autoApproveCoaches: false,
@@ -59,6 +60,7 @@ export default function AdminSettingsPage() {
         supportEmail: settings.supportEmail,
         coachEmail: settings.coachEmail,
         platformFeePercentage: settings.platformFeePercentage,
+        officeCommissionPercentage: settings.officeCommissionPercentage,
         freeCallDuration: settings.freeCallDuration,
         maxAreasPerCoach: settings.maxAreasPerCoach,
         autoApproveCoaches: settings.autoApproveCoaches,
@@ -263,7 +265,24 @@ export default function AdminSettingsPage() {
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Il coach riceve {100 - settings.platformFeePercentage}% di ogni sessione
+                  Il coach riceve {100 - settings.platformFeePercentage}% di ogni sessione venduta tramite matching CoachaMi
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Commissione Ufficio Virtuale (%)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.5}
+                  value={settings.officeCommissionPercentage}
+                  onChange={(e) => setSettings({ ...settings, officeCommissionPercentage: parseFloat(e.target.value) })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Commissione per percorsi venduti dall'Ufficio Virtuale a clienti CoachaMi (il coach riceve {(100 - settings.officeCommissionPercentage).toFixed(1)}%)
                 </p>
               </div>
               <div>
