@@ -19,7 +19,8 @@ export async function POST(request: NextRequest) {
       sessionDuration,
       totalSessions,
       title,
-      coachStripeAccountId
+      coachStripeAccountId,
+      commissionRate // Commissione dinamica (es. 0.30 per 30%, 0.035 per 3.5%)
     } = body
 
     if (!offerId || !installmentNumber || !userId || !amount) {
@@ -30,8 +31,11 @@ export async function POST(request: NextRequest) {
     }
 
     const amountCents = Math.round(amount * 100)
-    const netAmount = amount / 1.22
-    const platformFeeCents = Math.round(netAmount * 0.30 * 100)
+    
+    // Usa commissione dinamica se fornita, altrimenti default 30%
+    const effectiveCommissionRate = commissionRate ?? 0.30
+    // Commissione calcolata sul LORDO
+    const platformFeeCents = Math.round(amount * effectiveCommissionRate * 100)
 
     const sessionConfig: Stripe.Checkout.SessionCreateParams = {
       mode: 'payment',
@@ -54,6 +58,7 @@ export async function POST(request: NextRequest) {
         offerId: offerId,
         installmentNumber: installmentNumber.toString(),
         userId: userId,
+        commissionRate: effectiveCommissionRate.toString(),
       },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/pay/success?offerId=${offerId}&session=${installmentNumber}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pay/offer/${offerId}?cancelled=true`,
