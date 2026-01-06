@@ -49,6 +49,9 @@ interface ExternalOffer {
   priceTotalWithFee: number
   pricePerSessionWithFee: number
   paymentMethod?: 'single' | 'installments'
+  // Contratto
+  contractAccepted?: boolean
+  signedContractId?: string
 }
 
 export default function ExternalOfferPage() {
@@ -61,6 +64,7 @@ export default function ExternalOfferPage() {
   const [error, setError] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'single' | 'installments' | null>(null)
+  const [needsContract, setNeedsContract] = useState(false)
 
   useEffect(() => {
     const loadOffer = async () => {
@@ -76,6 +80,17 @@ export default function ExternalOfferPage() {
         }
         
         const data = offerDoc.data()
+        
+        // Verifica se il coach ha un contratto attivo e se non è ancora stato accettato
+        if (!data.contractAccepted && data.paidInstallments === 0) {
+          const contractDoc = await getDoc(doc(db, 'coachContracts', data.coachId))
+          if (contractDoc.exists() && contractDoc.data().enabled) {
+            // Redirect alla pagina contratto
+            window.location.href = `/external-offer/${offerId}/contract`
+            return
+          }
+        }
+        
         const offerData: ExternalOffer = {
           id: offerDoc.id,
           coachId: data.coachId,
@@ -100,7 +115,10 @@ export default function ExternalOfferPage() {
           installmentFeePercent: data.installmentFeePercent ?? 0,
           priceTotalWithFee: data.priceTotalWithFee ?? data.priceTotal,
           pricePerSessionWithFee: data.pricePerSessionWithFee ?? data.pricePerSession,
-          paymentMethod: data.paymentMethod
+          paymentMethod: data.paymentMethod,
+          // Contratto
+          contractAccepted: data.contractAccepted,
+          signedContractId: data.signedContractId
         }
         setOffer(offerData)
         
