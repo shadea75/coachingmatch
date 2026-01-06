@@ -1,4 +1,3 @@
-export const dynamic = 'force-dynamic'
 // src/app/api/stripe/connect/status/route.ts
 // Endpoint per verificare lo stato dell'account Stripe Connect di un coach
 
@@ -6,6 +5,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { db } from '@/lib/firebase'
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+
+export const dynamic = 'force-dynamic'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10'
