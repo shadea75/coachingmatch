@@ -39,7 +39,8 @@ function PaySuccessContent() {
   const { user } = useAuth()
   
   const offerId = searchParams.get('offerId')
-  const sessionNumber = searchParams.get('session')
+  // Supporta sia 'session' che 'installment' come parametro
+  const sessionNumber = searchParams.get('session') || searchParams.get('installment')
   
   // Stati pagamento
   const [isUpdating, setIsUpdating] = useState(true)
@@ -64,6 +65,7 @@ function PaySuccessContent() {
   useEffect(() => {
     const updatePaymentStatus = async () => {
       if (!offerId || !sessionNumber) {
+        setError('Parametri mancanti')
         setIsUpdating(false)
         return
       }
@@ -151,7 +153,7 @@ function PaySuccessContent() {
           setManualEvents(events)
         }
 
-        // Aggiorna lo stato della rata pagata
+        // Aggiorna lo stato della rata pagata (solo se non già pagata)
         const installmentIndex = parseInt(sessionNumber) - 1
         const installments = offerData.installments || []
         
@@ -318,7 +320,7 @@ function PaySuccessContent() {
         sessionNumber: parseInt(sessionNumber || '1'),
         totalSessions: offer.totalSessions,
         type: 'paid_session',
-        status: 'pending', // In attesa di conferma dal coach
+        status: 'pending',
         scheduledAt,
         duration: offer.sessionDuration || 60,
         price: offer.pricePerSession,
@@ -328,7 +330,7 @@ function PaySuccessContent() {
       
       const sessionRef = await addDoc(collection(db, 'sessions'), sessionData)
       
-      // Invia email di notifica (in attesa di conferma)
+      // Invia email di notifica
       try {
         await fetch('/api/send-email', {
           method: 'POST',
@@ -354,12 +356,12 @@ function PaySuccessContent() {
       setStep('confirmed')
     } catch (err) {
       console.error('Errore prenotazione:', err)
-      setError('Errore durante la prenotazione. Riprova.')
+      setError('Errore durante la prenotazione')
     } finally {
       setIsSubmitting(false)
     }
   }
-
+  
   // Loading
   if (isUpdating) {
     return (
@@ -371,177 +373,197 @@ function PaySuccessContent() {
       </div>
     )
   }
+  
+  // Errore
+  if (error && !offer) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 text-center max-w-md">
+          <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+            <span className="text-red-500 text-2xl">!</span>
+          </div>
+          <h2 className="text-xl font-semibold text-charcoal mb-2">Errore</h2>
+          <p className="text-gray-500 mb-6">{error}</p>
+          <Link href="/dashboard" className="btn btn-primary">
+            Torna alla Dashboard
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 p-4">
-        <div className="max-w-lg mx-auto flex justify-center">
-          <Logo size="md" />
+    <div className="min-h-screen bg-cream">
+      <header className="bg-white border-b border-gray-100">
+        <div className="max-w-lg mx-auto px-4 py-4 flex justify-center">
+          <Logo size="sm" />
         </div>
       </header>
-
-      {/* Content */}
-      <main className="flex-1 p-4">
-        <div className="max-w-lg mx-auto">
+      
+      <main className="max-w-lg mx-auto px-4 py-8">
+        <div className="space-y-6">
           
-          {/* Errore */}
-          {error && !offer && (
-            <div className="bg-white rounded-2xl p-8 shadow-sm text-center">
-              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-6">
-                <span className="text-red-500 text-2xl">!</span>
-              </div>
+          {/* Step 1: Conferma pagamento */}
+          {step === 'payment' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-2xl p-8 shadow-sm text-center"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', delay: 0.2 }}
+                className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6"
+              >
+                <CheckCircle className="text-green-500" size={40} />
+              </motion.div>
+
               <h1 className="text-2xl font-bold text-charcoal mb-2">
-                Ops, qualcosa è andato storto
+                Pagamento confermato!
               </h1>
-              <p className="text-gray-500 mb-6">{error}</p>
-              <Link href="/dashboard" className="text-primary-500 hover:underline">
-                Torna alla dashboard
-              </Link>
-            </div>
+              
+              <p className="text-gray-500 mb-6">
+                Ora puoi prenotare la tua sessione
+              </p>
+
+              <button
+                onClick={() => setStep('booking')}
+                className="btn btn-primary w-full"
+              >
+                Prenota sessione
+                <ArrowRight size={18} className="ml-2" />
+              </button>
+            </motion.div>
           )}
           
-          {/* Step 1: Pagamento confermato + Step 2: Prenotazione */}
+          {/* Step 2: Prenotazione */}
           {step === 'booking' && offer && coach && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
-              {/* Pagamento confermato */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
-                    <CheckCircle className="text-green-500" size={28} />
-                  </div>
-                  <div>
-                    <h1 className="text-lg font-semibold text-charcoal">Pagamento completato!</h1>
-                    <p className="text-gray-500 text-sm">Sessione {sessionNumber}/{offer.totalSessions} pagata</p>
-                  </div>
-                </div>
-                
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <p className="text-sm text-gray-600">
-                    <strong>{offer.title}</strong> con {coach.name}
-                  </p>
+              {/* Header conferma pagamento */}
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
+                <CheckCircle className="text-green-500 flex-shrink-0" size={24} />
+                <div>
+                  <p className="font-medium text-green-800">Pagamento confermato!</p>
+                  <p className="text-green-600 text-sm">Sessione {sessionNumber}/{offer.totalSessions} - {offer.title}</p>
                 </div>
               </div>
               
-              {/* Prenota sessione */}
+              {/* Calendario */}
               <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-                    <Calendar className="text-primary-500" size={20} />
-                  </div>
-                  <div>
-                    <h2 className="font-semibold text-charcoal">Prenota la tua sessione</h2>
-                    <p className="text-sm text-gray-500">Scegli data e ora</p>
-                  </div>
+                <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+                  <Calendar className="text-primary-500" size={20} />
+                  Scegli data e ora
+                </h2>
+                
+                {/* Navigazione settimana */}
+                <div className="flex items-center justify-between mb-4">
+                  <button
+                    onClick={goToPreviousWeek}
+                    className="p-2 hover:bg-gray-100 rounded-lg"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <span className="font-medium">
+                    {format(currentWeekStart, 'MMMM yyyy', { locale: it })}
+                  </span>
+                  <button
+                    onClick={goToNextWeek}
+                    className="p-2 hover:bg-gray-100 rounded-lg"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
                 </div>
                 
-                {/* Calendario settimana */}
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <button
-                      onClick={goToPreviousWeek}
-                      disabled={isBefore(addDays(currentWeekStart, -1), new Date())}
-                      className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30"
-                    >
-                      <ChevronLeft size={20} />
-                    </button>
-                    <span className="font-medium text-charcoal">
-                      {format(currentWeekStart, 'MMMM yyyy', { locale: it })}
-                    </span>
-                    <button
-                      onClick={goToNextWeek}
-                      className="p-2 hover:bg-gray-100 rounded-lg"
-                    >
-                      <ChevronRight size={20} />
-                    </button>
-                  </div>
-                  
-                  <div className="grid grid-cols-7 gap-1">
-                    {['L', 'M', 'M', 'G', 'V', 'S', 'D'].map((day, i) => (
-                      <div key={i} className="text-center text-xs font-medium text-gray-400 py-2">
-                        {day}
-                      </div>
-                    ))}
+                {/* Giorni della settimana */}
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map(day => (
+                    <div key={day} className="text-center text-xs text-gray-400 py-1">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Date */}
+                <div className="grid grid-cols-7 gap-1">
+                  {weekDays.map((date) => {
+                    const isPast = isPastDate(date)
+                    const hasSlots = hasAvailability(date)
+                    const isBlocked = isDateBlocked(date)
+                    const isSelected = selectedDate && isSameDay(date, selectedDate)
+                    const isDisabled = isPast || isBlocked || !hasSlots
                     
-                    {weekDays.map((date, i) => {
-                      const isPast = isPastDate(date)
-                      const hasSlots = hasAvailability(date)
-                      const isBlocked = isDateBlocked(date)
-                      const isSelected = selectedDate && isSameDay(date, selectedDate)
-                      const isDisabled = isPast || !hasSlots || isBlocked
-                      
-                      return (
+                    return (
+                      <button
+                        key={date.toISOString()}
+                        onClick={() => {
+                          if (!isDisabled) {
+                            setSelectedDate(date)
+                            setSelectedTime(null)
+                          }
+                        }}
+                        disabled={isDisabled}
+                        className={`
+                          aspect-square rounded-xl flex flex-col items-center justify-center text-sm transition-all
+                          ${isSelected 
+                            ? 'bg-primary-500 text-white' 
+                            : isDisabled
+                              ? 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                              : 'bg-gray-50 hover:bg-primary-50 text-charcoal'
+                          }
+                          ${isToday(date) && !isSelected ? 'ring-2 ring-primary-300' : ''}
+                        `}
+                      >
+                        <span className="font-medium">{format(date, 'd')}</span>
+                        {hasSlots && !isPast && !isBlocked && (
+                          <span className={`w-1.5 h-1.5 rounded-full mt-1 ${isSelected ? 'bg-white' : 'bg-green-400'}`} />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              
+              {/* Orari disponibili */}
+              {selectedDate && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="bg-white rounded-2xl p-6 shadow-sm"
+                >
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">
+                    Orari disponibili per {format(selectedDate, 'EEEE d MMMM', { locale: it })}
+                  </h3>
+                  
+                  {availableSlots.length > 0 ? (
+                    <div className="grid grid-cols-4 gap-2">
+                      {availableSlots.map((time: string) => (
                         <button
-                          key={i}
-                          onClick={() => {
-                            if (!isDisabled) {
-                              setSelectedDate(date)
-                              setSelectedTime(null)
-                            }
-                          }}
-                          disabled={isDisabled}
+                          key={time}
+                          onClick={() => setSelectedTime(time)}
                           className={`
-                            aspect-square rounded-xl flex flex-col items-center justify-center text-sm transition-all
-                            ${isSelected 
-                              ? 'bg-primary-500 text-white' 
-                              : isDisabled
-                                ? 'bg-gray-50 text-gray-300 cursor-not-allowed'
-                                : 'bg-gray-50 hover:bg-primary-50 text-charcoal'
+                            py-2 px-3 rounded-lg text-sm font-medium transition-all
+                            ${selectedTime === time
+                              ? 'bg-primary-500 text-white'
+                              : 'bg-gray-50 hover:bg-gray-100 text-charcoal'
                             }
-                            ${isToday(date) && !isSelected ? 'ring-2 ring-primary-300' : ''}
                           `}
                         >
-                          <span className="font-medium">{format(date, 'd')}</span>
-                          {hasSlots && !isPast && !isBlocked && (
-                            <span className={`w-1.5 h-1.5 rounded-full mt-1 ${isSelected ? 'bg-white' : 'bg-green-400'}`} />
-                          )}
+                          {time}
                         </button>
-                      )
-                    })}
-                  </div>
-                </div>
-                
-                {/* Orari disponibili */}
-                {selectedDate && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="border-t pt-4"
-                  >
-                    <h3 className="text-sm font-medium text-gray-700 mb-3">
-                      Orari disponibili per {format(selectedDate, 'EEEE d MMMM', { locale: it })}
-                    </h3>
-                    
-                    {availableSlots.length > 0 ? (
-                      <div className="grid grid-cols-4 gap-2">
-                        {availableSlots.map((time: string) => (
-                          <button
-                            key={time}
-                            onClick={() => setSelectedTime(time)}
-                            className={`
-                              py-2 px-3 rounded-lg text-sm font-medium transition-all
-                              ${selectedTime === time
-                                ? 'bg-primary-500 text-white'
-                                : 'bg-gray-50 hover:bg-gray-100 text-charcoal'
-                              }
-                            `}
-                          >
-                            {time}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-gray-400 text-sm">
-                        Nessun orario disponibile per questa data
-                      </p>
-                    )}
-                  </motion.div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-400 text-sm">
+                      Nessun orario disponibile per questa data
+                    </p>
+                  )}
+                </motion.div>
+              )}
               
               {/* Riepilogo e conferma */}
               {selectedDate && selectedTime && (
@@ -565,15 +587,6 @@ function PaySuccessContent() {
                       <Video size={18} />
                       <span>Videochiamata (riceverai il link via email)</span>
                     </div>
-                  </div>
-                  
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-                    <p className="text-blue-700 text-sm">
-                      <strong>Sessione {sessionNumber}/{offer.totalSessions}</strong> - {offer.title}
-                    </p>
-                    <p className="text-blue-600 text-xs mt-1">
-                      Il coach confermerà la prenotazione e riceverai un'email
-                    </p>
                   </div>
                   
                   {error && (
