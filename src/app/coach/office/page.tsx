@@ -10,6 +10,7 @@ import {
   Search,
   Filter,
   ChevronRight,
+  ChevronLeft,
   BarChart3,
   Briefcase,
   Calendar,
@@ -68,11 +69,19 @@ export default function CoachOfficePage() {
     externalClients: 0,
     totalRevenue: 0,
     confirmedSessions: 0, // Sessioni confermate future
-    monthlyAvailableSlots: 0, // Slot disponibili nel mese
     pendingToBook: 0, // Sessioni pagate da prenotare
-    potentialRevenue: 0, // Fatturato potenziale (slot liberi x tariffa)
     hourlyRate: 0 // Tariffa oraria coach
   })
+  
+  // Stato per disponibilità mensile
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [monthlyStats, setMonthlyStats] = useState({
+    availableSlots: 0,
+    potentialRevenue: 0
+  })
+  const [weeklySlots, setWeeklySlots] = useState<Record<number, string[]>>({})
+  const [hourlyRate, setHourlyRate] = useState(80)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -239,24 +248,14 @@ export default function CoachOfficePage() {
         
         const totalSessionsThisMonth = sessionsThisMonth + extSessionsThisMonth
         
-        // Calcola slot disponibili nel mese
+        // Carica disponibilità settimanale
         const availDoc = await getDoc(doc(db, 'coachAvailability', user.id))
-        let monthlyTotalSlots = 0
+        let loadedWeeklySlots: Record<number, string[]> = {}
         
         if (availDoc.exists()) {
-          const weeklySlots = availDoc.data().weeklySlots || {}
-          
-          // Conta i giorni rimanenti nel mese per ogni giorno della settimana
-          let currentDate = new Date(now)
-          currentDate.setHours(0, 0, 0, 0)
-          
-          while (currentDate <= endOfMonth) {
-            const dayOfWeek = currentDate.getDay()
-            const slotsForDay = weeklySlots[dayOfWeek] || weeklySlots[dayOfWeek.toString()] || []
-            monthlyTotalSlots += slotsForDay.length
-            currentDate.setDate(currentDate.getDate() + 1)
-          }
+          loadedWeeklySlots = availDoc.data().weeklySlots || {}
         }
+        setWeeklySlots(loadedWeeklySlots)
         
         // Sessioni pagate da prenotare (potrebbero prenotare nel mese)
         let pendingToBook = 0
@@ -279,19 +278,13 @@ export default function CoachOfficePage() {
           pendingToBook += (od.paidInstallments || 0) - (od.completedSessions || 0)
         })
         
-        // Slot effettivamente disponibili = totale - già prenotati - da prenotare
-        // (le sessioni "da prenotare" potrebbero essere prenotate nel mese)
-        const actualAvailableSlots = Math.max(0, monthlyTotalSlots - totalSessionsThisMonth - pendingToBook)
-        
         // Carica tariffa oraria del coach
         const coachDoc = await getDoc(doc(db, 'coachApplications', user.id))
-        let hourlyRate = 80 // Default
+        let loadedHourlyRate = 80 // Default
         if (coachDoc.exists()) {
-          hourlyRate = coachDoc.data().hourlyRate || coachDoc.data().averagePrice || 80
+          loadedHourlyRate = coachDoc.data().hourlyRate || coachDoc.data().averagePrice || 80
         }
-        
-        // Calcola fatturato potenziale
-        const potentialRevenue = actualAvailableSlots * hourlyRate
+        setHourlyRate(loadedHourlyRate)
         
         setStats({
           totalClients: allClients.length,
@@ -299,10 +292,8 @@ export default function CoachOfficePage() {
           externalClients: externalClients.length,
           totalRevenue,
           confirmedSessions,
-          monthlyAvailableSlots: actualAvailableSlots,
           pendingToBook,
-          potentialRevenue,
-          hourlyRate
+          hourlyRate: loadedHourlyRate
         })
         
       } catch (err) {
@@ -316,6 +307,59 @@ export default function CoachOfficePage() {
       loadClients()
     }
   }, [user])
+
+  // Calcola disponibilità per il mese selezionato
+  useEffect(() => {
+    const calculateMonthlyAvailability = () => {
+      const now = new Date()
+      const isCurrentMonth = selectedMonth === now.getMonth() && selectedYear === now.getFullYear()
+      
+      // Data di inizio: oggi se mese corrente, altrimenti primo del mese
+      const startDate = isCurrentMonth 
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        : new Date(selectedYear, selectedMonth, 1)
+      
+      // Data di fine: ultimo giorno del mese selezionato
+      const endDate = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59)
+      
+      // Conta gli slot disponibili
+      let totalSlots = 0
+      let currentDate = new Date(startDate)
+      currentDate.setHours(0, 0, 0, 0)
+      
+      while (currentDate <= endDate) {
+        const dayOfWeek = currentDate.getDay()
+        const slotsForDay = weeklySlots[dayOfWeek] || weeklySlots[dayOfWeek.toString()] || []
+        totalSlots += slotsForDay.length
+        currentDate.setDate(currentDate.getDate() + 1)
+      }
+      
+      // Per il mese corrente, sottrai sessioni confermate e da prenotare
+      // Per mesi futuri, mostra tutti gli slot (non ci sono ancora prenotazioni)
+      let availableSlots = totalSlots
+      if (isCurrentMonth) {
+        availableSlots = Math.max(0, totalSlots - stats.confirmedSessions - stats.pendingToBook)
+      }
+      
+      setMonthlyStats({
+        availableSlots,
+        potentialRevenue: availableSlots * hourlyRate
+      })
+    }
+    
+    calculateMonthlyAvailability()
+  }, [selectedMonth, selectedYear, weeklySlots, hourlyRate, stats.confirmedSessions, stats.pendingToBook])
+
+  // Genera lista mesi per il selettore (mese corrente + prossimi 5)
+  const monthOptions = Array.from({ length: 6 }, (_, i) => {
+    const date = new Date()
+    date.setMonth(date.getMonth() + i)
+    return {
+      month: date.getMonth(),
+      year: date.getFullYear(),
+      label: date.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })
+    }
+  })
 
   // Filtra clienti
   const filteredClients = clients.filter(client => {
@@ -414,19 +458,57 @@ export default function CoachOfficePage() {
           transition={{ delay: 0.3 }}
           className="bg-white rounded-2xl p-4 shadow-sm"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <TrendingUp className="text-purple-600" size={20} />
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <TrendingUp className="text-purple-600" size={20} />
+              </div>
+              <span className="text-gray-500 text-sm">Disponibilità</span>
             </div>
-            <span className="text-gray-500 text-sm">Disponibilità Mese</span>
+            {/* Selettore Mese */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  const currentIndex = monthOptions.findIndex(
+                    m => m.month === selectedMonth && m.year === selectedYear
+                  )
+                  if (currentIndex > 0) {
+                    setSelectedMonth(monthOptions[currentIndex - 1].month)
+                    setSelectedYear(monthOptions[currentIndex - 1].year)
+                  }
+                }}
+                disabled={selectedMonth === new Date().getMonth() && selectedYear === new Date().getFullYear()}
+                className="p-1 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={16} className="text-gray-500" />
+              </button>
+              <span className="text-xs font-medium text-purple-600 min-w-[60px] text-center capitalize">
+                {new Date(selectedYear, selectedMonth).toLocaleDateString('it-IT', { month: 'short' })}
+              </span>
+              <button
+                onClick={() => {
+                  const currentIndex = monthOptions.findIndex(
+                    m => m.month === selectedMonth && m.year === selectedYear
+                  )
+                  if (currentIndex < monthOptions.length - 1) {
+                    setSelectedMonth(monthOptions[currentIndex + 1].month)
+                    setSelectedYear(monthOptions[currentIndex + 1].year)
+                  }
+                }}
+                disabled={monthOptions.findIndex(m => m.month === selectedMonth && m.year === selectedYear) === monthOptions.length - 1}
+                className="p-1 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={16} className="text-gray-500" />
+              </button>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-charcoal">{stats.monthlyAvailableSlots}</p>
+          <p className="text-2xl font-bold text-charcoal">{monthlyStats.availableSlots}</p>
           <p className="text-xs text-gray-500">
-            slot liberi a {new Date().toLocaleDateString('it-IT', { month: 'short' })}
+            slot liberi
           </p>
-          {stats.potentialRevenue > 0 && (
+          {monthlyStats.potentialRevenue > 0 && (
             <p className="text-sm text-green-600 font-medium mt-2">
-              €{stats.potentialRevenue.toLocaleString('it-IT')} potenziali
+              €{monthlyStats.potentialRevenue.toLocaleString('it-IT')} potenziali
             </p>
           )}
         </motion.div>
