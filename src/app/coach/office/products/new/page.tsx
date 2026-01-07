@@ -6,8 +6,6 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   ArrowLeft,
-  Upload,
-  Image as ImageIcon,
   FileText,
   Video,
   Headphones,
@@ -17,8 +15,9 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
-  X,
-  Info
+  Info,
+  Image as ImageIcon,
+  X
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { db, storage } from '@/lib/firebase'
@@ -41,6 +40,8 @@ export default function NewProductPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [commission, setCommission] = useState(3.5) // Default
+  const [uploadingCover, setUploadingCover] = useState(false)
+  const [coverPreview, setCoverPreview] = useState<string | null>(null)
   
   const [formData, setFormData] = useState({
     title: '',
@@ -51,11 +52,6 @@ export default function NewProductPage() {
     fileUrl: '',
     fileName: ''
   })
-  
-  // Stati per upload cover
-  const [uploadingCover, setUploadingCover] = useState(false)
-  const [coverPreview, setCoverPreview] = useState<string | null>(null)
-  const [coverProgress, setCoverProgress] = useState(0)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -93,17 +89,15 @@ export default function NewProductPage() {
       return
     }
     
-    // Limite 5MB per immagini
     if (file.size > 5 * 1024 * 1024) {
       setError('L\'immagine è troppo grande. Massimo 5MB.')
       return
     }
     
     setUploadingCover(true)
-    setCoverProgress(0)
     setError('')
     
-    // Crea preview locale subito
+    // Preview locale
     const reader = new FileReader()
     reader.onload = (e) => {
       setCoverPreview(e.target?.result as string)
@@ -111,20 +105,15 @@ export default function NewProductPage() {
     reader.readAsDataURL(file)
     
     try {
-      // Genera nome file unico
       const timestamp = Date.now()
       const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
       const filePath = `covers/${user.id}/${timestamp}_${safeName}`
       
-      // Carica su Firebase Storage con progress
       const storageRef = ref(storage, filePath)
       const uploadTask = uploadBytesResumable(storageRef, file)
       
       uploadTask.on('state_changed',
-        (snapshot) => {
-          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
-          setCoverProgress(progress)
-        },
+        () => {},
         (error) => {
           console.error('Errore upload cover:', error)
           setError('Errore durante il caricamento: ' + error.message)
@@ -137,12 +126,11 @@ export default function NewProductPage() {
             coverImage: downloadUrl
           }))
           setUploadingCover(false)
-          setCoverProgress(0)
         }
       )
     } catch (err: any) {
       console.error('Errore upload cover:', err)
-      setError('Errore durante il caricamento dell\'immagine: ' + (err.message || 'Riprova'))
+      setError('Errore durante il caricamento dell\'immagine')
       setUploadingCover(false)
     }
   }
@@ -322,14 +310,14 @@ export default function NewProductPage() {
           </div>
         </motion.div>
 
-        {/* Cover Image */}
+        {/* Immagine di copertina - Upload */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
           className="bg-white rounded-2xl p-6 shadow-sm"
         >
-          <h2 className="font-semibold text-charcoal mb-4">Immagine di copertina</h2>
+          <h2 className="font-semibold text-charcoal mb-4">Immagine di copertina (opzionale)</h2>
           
           <input
             type="file"
@@ -339,10 +327,10 @@ export default function NewProductPage() {
             className="hidden"
           />
           
-          {coverPreview ? (
+          {coverPreview || formData.coverImage ? (
             <div className="relative">
               <img 
-                src={coverPreview} 
+                src={coverPreview || formData.coverImage} 
                 alt="Cover preview"
                 className="w-full h-48 object-cover rounded-xl"
               />
@@ -365,11 +353,14 @@ export default function NewProductPage() {
               className="w-full h-48 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary-400 hover:bg-primary-50 transition-colors"
             >
               {uploadingCover ? (
-                <Loader2 className="animate-spin text-primary-500" size={32} />
+                <div className="text-center">
+                  <Loader2 className="animate-spin text-primary-500 mx-auto" size={32} />
+                  <p className="text-primary-600 font-medium mt-2">Caricamento...</p>
+                </div>
               ) : (
                 <>
                   <ImageIcon className="text-gray-400" size={32} />
-                  <span className="text-gray-500">Clicca per caricare un'immagine</span>
+                  <span className="text-gray-500">Clicca per caricare</span>
                   <span className="text-xs text-gray-400">JPG, PNG, WebP (max 5MB)</span>
                 </>
               )}
