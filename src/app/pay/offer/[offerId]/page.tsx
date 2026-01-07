@@ -36,6 +36,9 @@ interface Offer {
   paidInstallments: number
   status: string
   installments: Array<{ sessionNumber: number; amount: number; status: string }>
+  coachStripeAccountId?: string
+  commissionRate?: number // Commissione (es. 0.30 per 30%, 0.035 per 3.5%)
+  source?: string // 'office' per offerte dall'ufficio virtuale
 }
 
 function PayOfferContent() {
@@ -63,6 +66,17 @@ function PayOfferContent() {
         }
         const data = offerDoc.data()
         
+        // Carica anche l'account Stripe del coach se esiste
+        let coachStripeAccountId = undefined
+        try {
+          const stripeDoc = await getDoc(doc(db, 'coachStripeAccounts', data.coachId))
+          if (stripeDoc.exists()) {
+            coachStripeAccountId = stripeDoc.data().stripeAccountId
+          }
+        } catch (e) {
+          console.log('Coach non ha Stripe Connect')
+        }
+        
         setOffer({
           id: offerDoc.id,
           coachId: data.coachId,
@@ -76,6 +90,9 @@ function PayOfferContent() {
           paidInstallments: data.paidInstallments || 0,
           status: data.status || 'pending',
           installments: data.installments || [],
+          coachStripeAccountId,
+          commissionRate: data.commissionRate, // Commissione salvata nell'offerta
+          source: data.source // 'office' se creata dall'ufficio virtuale
         })
       } catch (err) {
         console.error('Errore:', err)
@@ -95,13 +112,32 @@ function PayOfferContent() {
     setIsProcessing(true)
     setError('')
     
+    // Log per debug
+    console.log('Pagamento offerta:', {
+      offerId: offer.id,
+      commissionRate: offer.commissionRate,
+      source: offer.source,
+      amount: nextInstallment.amount
+    })
+    
     try {
-      const response = await fetch('/api/checkout', {
+      const response = await fetch('/api/payments/create-installment-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           offerId: offer.id,
           installmentNumber: nextInstallmentNumber,
+          userId: user.id,
+          // Passa i dati necessari per evitare firebase-admin
+          amount: nextInstallment.amount,
+          coachName: offer.coachName,
+          coacheeEmail: offer.coacheeEmail || user.email,
+          sessionDuration: offer.sessionDuration,
+          totalSessions: offer.totalSessions,
+          title: offer.title,
+          coachStripeAccountId: offer.coachStripeAccountId,
+          // Commissione dinamica (default 30% se non specificata)
+          commissionRate: offer.commissionRate ?? 0.30
         })
       })
       

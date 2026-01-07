@@ -23,6 +23,14 @@ export async function POST(request: NextRequest) {
       commissionRate // Commissione dinamica (es. 0.30 per 30%, 0.035 per 3.5%)
     } = body
 
+    // Log per debug commissione
+    console.log('Checkout commissione:', { 
+      offerId, 
+      commissionRate, 
+      commissionRateType: typeof commissionRate,
+      amount 
+    })
+
     if (!offerId || !installmentNumber || !userId || !amount) {
       return NextResponse.json(
         { error: 'Dati mancanti' },
@@ -32,8 +40,18 @@ export async function POST(request: NextRequest) {
 
     const amountCents = Math.round(amount * 100)
     
-    // Usa commissione dinamica se fornita, altrimenti default 30%
-    const effectiveCommissionRate = commissionRate ?? 0.30
+    // Usa commissione dinamica se fornita
+    // Default: 0.30 (30%) per offerte matching standard
+    // Le offerte dall'ufficio virtuale dovrebbero avere commissionRate salvato
+    const effectiveCommissionRate = commissionRate !== undefined ? commissionRate : 0.30
+    
+    // Log calcolo commissione
+    console.log('Commissione calcolata:', {
+      effectiveCommissionRate,
+      amount,
+      platformFee: amount * effectiveCommissionRate
+    })
+    
     // Commissione calcolata sul LORDO
     const platformFeeCents = Math.round(amount * effectiveCommissionRate * 100)
 
