@@ -60,8 +60,28 @@ export default function CoachSettingsPage() {
     averagePrice: 80,
     freeCallAvailable: true,
     sessionMode: ['online'],
-    photo: ''
+    photo: '',
+    // Nuovi campi
+    certifications: [] as string[],
+    focusTopics: [] as string[],
+    targetAudience: [] as string[]
   })
+  
+  // Input temporanei per aggiungere nuovi elementi
+  const [newCertification, setNewCertification] = useState('')
+  const [newFocusTopic, setNewFocusTopic] = useState('')
+  
+  // Opzioni target audience
+  const targetAudienceOptions = [
+    'Individui',
+    'Coppie', 
+    'Famiglie',
+    'Aziende',
+    'Studenti',
+    'Manager',
+    'Imprenditori',
+    'Professionisti'
+  ]
   
   // Dati fatturazione
   const [billing, setBilling] = useState({
@@ -97,6 +117,15 @@ export default function CoachSettingsPage() {
         const coachDoc = await getDoc(doc(db, 'coachApplications', user.id))
         if (coachDoc.exists()) {
           const data = coachDoc.data()
+          
+          // Estrai certificazioni (possono essere stringhe o oggetti)
+          let certs: string[] = []
+          if (data.certifications) {
+            certs = data.certifications.map((c: any) => typeof c === 'string' ? c : c.name || '')
+          } else if (data.experience?.certifications) {
+            certs = data.experience.certifications.map((c: any) => typeof c === 'string' ? c : c.name || '')
+          }
+          
           setProfile({
             name: data.name || user.name || '',
             email: data.email || user.email || '',
@@ -105,12 +134,15 @@ export default function CoachSettingsPage() {
             bio: data.bio || '',
             motivation: data.motivation || '',
             lifeArea: data.lifeArea || '',
-            lifeAreas: data.lifeAreas || (data.lifeArea ? [data.lifeArea] : []), // Retrocompatibilità
+            lifeAreas: data.lifeAreas || (data.lifeArea ? [data.lifeArea] : []),
             languages: data.languages || ['Italiano'],
             averagePrice: data.averagePrice || 80,
             freeCallAvailable: data.freeCallAvailable !== false,
             sessionMode: data.sessionMode || ['online'],
-            photo: data.photo || ''
+            photo: data.photo || '',
+            certifications: certs,
+            focusTopics: data.specializations?.focusTopics || data.problemsAddressed || [],
+            targetAudience: data.specializations?.targetAudience || data.clientTypes || []
           })
           
           // Carica dati fatturazione se esistono
@@ -215,12 +247,17 @@ export default function CoachSettingsPage() {
         location: profile.location,
         bio: profile.bio,
         motivation: profile.motivation,
-        lifeArea: profile.lifeAreas[0] || '', // Prima area per retrocompatibilità
-        lifeAreas: profile.lifeAreas,         // Tutte le aree selezionate
+        lifeArea: profile.lifeAreas[0] || '',
+        lifeAreas: profile.lifeAreas,
         languages: profile.languages,
         averagePrice: profile.averagePrice,
         freeCallAvailable: profile.freeCallAvailable,
         sessionMode: profile.sessionMode,
+        // Nuovi campi
+        certifications: profile.certifications,
+        'specializations.focusTopics': profile.focusTopics,
+        'specializations.targetAudience': profile.targetAudience,
+        'experience.certifications': profile.certifications,
         updatedAt: serverTimestamp()
       })
       
@@ -547,6 +584,167 @@ export default function CoachSettingsPage() {
                       ⚠️ Seleziona almeno un'area di competenza
                     </p>
                   )}
+                </div>
+                
+                {/* Certificazioni */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200">
+                  <h2 className="text-lg font-semibold text-charcoal mb-4">Certificazioni</h2>
+                  <p className="text-sm text-gray-500 mb-4">Aggiungi le tue certificazioni e qualifiche</p>
+                  
+                  <div className="flex gap-2 mb-4">
+                    <input
+                      type="text"
+                      value={newCertification}
+                      onChange={(e) => setNewCertification(e.target.value)}
+                      placeholder="Es: PNL, ICF, Life Coaching..."
+                      className="flex-1 px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && newCertification.trim()) {
+                          setProfile(prev => ({
+                            ...prev,
+                            certifications: [...prev.certifications, newCertification.trim()]
+                          }))
+                          setNewCertification('')
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newCertification.trim()) {
+                          setProfile(prev => ({
+                            ...prev,
+                            certifications: [...prev.certifications, newCertification.trim()]
+                          }))
+                          setNewCertification('')
+                        }
+                      }}
+                      className="px-4 py-2 bg-primary-500 text-white rounded-xl hover:bg-primary-600"
+                    >
+                      Aggiungi
+                    </button>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {profile.certifications.map((cert, index) => (
+                      <span 
+                        key={index}
+                        className="px-3 py-1 bg-primary-50 text-primary-700 rounded-full text-sm flex items-center gap-2"
+                      >
+                        {cert}
+                        <button
+                          type="button"
+                          onClick={() => setProfile(prev => ({
+                            ...prev,
+                            certifications: prev.certifications.filter((_, i) => i !== index)
+                          }))}
+                          className="text-primary-400 hover:text-primary-600"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    {profile.certifications.length === 0 && (
+                      <p className="text-sm text-gray-400">Nessuna certificazione aggiunta</p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* In cosa posso aiutarti (Focus Topics) */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200">
+                  <h2 className="text-lg font-semibold text-charcoal mb-4">In cosa posso aiutarti</h2>
+                  <p className="text-sm text-gray-500 mb-4">Specifica in quali ambiti puoi aiutare i tuoi clienti</p>
+                  
+                  <div className="flex gap-2 mb-4">
+                    <input
+                      type="text"
+                      value={newFocusTopic}
+                      onChange={(e) => setNewFocusTopic(e.target.value)}
+                      placeholder="Es: Gestione dello stress, Carriera, Relazioni..."
+                      className="flex-1 px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && newFocusTopic.trim()) {
+                          setProfile(prev => ({
+                            ...prev,
+                            focusTopics: [...prev.focusTopics, newFocusTopic.trim()]
+                          }))
+                          setNewFocusTopic('')
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newFocusTopic.trim()) {
+                          setProfile(prev => ({
+                            ...prev,
+                            focusTopics: [...prev.focusTopics, newFocusTopic.trim()]
+                          }))
+                          setNewFocusTopic('')
+                        }
+                      }}
+                      className="px-4 py-2 bg-primary-500 text-white rounded-xl hover:bg-primary-600"
+                    >
+                      Aggiungi
+                    </button>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {profile.focusTopics.map((topic, index) => (
+                      <span 
+                        key={index}
+                        className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm flex items-center gap-2"
+                      >
+                        {topic}
+                        <button
+                          type="button"
+                          onClick={() => setProfile(prev => ({
+                            ...prev,
+                            focusTopics: prev.focusTopics.filter((_, i) => i !== index)
+                          }))}
+                          className="text-green-400 hover:text-green-600"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    {profile.focusTopics.length === 0 && (
+                      <p className="text-sm text-gray-400">Nessun argomento aggiunto</p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Target Audience */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200">
+                  <h2 className="text-lg font-semibold text-charcoal mb-4">Lavoro principalmente con</h2>
+                  <p className="text-sm text-gray-500 mb-4">Seleziona il tipo di clienti con cui lavori</p>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {targetAudienceOptions.map((audience) => {
+                      const isSelected = profile.targetAudience.includes(audience)
+                      return (
+                        <button
+                          key={audience}
+                          type="button"
+                          onClick={() => {
+                            setProfile(prev => ({
+                              ...prev,
+                              targetAudience: isSelected
+                                ? prev.targetAudience.filter(a => a !== audience)
+                                : [...prev.targetAudience, audience]
+                            }))
+                          }}
+                          className={`px-4 py-2 rounded-xl border-2 transition-all ${
+                            isSelected
+                              ? 'border-primary-500 bg-primary-50 text-primary-700'
+                              : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                          }`}
+                        >
+                          {audience}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
                 
                 {/* Bio e motivazione */}
