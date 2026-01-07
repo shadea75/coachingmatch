@@ -19,7 +19,8 @@ export async function POST(request: NextRequest) {
       coachStripeAccountId,
       commissionRate,
       userId,
-      userEmail
+      userEmail,
+      userName
     } = body
 
     // Log per debug
@@ -27,7 +28,9 @@ export async function POST(request: NextRequest) {
       productId, 
       price, 
       commissionRate,
-      coachStripeAccountId 
+      coachStripeAccountId,
+      userEmail,
+      userName
     })
 
     if (!productId || !price) {
@@ -70,6 +73,8 @@ export async function POST(request: NextRequest) {
         productId: productId,
         coachId: coachId,
         userId: userId || 'guest',
+        userEmail: userEmail || '',
+        userName: userName || '',
         commissionRate: effectiveCommissionRate.toString(),
       },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/shop/success?productId=${productId}&session_id={CHECKOUT_SESSION_ID}`,

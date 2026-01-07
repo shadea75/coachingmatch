@@ -933,7 +933,7 @@ export async function POST(request: NextRequest) {
                         </tr>
                         <tr>
                           <td style="color: #666;">Cliente:</td>
-                          <td style="text-align: right;">${data.customerEmail}</td>
+                          <td style="text-align: right;">${data.customerName || ''} ${data.customerName ? '<br>' : ''}<a href="mailto:${data.customerEmail}" style="color: #EC7711;">${data.customerEmail}</a></td>
                         </tr>
                         <tr>
                           <td style="color: #666;">Prezzo:</td>
