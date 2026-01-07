@@ -845,6 +845,128 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, result })
     }
 
+    // =====================================================
+    // EMAIL ACQUISTO PRODOTTO DIGITALE
+    // =====================================================
+    if (type === 'product_purchase') {
+      // Email al cliente
+      const customerEmailResult = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: data.customerEmail,
+        subject: `🎉 Acquisto completato - ${data.productTitle}`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr><td>${logoHeader}
+                <table width="100%" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                  <tr><td style="padding: 30px;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                      <div style="width: 60px; height: 60px; background: #DCFCE7; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+                        <span style="font-size: 30px;">✅</span>
+                      </div>
+                      <h2 style="margin: 0; color: #333;">Acquisto completato!</h2>
+                    </div>
+                    
+                    <p>Grazie per il tuo acquisto su CoachaMi!</p>
+                    
+                    <div style="background: #f9f9f9; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                      <h3 style="margin: 0 0 15px 0; color: #333;">📦 Dettagli ordine</h3>
+                      <table width="100%" cellpadding="8" cellspacing="0">
+                        <tr>
+                          <td style="color: #666;">Prodotto:</td>
+                          <td style="font-weight: bold; text-align: right;">${data.productTitle}</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #666;">Coach:</td>
+                          <td style="text-align: right;">${data.coachName}</td>
+                        </tr>
+                        <tr style="border-top: 1px solid #ddd;">
+                          <td style="color: #666; padding-top: 15px;">Totale pagato:</td>
+                          <td style="font-weight: bold; font-size: 18px; color: #EC7711; text-align: right; padding-top: 15px;">€${data.price.toFixed(2)}</td>
+                        </tr>
+                      </table>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                      <a href="${data.downloadUrl}" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                        📥 Scarica il tuo contenuto
+                      </a>
+                    </div>
+                    
+                    <p style="color: #666; font-size: 14px; text-align: center;">
+                      Conserva questa email per accedere nuovamente al download.
+                    </p>
+                  </td></tr>
+                </table>
+                ${footer}
+              </td></tr>
+            </table>
+          </body></html>`
+      })
+      
+      // Email al coach
+      const coachEmailResult = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: data.coachEmail,
+        subject: `💰 Nuova vendita - ${data.productTitle}`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr><td>${logoHeader}
+                <table width="100%" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                  <tr><td style="padding: 30px;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                      <div style="width: 60px; height: 60px; background: #DCFCE7; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+                        <span style="font-size: 30px;">🎉</span>
+                      </div>
+                      <h2 style="margin: 0; color: #333;">Hai una nuova vendita!</h2>
+                    </div>
+                    
+                    <p>Congratulazioni! Qualcuno ha acquistato il tuo prodotto.</p>
+                    
+                    <div style="background: #f9f9f9; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                      <h3 style="margin: 0 0 15px 0; color: #333;">📦 Dettagli vendita</h3>
+                      <table width="100%" cellpadding="8" cellspacing="0">
+                        <tr>
+                          <td style="color: #666;">Prodotto:</td>
+                          <td style="font-weight: bold; text-align: right;">${data.productTitle}</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #666;">Cliente:</td>
+                          <td style="text-align: right;">${data.customerEmail}</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #666;">Prezzo:</td>
+                          <td style="text-align: right;">€${data.price.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #666;">Commissione:</td>
+                          <td style="text-align: right; color: #EF4444;">-€${data.commissionAmount.toFixed(2)}</td>
+                        </tr>
+                        <tr style="border-top: 1px solid #ddd;">
+                          <td style="color: #666; padding-top: 15px;">Il tuo guadagno:</td>
+                          <td style="font-weight: bold; font-size: 18px; color: #22C55E; text-align: right; padding-top: 15px;">€${data.coachEarnings.toFixed(2)}</td>
+                        </tr>
+                      </table>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                      <a href="https://www.coachami.it/coach/office/products" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                        Vedi i tuoi prodotti
+                      </a>
+                    </div>
+                  </td></tr>
+                </table>
+                ${footer}
+              </td></tr>
+            </table>
+          </body></html>`
+      })
+      
+      console.log('✅ Email acquisto prodotto inviate')
+      return NextResponse.json({ success: true, customerEmailResult, coachEmailResult })
+    }
+
     return NextResponse.json({ error: 'Tipo email non supportato' }, { status: 400 })
 
   } catch (error: any) {
