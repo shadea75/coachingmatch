@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Calendar, Check, X, Loader2, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { db } from '@/lib/firebase'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 
 interface CalendarSettingsProps {
   onStatusChange?: (connected: boolean) => void
@@ -16,6 +16,7 @@ export default function CalendarSettings({ onStatusChange }: CalendarSettingsPro
   const [connectedEmail, setConnectedEmail] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isDisconnecting, setIsDisconnecting] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   
   // Carica stato connessione
   useEffect(() => {
@@ -39,22 +40,65 @@ export default function CalendarSettings({ onStatusChange }: CalendarSettingsPro
     loadCalendarStatus()
   }, [user?.id])
   
-  // Controlla parametri URL per feedback
+  // Controlla parametri URL per feedback e salva token
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const calendarStatus = params.get('calendar')
-    
-    if (calendarStatus === 'success') {
-      setIsConnected(true)
-      // Ricarica per ottenere email
-      window.history.replaceState({}, '', window.location.pathname)
-      window.location.reload()
-    } else if (calendarStatus === 'error') {
-      const message = params.get('message')
-      alert(`Errore connessione calendario: ${message}`)
-      window.history.replaceState({}, '', window.location.pathname)
+    const handleCallback = async () => {
+      const params = new URLSearchParams(window.location.search)
+      const calendarStatus = params.get('calendar')
+      
+      if (calendarStatus === 'pending') {
+        // Abbiamo i token da salvare
+        const encodedData = params.get('data')
+        if (encodedData) {
+          setIsSaving(true)
+          try {
+            const tokenData = JSON.parse(atob(encodedData))
+            
+            // Salva i token in Firebase
+            await setDoc(doc(db, 'coachCalendarTokens', tokenData.userId), {
+              accessToken: tokenData.accessToken,
+              refreshToken: tokenData.refreshToken,
+              expiresAt: Date.now() + (tokenData.expiresIn * 1000),
+              googleEmail: tokenData.googleEmail,
+              googleName: tokenData.googleName,
+              connectedAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            })
+            
+            // Aggiorna anche il profilo coach
+            await setDoc(doc(db, 'coachApplications', tokenData.userId), {
+              googleCalendarConnected: true,
+              googleCalendarEmail: tokenData.googleEmail,
+              updatedAt: serverTimestamp(),
+            }, { merge: true })
+            
+            setIsConnected(true)
+            setConnectedEmail(tokenData.googleEmail)
+            onStatusChange?.(true)
+            
+            // Pulisci URL
+            window.history.replaceState({}, '', window.location.pathname)
+            
+          } catch (err) {
+            console.error('Errore salvataggio token:', err)
+            alert('Errore nel completare la connessione. Riprova.')
+          } finally {
+            setIsSaving(false)
+          }
+        }
+      } else if (calendarStatus === 'success') {
+        setIsConnected(true)
+        window.history.replaceState({}, '', window.location.pathname)
+        window.location.reload()
+      } else if (calendarStatus === 'error') {
+        const message = params.get('message')
+        alert(`Errore connessione calendario: ${message}`)
+        window.history.replaceState({}, '', window.location.pathname)
+      }
     }
-  }, [])
+    
+    handleCallback()
+  }, [onStatusChange])
   
   const handleConnect = () => {
     if (!user?.id) return
@@ -90,11 +134,14 @@ export default function CalendarSettings({ onStatusChange }: CalendarSettingsPro
     }
   }
   
-  if (isLoading) {
+  if (isLoading || isSaving) {
     return (
       <div className="bg-white rounded-2xl p-6 border border-gray-200">
-        <div className="flex items-center justify-center py-4">
-          <Loader2 className="animate-spin text-gray-400" size={24} />
+        <div className="flex items-center justify-center py-4 gap-3">
+          <Loader2 className="animate-spin text-primary-500" size={24} />
+          <span className="text-gray-600">
+            {isSaving ? 'Connessione in corso...' : 'Caricamento...'}
+          </span>
         </div>
       </div>
     )

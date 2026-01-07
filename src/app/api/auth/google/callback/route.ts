@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/firebase'
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
@@ -12,16 +10,18 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get('state') // userId
   const error = searchParams.get('error')
   
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.coachami.it'
+  
   // Gestisci errore o rifiuto
   if (error) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/coach/settings?calendar=error&message=${encodeURIComponent(error)}`
+      `${baseUrl}/coach/settings?calendar=error&message=${encodeURIComponent(error)}`
     )
   }
   
   if (!code || !state) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/coach/settings?calendar=error&message=missing_params`
+      `${baseUrl}/coach/settings?calendar=error&message=missing_params`
     )
   }
   
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
         client_secret: GOOGLE_CLIENT_SECRET!,
         code,
         grant_type: 'authorization_code',
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: REDIRECT_URI!,
       }),
     })
     
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     if (tokens.error) {
       console.error('Token error:', tokens)
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/coach/settings?calendar=error&message=${encodeURIComponent(tokens.error)}`
+        `${baseUrl}/coach/settings?calendar=error&message=${encodeURIComponent(tokens.error)}`
       )
     }
     
@@ -54,33 +54,27 @@ export async function GET(request: NextRequest) {
     })
     const userInfo = await userInfoResponse.json()
     
-    // Salva i token in Firebase (criptati in produzione!)
-    await setDoc(doc(db, 'coachCalendarTokens', state), {
+    // Redirect con i token nell'URL (verranno salvati client-side)
+    // Usiamo base64 per evitare problemi con caratteri speciali
+    const tokenData = {
       accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      expiresAt: Date.now() + (tokens.expires_in * 1000),
-      googleEmail: userInfo.email,
-      googleName: userInfo.name,
-      connectedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    })
+      refreshToken: tokens.refresh_token || '',
+      expiresIn: tokens.expires_in,
+      googleEmail: userInfo.email || '',
+      googleName: userInfo.name || '',
+      userId: state
+    }
     
-    // Aggiorna anche il profilo coach
-    await setDoc(doc(db, 'coachApplications', state), {
-      googleCalendarConnected: true,
-      googleCalendarEmail: userInfo.email,
-      updatedAt: serverTimestamp(),
-    }, { merge: true })
+    const encodedData = Buffer.from(JSON.stringify(tokenData)).toString('base64')
     
-    // Redirect con successo
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/coach/settings?calendar=success`
+      `${baseUrl}/coach/settings?calendar=pending&data=${encodedData}`
     )
     
   } catch (err) {
     console.error('OAuth callback error:', err)
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/coach/settings?calendar=error&message=server_error`
+      `${baseUrl}/coach/settings?calendar=error&message=server_error`
     )
   }
 }
