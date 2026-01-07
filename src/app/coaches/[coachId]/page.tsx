@@ -22,11 +22,16 @@ import {
   Sparkles,
   Heart,
   Briefcase,
-  Target
+  Target,
+  Package,
+  FileText,
+  Headphones,
+  ShoppingBag,
+  Euro
 } from 'lucide-react'
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { useAuth } from '@/contexts/AuthContext'
 import { LIFE_AREAS } from '@/types'
 import { getAreaIllustration } from '@/components/AreaIllustrations'
@@ -64,6 +69,36 @@ interface ExpandedSection {
   challenges: boolean
 }
 
+interface Product {
+  id: string
+  title: string
+  description: string
+  price: number
+  category: string
+  coverImage?: string
+  salesCount: number
+}
+
+const categoryIcons: Record<string, any> = {
+  ebook: FileText,
+  video: Video,
+  audio: Headphones,
+  template: FileText,
+  bundle: Package
+}
+
+const categoryLabels: Record<string, string> = {
+  ebook: 'eBook / PDF',
+  video: 'Video Corso',
+  audio: 'Audio',
+  template: 'Template',
+  bundle: 'Bundle'
+}
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(amount)
+}
+
 export default function CoachPublicProfilePage() {
   const params = useParams()
   const router = useRouter()
@@ -71,6 +106,7 @@ export default function CoachPublicProfilePage() {
   const coachId = params.coachId as string
   
   const [coach, setCoach] = useState<CoachProfile | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [expanded, setExpanded] = useState<ExpandedSection>({
@@ -116,6 +152,30 @@ export default function CoachPublicProfilePage() {
             hourlyRate: data.hourlyRate || data.averagePrice || 80,
             availability: data.availability || {}
           })
+          
+          // Carica prodotti del coach
+          const productsQuery = query(
+            collection(db, 'digitalProducts'),
+            where('coachId', '==', coachId),
+            where('isActive', '==', true),
+            orderBy('createdAt', 'desc')
+          )
+          const productsSnap = await getDocs(productsQuery)
+          
+          const loadedProducts: Product[] = productsSnap.docs.map(doc => {
+            const d = doc.data()
+            return {
+              id: doc.id,
+              title: d.title,
+              description: d.description || '',
+              price: d.price || 0,
+              category: d.category || 'ebook',
+              coverImage: d.coverImage,
+              salesCount: d.salesCount || 0
+            }
+          })
+          setProducts(loadedProducts)
+          
         } else {
           setError('Coach non trovato')
         }
@@ -430,6 +490,78 @@ export default function CoachPublicProfilePage() {
                 </div>
               )}
             </motion.div>
+            
+            {/* Sezione Prodotti Digitali */}
+            {products.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+                className="bg-white rounded-2xl shadow-sm overflow-hidden"
+              >
+                <div className="p-6 border-b border-gray-100">
+                  <h3 className="text-xl font-bold text-charcoal flex items-center gap-2">
+                    <Package className="text-primary-500" size={24} />
+                    Prodotti Digitali
+                  </h3>
+                  <p className="text-gray-500 text-sm mt-1">
+                    Contenuti esclusivi creati da {coach.name.split(' ')[0]}
+                  </p>
+                </div>
+                
+                <div className="p-6">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {products.slice(0, 4).map((product) => {
+                      const CategoryIcon = categoryIcons[product.category] || Package
+                      
+                      return (
+                        <Link key={product.id} href={`/shop/${product.id}`}>
+                          <div className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors group">
+                            <div className="flex gap-4">
+                              {/* Thumbnail */}
+                              <div className="w-16 h-16 rounded-lg bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
+                                {product.coverImage ? (
+                                  <img 
+                                    src={product.coverImage} 
+                                    alt={product.title}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <CategoryIcon className="text-gray-400" size={24} />
+                                )}
+                              </div>
+                              
+                              {/* Info */}
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-charcoal truncate group-hover:text-primary-600 transition-colors">
+                                  {product.title}
+                                </h4>
+                                <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                  <CategoryIcon size={12} />
+                                  {categoryLabels[product.category]}
+                                </p>
+                                <p className="text-primary-600 font-bold mt-2">
+                                  {formatCurrency(product.price)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                  
+                  {products.length > 4 && (
+                    <Link
+                      href={`/shop?coach=${coach.id}`}
+                      className="block text-center text-primary-500 hover:text-primary-600 mt-4 text-sm font-medium"
+                    >
+                      Vedi tutti i {products.length} prodotti →
+                    </Link>
+                  )}
+                </div>
+              </motion.div>
+            )}
             
             {/* CTA finale */}
             <motion.div

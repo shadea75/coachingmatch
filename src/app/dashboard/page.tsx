@@ -285,6 +285,15 @@ export default function DashboardPage() {
         )}
       </Link>
       
+      {/* Link I miei acquisti */}
+      <Link
+        href="/dashboard/purchases"
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+      >
+        <Gift size={20} />
+        <span className="font-medium">I miei acquisti</span>
+      </Link>
+      
       <button
         onClick={() => setActiveTab('community')}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${

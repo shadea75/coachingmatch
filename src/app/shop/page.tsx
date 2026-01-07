@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   Search,
@@ -15,11 +16,12 @@ import {
   Star,
   ShoppingBag,
   Loader2,
-  ChevronDown
+  ChevronDown,
+  X
 } from 'lucide-react'
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore'
+import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore'
 
 interface Product {
   id: string
@@ -53,11 +55,16 @@ function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(amount)
 }
 
-export default function ShopPage() {
+function ShopContent() {
+  const searchParams = useSearchParams()
+  const coachIdParam = searchParams.get('coach')
+  
   const [isLoading, setIsLoading] = useState(true)
   const [products, setProducts] = useState<Product[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState<string>('all')
+  const [filterCoachId, setFilterCoachId] = useState<string | null>(coachIdParam)
+  const [filterCoachName, setFilterCoachName] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<'newest' | 'price_low' | 'price_high' | 'popular'>('newest')
 
   useEffect(() => {
@@ -88,6 +95,14 @@ export default function ShopPage() {
         })
         
         setProducts(loadedProducts)
+        
+        // Se c'è un filtro coach, carica il nome
+        if (coachIdParam) {
+          const coachDoc = await getDoc(doc(db, 'coachApplications', coachIdParam))
+          if (coachDoc.exists()) {
+            setFilterCoachName(coachDoc.data().name || 'Coach')
+          }
+        }
       } catch (err) {
         console.error('Errore caricamento prodotti:', err)
       } finally {
@@ -96,7 +111,14 @@ export default function ShopPage() {
     }
     
     loadProducts()
-  }, [])
+  }, [coachIdParam])
+
+  // Rimuovi filtro coach
+  const clearCoachFilter = () => {
+    setFilterCoachId(null)
+    setFilterCoachName(null)
+    window.history.pushState({}, '', '/shop')
+  }
 
   // Filtra e ordina prodotti
   const filteredProducts = products
@@ -105,7 +127,8 @@ export default function ShopPage() {
                            product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            product.coachName.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesCategory = filterCategory === 'all' || product.category === filterCategory
-      return matchesSearch && matchesCategory
+      const matchesCoach = !filterCoachId || product.coachId === filterCoachId
+      return matchesSearch && matchesCategory && matchesCoach
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -205,6 +228,23 @@ export default function ShopPage() {
               <option value="price_high">Prezzo: alto → basso</option>
             </select>
           </div>
+          
+          {/* Badge filtro coach */}
+          {filterCoachName && (
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-sm text-gray-500">Filtro attivo:</span>
+              <span className="inline-flex items-center gap-2 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm">
+                <User size={14} />
+                {filterCoachName}
+                <button 
+                  onClick={clearCoachFilter}
+                  className="hover:bg-primary-200 rounded-full p-0.5"
+                >
+                  <X size={14} />
+                </button>
+              </span>
+            </div>
+          )}
         </div>
       </section>
 
@@ -320,5 +360,17 @@ export default function ShopPage() {
         </div>
       </footer>
     </div>
+  )
+}
+
+export default function ShopPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <Loader2 className="animate-spin text-primary-500" size={40} />
+      </div>
+    }>
+      <ShopContent />
+    </Suspense>
   )
 }
