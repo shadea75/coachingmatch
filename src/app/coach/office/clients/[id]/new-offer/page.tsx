@@ -22,7 +22,8 @@ import {
   Shield,
   FileText,
   ExternalLink,
-  Info
+  Info,
+  Edit
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -61,6 +62,16 @@ export default function NewOfferPage() {
   const [contractEnabled, setContractEnabled] = useState(false)
   const [contractConfigured, setContractConfigured] = useState(false)
   const [includeContract, setIncludeContract] = useState(true)
+  
+  // Dati fiscali coachee (per contratto)
+  const [coacheeFiscalData, setCoacheeFiscalData] = useState<{
+    address?: string
+    city?: string
+    postalCode?: string
+    province?: string
+    fiscalCode?: string
+  } | null>(null)
+  const [hasFiscalData, setHasFiscalData] = useState(false)
   
   const [offerData, setOfferData] = useState({
     title: '',
@@ -135,6 +146,24 @@ export default function NewOfferPage() {
             const commissionPercent = settingsData.officeCommissionPercentage ?? 3.5
             setOfficeCommission(commissionPercent / 100)
           }
+          
+          // Carica dati fiscali coachee per contratto
+          if (coacheeId) {
+            const fiscalDoc = await getDoc(doc(db, 'coacheeContractData', `${user.id}_${coacheeId}`))
+            if (fiscalDoc.exists()) {
+              const fiscalData = fiscalDoc.data()
+              setCoacheeFiscalData(fiscalData)
+              // Verifica se i dati obbligatori sono presenti
+              const hasRequiredData = !!(
+                fiscalData.address &&
+                fiscalData.city &&
+                fiscalData.postalCode &&
+                fiscalData.province &&
+                fiscalData.fiscalCode
+              )
+              setHasFiscalData(hasRequiredData)
+            }
+          }
         }
       } catch (err) {
         console.error('Errore:', err)
@@ -159,6 +188,12 @@ export default function NewOfferPage() {
     }
     if (!offerData.allowSinglePayment && !offerData.allowInstallments) {
       setError('Devi permettere almeno un metodo di pagamento')
+      return
+    }
+    
+    // Controllo dati fiscali per contratto (solo per clienti CoachaMi)
+    if (isCoachaMiClient && includeContract && contractEnabled && !hasFiscalData) {
+      setError('Per inviare un\'offerta con contratto devi prima compilare i dati fiscali del cliente. Vai alla scheda cliente e aggiungi i dati fiscali.')
       return
     }
     
@@ -837,9 +872,41 @@ export default function NewOfferPage() {
                   </div>
                 </label>
                 
+                {/* Avviso dati fiscali mancanti per clienti CoachaMi */}
+                {isCoachaMiClient && includeContract && !hasFiscalData && (
+                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="text-red-500 mt-0.5 flex-shrink-0" size={20} />
+                      <div>
+                        <p className="font-medium text-red-800">Dati fiscali mancanti</p>
+                        <p className="text-sm text-red-600 mt-1">
+                          Per inviare un'offerta con contratto devi prima compilare i dati fiscali del cliente (indirizzo, codice fiscale, ecc.).
+                        </p>
+                        <Link
+                          href={`/coach/office/clients/${clientId}?source=coachami`}
+                          className="inline-flex items-center gap-2 mt-3 text-sm font-medium text-red-700 hover:text-red-800 bg-red-100 px-3 py-1.5 rounded-lg"
+                        >
+                          <Edit size={14} />
+                          Aggiungi dati fiscali
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Dati fiscali presenti */}
+                {isCoachaMiClient && includeContract && hasFiscalData && (
+                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2">
+                    <CheckCircle className="text-green-500" size={18} />
+                    <span className="text-sm text-green-700">
+                      Dati fiscali del cliente completi
+                    </span>
+                  </div>
+                )}
+                
                 <Link
                   href="/coach/settings/contract"
-                  className="text-sm text-primary-500 hover:text-primary-600 flex items-center gap-1"
+                  className="text-sm text-primary-500 hover:text-primary-600 flex items-center gap-1 mt-3"
                 >
                   Modifica contratto
                   <ExternalLink size={14} />
