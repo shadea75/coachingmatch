@@ -180,7 +180,6 @@ export default function NewProductPage() {
         coverImage: formData.coverImage || null,
         fileUrl: formData.fileUrl || null,
         fileName: formData.fileName || null,
-        fileSize: formData.fileSize || 0,
         // Commissione
         commissionRate: commissionRate,
         commissionAmount: price * commissionRate,
