@@ -225,26 +225,69 @@ export default function CoachAvailabilityPage() {
       setGoogleError(null)
       
       try {
+        // Carica token da Firebase client-side
+        const tokenDoc = await getDoc(doc(db, 'coachCalendarTokens', user.id))
+        
+        if (!tokenDoc.exists()) {
+          setGoogleError('Token non trovato')
+          setIsLoadingGoogle(false)
+          return
+        }
+        
+        const tokenData = tokenDoc.data()
+        let accessToken = tokenData.accessToken
+        
+        // Se token scaduto, mostra errore (il refresh va fatto server-side)
+        if (tokenData.expiresAt < Date.now()) {
+          // Prova a fare refresh tramite API
+          try {
+            const refreshRes = await fetch(`/api/calendar/refresh?coachId=${user.id}`)
+            const refreshData = await refreshRes.json()
+            if (refreshData.accessToken) {
+              accessToken = refreshData.accessToken
+            } else {
+              setGoogleError('Token scaduto, riconnetti il calendario')
+              setIsLoadingGoogle(false)
+              return
+            }
+          } catch {
+            setGoogleError('Token scaduto, riconnetti il calendario')
+            setIsLoadingGoogle(false)
+            return
+          }
+        }
+        
         const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 })
         
-        const response = await fetch(
-          `/api/calendar/events?coachId=${user.id}&startDate=${currentWeekStart.toISOString()}&endDate=${weekEnd.toISOString()}`
-        )
+        // Chiama direttamente Google Calendar API
+        const calendarUrl = new URL('https://www.googleapis.com/calendar/v3/calendars/primary/events')
+        calendarUrl.searchParams.set('timeMin', currentWeekStart.toISOString())
+        calendarUrl.searchParams.set('timeMax', weekEnd.toISOString())
+        calendarUrl.searchParams.set('singleEvents', 'true')
+        calendarUrl.searchParams.set('orderBy', 'startTime')
+        calendarUrl.searchParams.set('maxResults', '50')
+        
+        const response = await fetch(calendarUrl.toString(), {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        })
         
         const data = await response.json()
         
         if (data.error) {
-          setGoogleError(data.error)
+          console.error('Google Calendar API error:', data.error)
+          setGoogleError(data.error.message || 'Errore API Google')
           return
         }
         
-        if (data.events) {
-          const events: GoogleEvent[] = data.events.map((e: any) => ({
+        if (data.items) {
+          const events: GoogleEvent[] = data.items.map((e: any) => ({
             id: e.id,
             title: e.summary || 'Evento',
-            start: new Date(e.start.dateTime || e.start.date),
-            end: new Date(e.end.dateTime || e.end.date),
-            isAllDay: !e.start.dateTime
+            start: new Date(e.start?.dateTime || e.start?.date),
+            end: new Date(e.end?.dateTime || e.end?.date),
+            isAllDay: !e.start?.dateTime
           }))
           setGoogleEvents(events)
         }
@@ -260,29 +303,53 @@ export default function CoachAvailabilityPage() {
   }, [user?.id, googleCalendarConnected, currentWeekStart])
   
   // Funzione per ricaricare eventi Google
-  const refreshGoogleEvents = () => {
-    if (user?.id && googleCalendarConnected) {
-      setGoogleEvents([])
-      // Trigger reload
-      const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 })
-      setIsLoadingGoogle(true)
+  const refreshGoogleEvents = async () => {
+    if (!user?.id || !googleCalendarConnected) return
+    
+    setGoogleEvents([])
+    setIsLoadingGoogle(true)
+    setGoogleError(null)
+    
+    try {
+      const tokenDoc = await getDoc(doc(db, 'coachCalendarTokens', user.id))
+      if (!tokenDoc.exists()) {
+        setGoogleError('Token non trovato')
+        return
+      }
       
-      fetch(`/api/calendar/events?coachId=${user.id}&startDate=${currentWeekStart.toISOString()}&endDate=${weekEnd.toISOString()}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.events) {
-            const events: GoogleEvent[] = data.events.map((e: any) => ({
-              id: e.id,
-              title: e.summary || 'Evento',
-              start: new Date(e.start.dateTime || e.start.date),
-              end: new Date(e.end.dateTime || e.end.date),
-              isAllDay: !e.start.dateTime
-            }))
-            setGoogleEvents(events)
-          }
-        })
-        .catch(err => console.error(err))
-        .finally(() => setIsLoadingGoogle(false))
+      const tokenData = tokenDoc.data()
+      const accessToken = tokenData.accessToken
+      
+      const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 })
+      
+      const calendarUrl = new URL('https://www.googleapis.com/calendar/v3/calendars/primary/events')
+      calendarUrl.searchParams.set('timeMin', currentWeekStart.toISOString())
+      calendarUrl.searchParams.set('timeMax', weekEnd.toISOString())
+      calendarUrl.searchParams.set('singleEvents', 'true')
+      calendarUrl.searchParams.set('orderBy', 'startTime')
+      calendarUrl.searchParams.set('maxResults', '50')
+      
+      const response = await fetch(calendarUrl.toString(), {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      
+      const data = await response.json()
+      
+      if (data.items) {
+        const events: GoogleEvent[] = data.items.map((e: any) => ({
+          id: e.id,
+          title: e.summary || 'Evento',
+          start: new Date(e.start?.dateTime || e.start?.date),
+          end: new Date(e.end?.dateTime || e.end?.date),
+          isAllDay: !e.start?.dateTime
+        }))
+        setGoogleEvents(events)
+      }
+    } catch (err) {
+      console.error('Errore refresh eventi:', err)
+      setGoogleError('Errore nel caricamento')
+    } finally {
+      setIsLoadingGoogle(false)
     }
   }
   
