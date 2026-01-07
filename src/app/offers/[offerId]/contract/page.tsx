@@ -107,11 +107,25 @@ export default function CoacheeContractPage() {
           setCoachBilling(coachDoc.data().billing || {})
         }
         
-        // Carica dati coachee
+        // Carica dati coachee (base)
         const coacheeDoc = await getDoc(doc(db, 'users', user.id))
+        let baseCoacheeData: any = {}
         if (coacheeDoc.exists()) {
-          setCoacheeData(coacheeDoc.data())
+          baseCoacheeData = coacheeDoc.data()
         }
+        
+        // Carica dati fiscali coachee salvati dal coach
+        const contractDataDoc = await getDoc(doc(db, 'coacheeContractData', `${offerData.coachId}_${user.id}`))
+        let fiscalData: any = {}
+        if (contractDataDoc.exists()) {
+          fiscalData = contractDataDoc.data()
+        }
+        
+        // Merge dei dati
+        setCoacheeData({
+          ...baseCoacheeData,
+          ...fiscalData // I dati fiscali sovrascrivono quelli base
+        })
         
       } catch (err) {
         console.error('Errore:', err)
@@ -147,9 +161,17 @@ Email: ${offer.coachEmail}
     const coacheeName = coacheeData?.name || user?.name || offer.coacheeName
     const coacheeEmail = coacheeData?.email || user?.email || offer.coacheeEmail
     
+    // Costruisci indirizzo coachee se disponibile
+    const coacheeAddressLine = coacheeData?.address 
+      ? `${coacheeData.address}, ${coacheeData.postalCode} ${coacheeData.city} (${coacheeData.province})`
+      : ''
+    
     const clientInfo = `
 **CLIENTE (Committente)**
 ${coacheeName}
+${coacheeAddressLine ? coacheeAddressLine : ''}
+${coacheeData?.fiscalCode ? `C.F.: ${coacheeData.fiscalCode}` : ''}
+${coacheeData?.vatNumber ? `P.IVA: ${coacheeData.vatNumber}` : ''}
 Email: ${coacheeEmail}
 `
 
