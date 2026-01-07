@@ -83,6 +83,19 @@ export default function ProductDetailPage() {
   const [error, setError] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [alreadyPurchased, setAlreadyPurchased] = useState(false)
+  
+  // Form dati acquirente
+  const [showBuyerForm, setShowBuyerForm] = useState(false)
+  const [buyerData, setBuyerData] = useState({
+    firstName: '',
+    lastName: '',
+    email: ''
+  })
+  const [buyerErrors, setBuyerErrors] = useState({
+    firstName: '',
+    lastName: '',
+    email: ''
+  })
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -147,7 +160,60 @@ export default function ProductDetailPage() {
     loadProduct()
   }, [productId, user?.id])
 
-  const handlePurchase = async () => {
+  // Valida email
+  const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  }
+
+  // Valida form acquirente
+  const validateBuyerForm = () => {
+    const errors = {
+      firstName: '',
+      lastName: '',
+      email: ''
+    }
+    let isValid = true
+    
+    if (!buyerData.firstName.trim()) {
+      errors.firstName = 'Inserisci il nome'
+      isValid = false
+    }
+    if (!buyerData.lastName.trim()) {
+      errors.lastName = 'Inserisci il cognome'
+      isValid = false
+    }
+    if (!buyerData.email.trim()) {
+      errors.email = 'Inserisci l\'email'
+      isValid = false
+    } else if (!isValidEmail(buyerData.email)) {
+      errors.email = 'Email non valida'
+      isValid = false
+    }
+    
+    setBuyerErrors(errors)
+    return isValid
+  }
+
+  // Click su Acquista - mostra form se non loggato
+  const handleBuyClick = () => {
+    if (user) {
+      // Utente loggato, procedi direttamente
+      handlePurchase(user.email || '', user.name || '')
+    } else {
+      // Mostra form per raccogliere dati
+      setShowBuyerForm(true)
+    }
+  }
+
+  // Submit form acquirente
+  const handleBuyerFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (validateBuyerForm()) {
+      handlePurchase(buyerData.email, `${buyerData.firstName} ${buyerData.lastName}`)
+    }
+  }
+
+  const handlePurchase = async (email: string, name: string) => {
     if (!product) return
     
     setIsProcessing(true)
@@ -178,7 +244,8 @@ export default function ProductDetailPage() {
           coachStripeAccountId,
           commissionRate: product.commissionRate,
           userId: user?.id || null,
-          userEmail: user?.email || null
+          userEmail: email,
+          userName: name
         })
       })
       
@@ -369,9 +436,91 @@ export default function ProductDetailPage() {
                       </div>
                     </div>
                   </div>
+                ) : showBuyerForm ? (
+                  /* Form dati acquirente */
+                  <div className="space-y-4">
+                    <div className="text-center mb-4">
+                      <h3 className="font-semibold text-charcoal">Inserisci i tuoi dati</h3>
+                      <p className="text-sm text-gray-500">Per ricevere il prodotto</p>
+                    </div>
+                    
+                    <form onSubmit={handleBuyerFormSubmit} className="space-y-3">
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="Nome *"
+                          value={buyerData.firstName}
+                          onChange={(e) => setBuyerData(prev => ({ ...prev, firstName: e.target.value }))}
+                          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                            buyerErrors.firstName ? 'border-red-300' : 'border-gray-200'
+                          }`}
+                        />
+                        {buyerErrors.firstName && (
+                          <p className="text-xs text-red-500 mt-1">{buyerErrors.firstName}</p>
+                        )}
+                      </div>
+                      
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="Cognome *"
+                          value={buyerData.lastName}
+                          onChange={(e) => setBuyerData(prev => ({ ...prev, lastName: e.target.value }))}
+                          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                            buyerErrors.lastName ? 'border-red-300' : 'border-gray-200'
+                          }`}
+                        />
+                        {buyerErrors.lastName && (
+                          <p className="text-xs text-red-500 mt-1">{buyerErrors.lastName}</p>
+                        )}
+                      </div>
+                      
+                      <div>
+                        <input
+                          type="email"
+                          placeholder="Email *"
+                          value={buyerData.email}
+                          onChange={(e) => setBuyerData(prev => ({ ...prev, email: e.target.value }))}
+                          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                            buyerErrors.email ? 'border-red-300' : 'border-gray-200'
+                          }`}
+                        />
+                        {buyerErrors.email && (
+                          <p className="text-xs text-red-500 mt-1">{buyerErrors.email}</p>
+                        )}
+                      </div>
+                      
+                      <p className="text-xs text-gray-500">
+                        Il prodotto verrà inviato a questa email
+                      </p>
+                      
+                      <button
+                        type="submit"
+                        disabled={isProcessing}
+                        className="w-full py-4 bg-primary-500 text-white rounded-xl font-semibold hover:bg-primary-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {isProcessing ? (
+                          <Loader2 size={20} className="animate-spin" />
+                        ) : (
+                          <>
+                            <CreditCard size={20} />
+                            Procedi al pagamento
+                          </>
+                        )}
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setShowBuyerForm(false)}
+                        className="w-full py-2 text-gray-500 hover:text-gray-700 text-sm"
+                      >
+                        Annulla
+                      </button>
+                    </form>
+                  </div>
                 ) : (
                   <button
-                    onClick={handlePurchase}
+                    onClick={handleBuyClick}
                     disabled={isProcessing}
                     className="w-full py-4 bg-primary-500 text-white rounded-xl font-semibold hover:bg-primary-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
