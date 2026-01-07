@@ -23,7 +23,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { db, storage } from '@/lib/firebase'
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 
 const categories = [
   { id: 'ebook', label: 'eBook / PDF', icon: FileText, description: 'Documenti PDF, guide, manuali' },
@@ -36,7 +36,6 @@ const categories = [
 export default function NewProductPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const coverInputRef = useRef<HTMLInputElement>(null)
   
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -50,15 +49,13 @@ export default function NewProductPage() {
     category: 'ebook',
     coverImage: '',
     fileUrl: '',
-    fileName: '',
-    fileSize: 0
+    fileName: ''
   })
   
-  // Stati per upload (simulato - in produzione useresti Firebase Storage o altro)
-  const [uploadingFile, setUploadingFile] = useState(false)
+  // Stati per upload cover
   const [uploadingCover, setUploadingCover] = useState(false)
-  const [filePreview, setFilePreview] = useState<string | null>(null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
+  const [coverProgress, setCoverProgress] = useState(0)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -82,44 +79,6 @@ export default function NewProductPage() {
     loadCommission()
   }, [])
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    
-    if (!user?.id) {
-      setError('Devi essere autenticato per caricare file')
-      return
-    }
-    
-    setUploadingFile(true)
-    setError('')
-    
-    try {
-      // Genera nome file unico
-      const timestamp = Date.now()
-      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-      const filePath = `products/${user.id}/${timestamp}_${safeName}`
-      
-      // Carica su Firebase Storage
-      const storageRef = ref(storage, filePath)
-      await uploadBytes(storageRef, file)
-      const downloadUrl = await getDownloadURL(storageRef)
-      
-      setFormData(prev => ({
-        ...prev,
-        fileName: file.name,
-        fileSize: file.size,
-        fileUrl: downloadUrl
-      }))
-      setFilePreview(file.name)
-    } catch (err: any) {
-      console.error('Errore upload file:', err)
-      setError('Errore durante il caricamento del file: ' + (err.message || 'Riprova'))
-    } finally {
-      setUploadingFile(false)
-    }
-  }
-
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -134,35 +93,56 @@ export default function NewProductPage() {
       return
     }
     
+    // Limite 5MB per immagini
+    if (file.size > 5 * 1024 * 1024) {
+      setError('L\'immagine è troppo grande. Massimo 5MB.')
+      return
+    }
+    
     setUploadingCover(true)
+    setCoverProgress(0)
     setError('')
     
+    // Crea preview locale subito
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setCoverPreview(e.target?.result as string)
+    }
+    reader.readAsDataURL(file)
+    
     try {
-      // Crea preview locale
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setCoverPreview(e.target?.result as string)
-      }
-      reader.readAsDataURL(file)
-      
       // Genera nome file unico
       const timestamp = Date.now()
       const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
       const filePath = `covers/${user.id}/${timestamp}_${safeName}`
       
-      // Carica su Firebase Storage
+      // Carica su Firebase Storage con progress
       const storageRef = ref(storage, filePath)
-      await uploadBytes(storageRef, file)
-      const downloadUrl = await getDownloadURL(storageRef)
+      const uploadTask = uploadBytesResumable(storageRef, file)
       
-      setFormData(prev => ({
-        ...prev,
-        coverImage: downloadUrl
-      }))
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
+          setCoverProgress(progress)
+        },
+        (error) => {
+          console.error('Errore upload cover:', error)
+          setError('Errore durante il caricamento: ' + error.message)
+          setUploadingCover(false)
+        },
+        async () => {
+          const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref)
+          setFormData(prev => ({
+            ...prev,
+            coverImage: downloadUrl
+          }))
+          setUploadingCover(false)
+          setCoverProgress(0)
+        }
+      )
     } catch (err: any) {
       console.error('Errore upload cover:', err)
       setError('Errore durante il caricamento dell\'immagine: ' + (err.message || 'Riprova'))
-    } finally {
       setUploadingCover(false)
     }
   }
@@ -398,7 +378,7 @@ export default function NewProductPage() {
           )}
         </motion.div>
 
-        {/* File Upload */}
+        {/* File del prodotto - Link esterno */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -407,58 +387,50 @@ export default function NewProductPage() {
         >
           <h2 className="font-semibold text-charcoal mb-4">File del prodotto</h2>
           
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-          
-          {filePreview ? (
-            <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="text-green-500" size={24} />
-                <div>
-                  <p className="font-medium text-green-800">{formData.fileName}</p>
-                  <p className="text-sm text-green-600">
-                    {formData.fileSize > 0 && `${(formData.fileSize / (1024 * 1024)).toFixed(2)} MB`}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setFilePreview(null)
-                  setFormData(prev => ({ ...prev, fileUrl: '', fileName: '', fileSize: 0 }))
-                }}
-                className="p-2 text-red-500 hover:bg-red-100 rounded-lg"
-              >
-                <X size={20} />
-              </button>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Link al file *
+              </label>
+              <input
+                type="url"
+                value={formData.fileUrl}
+                onChange={(e) => setFormData(prev => ({ ...prev, fileUrl: e.target.value }))}
+                placeholder="https://drive.google.com/... o https://dropbox.com/..."
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Inserisci il link diretto al file (Google Drive, Dropbox, WeTransfer, ecc.)
+              </p>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadingFile}
-              className="w-full p-6 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary-400 hover:bg-primary-50 transition-colors"
-            >
-              {uploadingFile ? (
-                <Loader2 className="animate-spin text-primary-500" size={32} />
-              ) : (
-                <>
-                  <Upload className="text-gray-400" size={32} />
-                  <span className="text-gray-500">Clicca per caricare il file</span>
-                  <span className="text-xs text-gray-400">PDF, Video, Audio, ZIP (max 500MB)</span>
-                </>
-              )}
-            </button>
-          )}
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nome del file (opzionale)
+              </label>
+              <input
+                type="text"
+                value={formData.fileName}
+                onChange={(e) => setFormData(prev => ({ ...prev, fileName: e.target.value }))}
+                placeholder="es. Guida-Completa.pdf"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+          </div>
           
-          <p className="text-xs text-gray-500 mt-3 flex items-start gap-2">
-            <Info size={14} className="mt-0.5 flex-shrink-0" />
-            Il file sarà disponibile per il download solo dopo l'acquisto
-          </p>
+          <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+            <div className="flex items-start gap-3">
+              <Info className="text-blue-500 mt-0.5 flex-shrink-0" size={18} />
+              <div className="text-sm text-blue-700">
+                <p className="font-medium mb-1">Come ottenere il link:</p>
+                <ul className="list-disc list-inside space-y-1 text-blue-600">
+                  <li><strong>Google Drive:</strong> Tasto destro → "Ottieni link" → Condividi con "Chiunque abbia il link"</li>
+                  <li><strong>Dropbox:</strong> Tasto destro → "Copia link Dropbox"</li>
+                  <li><strong>WeTransfer:</strong> Carica e copia il link generato</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </motion.div>
 
         {/* Riepilogo guadagni */}
