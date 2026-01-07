@@ -224,22 +224,24 @@ export default function NewOfferPage() {
         // Il coachee vedrà l'offerta nella sua pagina /offers
         generatedLink = '' // Non serve link esterno, il coachee lo vede in piattaforma
         
-        // TODO: Invia notifica email al coachee
+        // Invia notifica email al coachee
         if (sendEmail) {
           try {
             await fetch('/api/send-email', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                type: 'new_offer_from_coach',
+                type: 'new_offer',
                 data: {
-                  coacheeName: client.name,
                   coacheeEmail: client.email,
+                  coacheeName: client.name,
                   coachName: user.name || 'Coach',
                   offerTitle: offerData.title,
                   totalSessions: offerData.totalSessions,
                   priceTotal: priceTotal,
-                  offersPageUrl: `${window.location.origin}/offers`
+                  pricePerSession: offerData.pricePerSession,
+                  validDays: 7,
+                  offerId: offerRef.id
                 }
               })
             })
