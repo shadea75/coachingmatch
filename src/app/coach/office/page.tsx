@@ -25,12 +25,24 @@ import {
   FileText,
   Clock,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Package,
+  Video,
+  Headphones,
+  ShoppingBag,
+  Eye,
+  EyeOff,
+  Edit,
+  Trash2,
+  ExternalLink,
+  Copy,
+  Check,
+  Loader2
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, orderBy, doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 
@@ -55,12 +67,47 @@ interface Client {
   }
 }
 
+interface Product {
+  id: string
+  title: string
+  description: string
+  price: number
+  category: 'ebook' | 'video' | 'audio' | 'template' | 'bundle'
+  coverImage?: string
+  isActive: boolean
+  salesCount: number
+  totalRevenue: number
+  createdAt: Date
+}
+
+const categoryIcons: Record<string, any> = {
+  ebook: FileText,
+  video: Video,
+  audio: Headphones,
+  template: FileText,
+  bundle: Package
+}
+
+const categoryLabels: Record<string, string> = {
+  ebook: 'eBook / PDF',
+  video: 'Video Corso',
+  audio: 'Audio',
+  template: 'Template',
+  bundle: 'Bundle'
+}
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(amount)
+}
+
 export default function CoachOfficePage() {
   const router = useRouter()
   const { user, loading } = useAuth()
   
+  const [activeTab, setActiveTab] = useState<'clients' | 'products'>('clients')
   const [isLoading, setIsLoading] = useState(true)
   const [clients, setClients] = useState<Client[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [filterSource, setFilterSource] = useState<'all' | 'coachami' | 'external'>('all')
   const [stats, setStats] = useState({
@@ -72,6 +119,15 @@ export default function CoachOfficePage() {
     pendingToBook: 0, // Sessioni pagate da prenotare
     hourlyRate: 0 // Tariffa oraria coach
   })
+  const [productStats, setProductStats] = useState({
+    totalProducts: 0,
+    activeProducts: 0,
+    totalSales: 0,
+    totalRevenue: 0
+  })
+  const [copiedLink, setCopiedLink] = useState<string | null>(null)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   
   // Stato per disponibilità mensile
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
@@ -296,6 +352,44 @@ export default function CoachOfficePage() {
           hourlyRate: loadedHourlyRate
         })
         
+        // Carica prodotti del coach
+        const productsQuery = query(
+          collection(db, 'digitalProducts'),
+          where('coachId', '==', user.id),
+          orderBy('createdAt', 'desc')
+        )
+        const productsSnap = await getDocs(productsQuery)
+        
+        const loadedProducts: Product[] = productsSnap.docs.map(doc => {
+          const data = doc.data()
+          return {
+            id: doc.id,
+            title: data.title,
+            description: data.description || '',
+            price: data.price || 0,
+            category: data.category || 'ebook',
+            coverImage: data.coverImage,
+            isActive: data.isActive ?? true,
+            salesCount: data.salesCount || 0,
+            totalRevenue: data.totalRevenue || 0,
+            createdAt: data.createdAt?.toDate() || new Date()
+          }
+        })
+        
+        setProducts(loadedProducts)
+        
+        // Calcola statistiche prodotti
+        const activeProducts = loadedProducts.filter(p => p.isActive)
+        const totalSales = loadedProducts.reduce((sum, p) => sum + p.salesCount, 0)
+        const productRevenue = loadedProducts.reduce((sum, p) => sum + p.totalRevenue, 0)
+        
+        setProductStats({
+          totalProducts: loadedProducts.length,
+          activeProducts: activeProducts.length,
+          totalSales,
+          totalRevenue: productRevenue
+        })
+        
       } catch (err) {
         console.error('Errore caricamento clienti:', err)
       } finally {
@@ -368,6 +462,56 @@ export default function CoachOfficePage() {
     const matchesFilter = filterSource === 'all' || client.source === filterSource
     return matchesSearch && matchesFilter
   })
+
+  // Funzioni per gestire i prodotti
+  const handleToggleProduct = async (product: Product) => {
+    setTogglingId(product.id)
+    try {
+      await updateDoc(doc(db, 'digitalProducts', product.id), {
+        isActive: !product.isActive
+      })
+      setProducts(prev => prev.map(p => 
+        p.id === product.id ? { ...p, isActive: !p.isActive } : p
+      ))
+      // Aggiorna stats
+      setProductStats(prev => ({
+        ...prev,
+        activeProducts: product.isActive ? prev.activeProducts - 1 : prev.activeProducts + 1
+      }))
+    } catch (err) {
+      console.error('Errore toggle:', err)
+    } finally {
+      setTogglingId(null)
+    }
+  }
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (!confirm('Sei sicuro di voler eliminare questo prodotto?')) return
+    
+    setDeletingId(productId)
+    try {
+      await deleteDoc(doc(db, 'digitalProducts', productId))
+      const deletedProduct = products.find(p => p.id === productId)
+      setProducts(prev => prev.filter(p => p.id !== productId))
+      // Aggiorna stats
+      setProductStats(prev => ({
+        ...prev,
+        totalProducts: prev.totalProducts - 1,
+        activeProducts: deletedProduct?.isActive ? prev.activeProducts - 1 : prev.activeProducts
+      }))
+    } catch (err) {
+      console.error('Errore eliminazione:', err)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const copyProductLink = (productId: string) => {
+    const link = `${window.location.origin}/shop/${productId}`
+    navigator.clipboard.writeText(link)
+    setCopiedLink(productId)
+    setTimeout(() => setCopiedLink(null), 2000)
+  }
 
   if (loading || isLoading) {
     return (
@@ -514,6 +658,45 @@ export default function CoachOfficePage() {
         </motion.div>
       </div>
 
+      {/* Tabs Clienti / Prodotti */}
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={() => setActiveTab('clients')}
+          className={`flex items-center gap-2 px-5 py-3 rounded-xl font-medium transition-colors ${
+            activeTab === 'clients'
+              ? 'bg-primary-500 text-white'
+              : 'bg-white text-gray-600 hover:bg-gray-50 shadow-sm'
+          }`}
+        >
+          <Users size={20} />
+          I Miei Clienti
+          <span className={`px-2 py-0.5 rounded-full text-xs ${
+            activeTab === 'clients' ? 'bg-white/20' : 'bg-gray-100'
+          }`}>
+            {stats.totalClients}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('products')}
+          className={`flex items-center gap-2 px-5 py-3 rounded-xl font-medium transition-colors ${
+            activeTab === 'products'
+              ? 'bg-primary-500 text-white'
+              : 'bg-white text-gray-600 hover:bg-gray-50 shadow-sm'
+          }`}
+        >
+          <Package size={20} />
+          Prodotti Digitali
+          <span className={`px-2 py-0.5 rounded-full text-xs ${
+            activeTab === 'products' ? 'bg-white/20' : 'bg-gray-100'
+          }`}>
+            {productStats.totalProducts}
+          </span>
+        </button>
+      </div>
+
+      {/* TAB CLIENTI */}
+      {activeTab === 'clients' && (
+        <>
       {/* Search and Filter */}
       <div className="bg-white rounded-2xl p-4 shadow-sm mb-6">
         <div className="flex flex-col md:flex-row gap-4">
@@ -663,5 +846,226 @@ export default function CoachOfficePage() {
           )}
         </div>
       </div>
+        </>
+      )}
+
+      {/* TAB PRODOTTI */}
+      {activeTab === 'products' && (
+        <div className="space-y-6">
+          {/* Stats Prodotti */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                  <Package className="text-blue-600" size={20} />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-charcoal">{productStats.totalProducts}</p>
+                  <p className="text-xs text-gray-500">Prodotti totali</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+                  <CheckCircle className="text-green-600" size={20} />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-charcoal">{productStats.activeProducts}</p>
+                  <p className="text-xs text-gray-500">Attivi in vetrina</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                  <ShoppingBag className="text-purple-600" size={20} />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-charcoal">{productStats.totalSales}</p>
+                  <p className="text-xs text-gray-500">Vendite totali</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
+                  <Euro className="text-orange-600" size={20} />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-charcoal">{formatCurrency(productStats.totalRevenue)}</p>
+                  <p className="text-xs text-gray-500">Ricavi prodotti</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Header Prodotti */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-charcoal">I tuoi prodotti digitali</h2>
+            <Link
+              href="/coach/office/products/new"
+              className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors"
+            >
+              <Plus size={20} />
+              Nuovo Prodotto
+            </Link>
+          </div>
+
+          {/* Lista Prodotti */}
+          {products.length === 0 ? (
+            <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
+              <Package className="mx-auto mb-4 text-gray-300" size={48} />
+              <h3 className="text-lg font-semibold text-charcoal mb-2">
+                Nessun prodotto ancora
+              </h3>
+              <p className="text-gray-500 mb-6">
+                Crea il tuo primo prodotto digitale e inizia a vendere!
+              </p>
+              <Link
+                href="/coach/office/products/new"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors"
+              >
+                <Plus size={20} />
+                Crea il primo prodotto
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {products.map((product, index) => {
+                const CategoryIcon = categoryIcons[product.category] || Package
+                
+                return (
+                  <motion.div
+                    key={product.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className={`bg-white rounded-2xl p-4 shadow-sm border-2 ${
+                      product.isActive ? 'border-transparent' : 'border-gray-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      {/* Cover Image */}
+                      <div className="w-20 h-20 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {product.coverImage ? (
+                          <img 
+                            src={product.coverImage} 
+                            alt={product.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <CategoryIcon className="text-gray-400" size={32} />
+                        )}
+                      </div>
+                      
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-charcoal truncate">{product.title}</h3>
+                          <span className={`px-2 py-0.5 rounded-full text-xs ${
+                            product.isActive 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {product.isActive ? 'Attivo' : 'Disattivo'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500 truncate mb-2">{product.description}</p>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="flex items-center gap-1 text-gray-500">
+                            <CategoryIcon size={14} />
+                            {categoryLabels[product.category]}
+                          </span>
+                          <span className="font-semibold text-primary-600">
+                            {formatCurrency(product.price)}
+                          </span>
+                          <span className="flex items-center gap-1 text-gray-500">
+                            <ShoppingBag size={14} />
+                            {product.salesCount} vendite
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => copyProductLink(product.id)}
+                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Copia link"
+                        >
+                          {copiedLink === product.id ? (
+                            <Check size={18} className="text-green-500" />
+                          ) : (
+                            <Copy size={18} />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleToggleProduct(product)}
+                          disabled={togglingId === product.id}
+                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          title={product.isActive ? 'Disattiva' : 'Attiva'}
+                        >
+                          {togglingId === product.id ? (
+                            <Loader2 size={18} className="animate-spin" />
+                          ) : product.isActive ? (
+                            <EyeOff size={18} />
+                          ) : (
+                            <Eye size={18} />
+                          )}
+                        </button>
+                        <Link
+                          href={`/coach/office/products/${product.id}/edit`}
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Modifica"
+                        >
+                          <Edit size={18} />
+                        </Link>
+                        <button
+                          onClick={() => handleDeleteProduct(product.id)}
+                          disabled={deletingId === product.id}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Elimina"
+                        >
+                          {deletingId === product.id ? (
+                            <Loader2 size={18} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={18} />
+                          )}
+                        </button>
+                        <Link
+                          href={`/shop/${product.id}`}
+                          target="_blank"
+                          className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          title="Vedi in vetrina"
+                        >
+                          <ExternalLink size={18} />
+                        </Link>
+                      </div>
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Info commissione */}
+          <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+            <div className="flex items-start gap-3">
+              <TrendingUp className="text-blue-500 mt-0.5" size={20} />
+              <div>
+                <p className="font-medium text-blue-800">Commissione sulla vendita</p>
+                <p className="text-sm text-blue-600 mt-1">
+                  Per ogni vendita, CoachaMi trattiene una piccola commissione per la gestione dei pagamenti. 
+                  Il resto viene accreditato direttamente sul tuo account Stripe.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
   )
 }
