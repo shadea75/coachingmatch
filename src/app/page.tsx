@@ -394,19 +394,20 @@ export default function HomePage() {
             ].map((area, index) => {
               const AreaIllustration = AreaIllustrations[area.id]
               return (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.05 }}
-                viewport={{ once: true }}
-                className="bg-cream rounded-xl p-6 text-center card-hover"
-              >
-                <div className="flex justify-center mb-3">
-                  {AreaIllustration && <AreaIllustration size={80} />}
-                </div>
-                <span className="font-medium text-charcoal">{area.label}</span>
-              </motion.div>
+              <Link href={`/coaches?area=${area.id}`} key={index}>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.05 }}
+                  viewport={{ once: true }}
+                  className="bg-cream rounded-xl p-6 text-center card-hover cursor-pointer hover:shadow-md transition-shadow"
+                >
+                  <div className="flex justify-center mb-3">
+                    {AreaIllustration && <AreaIllustration size={80} />}
+                  </div>
+                  <span className="font-medium text-charcoal">{area.label}</span>
+                </motion.div>
+              </Link>
               )
             })}
           </div>
