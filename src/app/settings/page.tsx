@@ -25,7 +25,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import { db, storage } from '@/lib/firebase'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -119,52 +119,37 @@ export default function SettingsPage() {
     setIsUploadingPhoto(true)
     
     try {
-      // Metodo 1: Firebase Storage (preferito)
-      try {
-        const storageRef = ref(storage, `profile-photos/${user.id}`)
-        
-        await uploadBytes(storageRef, file)
-        const downloadURL = await getDownloadURL(storageRef)
-        
-        // Salva URL nel profilo
-        await updateDoc(doc(db, 'users', user.id), {
-          photo: downloadURL,
-          updatedAt: serverTimestamp()
-        })
-        
-        setFormData(prev => ({ ...prev, photo: downloadURL }))
-        setSaveSuccess(true)
-        setTimeout(() => setSaveSuccess(false), 3000)
-      } catch (storageError: any) {
-        console.log('Firebase Storage non disponibile, uso Base64:', storageError.message)
-        
-        // Metodo 2: Fallback a Base64 (per immagini piccole)
-        const reader = new FileReader()
-        reader.onloadend = async () => {
-          const base64 = reader.result as string
+      const timestamp = Date.now()
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+      const storageRef = ref(storage, `profile-photos/${user.id}/${timestamp}_${safeName}`)
+      
+      const uploadTask = uploadBytesResumable(storageRef, file)
+      
+      uploadTask.on('state_changed',
+        () => {},
+        (error) => {
+          console.error('Errore upload foto:', error)
+          alert('Errore durante il caricamento della foto')
+          setIsUploadingPhoto(false)
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref)
           
-          // Comprimi l'immagine se troppo grande per Firestore (max ~1MB)
-          let finalImage = base64
-          if (base64.length > 900000) {
-            // Comprimi usando canvas
-            finalImage = await compressImage(file, 400, 0.7)
-          }
-          
+          // Salva URL nel profilo
           await updateDoc(doc(db, 'users', user.id), {
-            photo: finalImage,
+            photo: downloadURL,
             updatedAt: serverTimestamp()
           })
           
-          setFormData(prev => ({ ...prev, photo: finalImage }))
+          setFormData(prev => ({ ...prev, photo: downloadURL }))
           setSaveSuccess(true)
           setTimeout(() => setSaveSuccess(false), 3000)
+          setIsUploadingPhoto(false)
         }
-        reader.readAsDataURL(file)
-      }
+      )
     } catch (err) {
       console.error('Errore upload foto:', err)
       alert('Errore durante il caricamento della foto')
-    } finally {
       setIsUploadingPhoto(false)
     }
   }
