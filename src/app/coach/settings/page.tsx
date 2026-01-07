@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -30,18 +30,21 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import StripeConnectSetup from '@/components/coach/StripeConnectSetup'
-import { db } from '@/lib/firebase'
+import { db, storage } from '@/lib/firebase'
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 import { LIFE_AREAS } from '@/types'
 
 export default function CoachSettingsPage() {
   const router = useRouter()
   const { user, signOut, loading } = useAuth()
+  const photoInputRef = useRef<HTMLInputElement>(null)
   
   const [activeTab, setActiveTab] = useState('profile')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
   
   // Profile data
   const [profile, setProfile] = useState({
@@ -138,6 +141,65 @@ export default function CoachSettingsPage() {
     
     loadProfile()
   }, [user])
+  
+  // Upload foto profilo
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user?.id) return
+    
+    if (!file.type.startsWith('image/')) {
+      alert('Per favore seleziona un\'immagine')
+      return
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      alert('L\'immagine deve essere inferiore a 5MB')
+      return
+    }
+    
+    setIsUploadingPhoto(true)
+    
+    try {
+      const timestamp = Date.now()
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+      const storageRef = ref(storage, `profile-photos/${user.id}/${timestamp}_${safeName}`)
+      
+      const uploadTask = uploadBytesResumable(storageRef, file)
+      
+      uploadTask.on('state_changed',
+        () => {},
+        (error) => {
+          console.error('Errore upload foto:', error)
+          alert('Errore durante il caricamento della foto')
+          setIsUploadingPhoto(false)
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref)
+          
+          // Salva URL nel profilo coach
+          await updateDoc(doc(db, 'coachApplications', user.id), {
+            photo: downloadURL,
+            updatedAt: serverTimestamp()
+          })
+          
+          // Salva anche in users
+          await updateDoc(doc(db, 'users', user.id), {
+            photo: downloadURL,
+            updatedAt: serverTimestamp()
+          })
+          
+          setProfile(prev => ({ ...prev, photo: downloadURL }))
+          setSaveSuccess(true)
+          setTimeout(() => setSaveSuccess(false), 3000)
+          setIsUploadingPhoto(false)
+        }
+      )
+    } catch (err) {
+      console.error('Errore upload foto:', err)
+      alert('Errore durante il caricamento della foto')
+      setIsUploadingPhoto(false)
+    }
+  }
   
   // Salva modifiche profilo
   const handleSaveProfile = async () => {
@@ -306,6 +368,58 @@ export default function CoachSettingsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-6"
               >
+                {/* Foto profilo */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200 mb-6">
+                  <h2 className="text-lg font-semibold text-charcoal mb-4">Foto profilo</h2>
+                  
+                  <div className="flex items-center gap-6">
+                    <div className="relative">
+                      {profile.photo ? (
+                        <img 
+                          src={profile.photo} 
+                          alt="Foto profilo"
+                          className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+                        />
+                      ) : (
+                        <div className="w-24 h-24 rounded-full bg-primary-100 flex items-center justify-center border-4 border-white shadow-lg">
+                          <span className="text-3xl font-semibold text-primary-600">
+                            {profile.name?.charAt(0)?.toUpperCase() || '?'}
+                          </span>
+                        </div>
+                      )}
+                      
+                      <button 
+                        onClick={() => photoInputRef.current?.click()}
+                        disabled={isUploadingPhoto}
+                        className="absolute bottom-0 right-0 w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center text-white hover:bg-primary-600 disabled:opacity-50 shadow-md"
+                      >
+                        {isUploadingPhoto ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Camera size={16} />
+                        )}
+                      </button>
+                      
+                      <input
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-600">
+                        Carica una foto professionale per il tuo profilo.
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        JPG, PNG (max 5MB)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Info base */}
                 <div className="bg-white rounded-2xl p-6 border border-gray-200">
                   <h2 className="text-lg font-semibold text-charcoal mb-6">Informazioni personali</h2>
