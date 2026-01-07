@@ -1067,5 +1067,6 @@ export default function CoachOfficePage() {
           </div>
         </div>
       )}
+    </div>
   )
 }
