@@ -30,6 +30,7 @@ interface Coach {
   photo: string | null
   specialization: string
   lifeArea?: LifeAreaId
+  lifeAreas: LifeAreaId[]
   bio: string
   rating: number
   reviewCount: number
@@ -52,18 +53,23 @@ export default function HomePage() {
         const loadedCoaches: Coach[] = snapshot.docs.map(doc => {
           const data = doc.data()
           
-          // Trova il label dell'area dalla lifeArea
-          const lifeAreaId = data.lifeArea as LifeAreaId | undefined
-          const areaLabel = lifeAreaId 
-            ? LIFE_AREAS.find(a => a.id === lifeAreaId)?.label 
-            : null
+          // Supporta sia lifeAreas (nuovo) che lifeArea (vecchio)
+          const lifeAreasArray = data.lifeAreas as LifeAreaId[] || []
+          const lifeAreaSingle = data.lifeArea as LifeAreaId | undefined
+          const allAreas = lifeAreasArray.length > 0 ? lifeAreasArray : (lifeAreaSingle ? [lifeAreaSingle] : [])
+          
+          // Genera le label delle aree
+          const areaLabels = allAreas
+            .map(areaId => LIFE_AREAS.find(a => a.id === areaId)?.label)
+            .filter(Boolean) 
           
           return {
             id: doc.id,
             name: data.name || 'Coach',
             photo: data.photo || null,
-            specialization: areaLabel || data.specializations?.focusTopics?.[0] || 'Life Coach',
-            lifeArea: lifeAreaId,
+            specialization: areaLabels[0] || data.specializations?.focusTopics?.[0] || 'Life Coach',
+            lifeArea: allAreas[0],
+            lifeAreas: allAreas,
             bio: data.bio || data.motivation || '',
             rating: data.rating || 5.0,
             reviewCount: data.reviewCount || 0
@@ -213,9 +219,6 @@ export default function HomePage() {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {coaches.map((coach, index) => {
-                  // Ottieni l'illustrazione per l'area del coach
-                  const AreaIllustration = coach.lifeArea ? AreaIllustrations[coach.lifeArea] : null
-                  
                   return (
                   <motion.div
                     key={coach.id}
@@ -249,10 +252,17 @@ export default function HomePage() {
                             </span>
                           </div>
                           
-                          {/* Badge Illustrazione Area in basso a destra */}
-                          {AreaIllustration && (
-                            <div className="absolute bottom-3 right-3 w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full p-1 shadow-md flex items-center justify-center">
-                              <AreaIllustration size={36} />
+                          {/* Badge Illustrazioni Aree in basso a destra */}
+                          {coach.lifeAreas && coach.lifeAreas.length > 0 && (
+                            <div className="absolute bottom-3 right-3 flex gap-1">
+                              {coach.lifeAreas.slice(0, 3).map((areaId) => {
+                                const AreaIllustration = AreaIllustrations[areaId]
+                                return AreaIllustration ? (
+                                  <div key={areaId} className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full p-1 shadow-md flex items-center justify-center">
+                                    <AreaIllustration size={28} />
+                                  </div>
+                                ) : null
+                              })}
                             </div>
                           )}
                         </div>
