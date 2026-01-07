@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Calendar, Check, X, Loader2, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { db } from '@/lib/firebase'
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 
 interface CalendarSettingsProps {
   onStatusChange?: (connected: boolean) => void
@@ -113,19 +113,19 @@ export default function CalendarSettings({ onStatusChange }: CalendarSettingsPro
     
     setIsDisconnecting(true)
     try {
-      const response = await fetch('/api/calendar/disconnect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ coachId: user.id })
-      })
+      // Elimina token direttamente da Firebase client-side
+      await deleteDoc(doc(db, 'coachCalendarTokens', user.id))
       
-      if (response.ok) {
-        setIsConnected(false)
-        setConnectedEmail(null)
-        onStatusChange?.(false)
-      } else {
-        alert('Errore nella disconnessione')
-      }
+      // Aggiorna profilo coach
+      await setDoc(doc(db, 'coachApplications', user.id), {
+        googleCalendarConnected: false,
+        googleCalendarEmail: null,
+        updatedAt: serverTimestamp(),
+      }, { merge: true })
+      
+      setIsConnected(false)
+      setConnectedEmail(null)
+      onStatusChange?.(false)
     } catch (err) {
       console.error('Errore disconnessione:', err)
       alert('Errore nella disconnessione')
