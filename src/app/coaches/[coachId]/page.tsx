@@ -40,9 +40,11 @@ interface CoachProfile {
   id: string
   name: string
   email: string
+  photo: string | null
   bio: string
   motivation: string
   lifeArea: string | null
+  lifeAreas: string[]
   specializations: {
     focusTopics: string[]
     targetAudience: string[]
@@ -127,13 +129,21 @@ export default function CoachPublicProfilePage() {
         
         if (coachDoc.exists()) {
           const data = coachDoc.data()
+          
+          // Supporta sia lifeAreas (nuovo) che lifeArea (vecchio)
+          const lifeAreasArray = data.lifeAreas || []
+          const lifeAreaSingle = data.lifeArea || null
+          const allAreas = lifeAreasArray.length > 0 ? lifeAreasArray : (lifeAreaSingle ? [lifeAreaSingle] : [])
+          
           setCoach({
             id: coachDoc.id,
             name: data.name || 'Coach',
             email: data.email || '',
+            photo: data.photo || null,
             bio: data.bio || '',
             motivation: data.motivation || '',
-            lifeArea: data.lifeArea || null,
+            lifeArea: allAreas[0] || null,
+            lifeAreas: allAreas,
             specializations: {
               focusTopics: data.specializations?.focusTopics || data.problemsAddressed || [],
               targetAudience: data.specializations?.targetAudience || data.clientTypes || [],
@@ -249,14 +259,15 @@ export default function CoachPublicProfilePage() {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-2xl overflow-hidden shadow-sm sticky top-24"
             >
-              {/* Illustrazione area di specializzazione */}
+              {/* Foto profilo */}
               <div className="aspect-square relative">
-                {coach.lifeArea ? (
-                  <div className="w-full h-full bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-8">
-                    {getAreaIllustration(coach.lifeArea, 280)}
-                  </div>
+                {coach.photo ? (
+                  <img 
+                    src={coach.photo} 
+                    alt={coach.name}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
-                  // Fallback: lettera iniziale se manca lifeArea
                   <div className="w-full h-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
                     <span className="text-8xl font-bold text-primary-400">
                       {coach.name.charAt(0)}
@@ -264,7 +275,7 @@ export default function CoachPublicProfilePage() {
                   </div>
                 )}
                 
-                {/* Badge */}
+                {/* Badge Coach Certificato */}
                 <div className="absolute top-4 left-4">
                   <span className="px-3 py-1 bg-primary-500 text-white rounded-full text-sm font-medium flex items-center gap-1">
                     <Award size={14} />
@@ -276,17 +287,24 @@ export default function CoachPublicProfilePage() {
               {/* Info base */}
               <div className="p-6">
                 <h1 className="text-2xl font-bold text-charcoal mb-1">{coach.name}</h1>
-                {coach.lifeArea && (() => {
-                  const area = LIFE_AREAS.find(a => a.id === coach.lifeArea)
-                  return area ? (
-                    <p className="font-medium mb-4" style={{ color: area.color }}>
-                      {area.label}
-                    </p>
-                  ) : (
-                    <p className="text-primary-600 font-medium mb-4">Life Coach</p>
-                  )
-                })()}
-                {!coach.lifeArea && (
+                
+                {/* Mostra tutte le aree di competenza */}
+                {coach.lifeAreas && coach.lifeAreas.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {coach.lifeAreas.map(areaId => {
+                      const area = LIFE_AREAS.find(a => a.id === areaId)
+                      return area ? (
+                        <span 
+                          key={areaId}
+                          className="px-2 py-1 rounded-full text-sm font-medium"
+                          style={{ backgroundColor: `${area.color}20`, color: area.color }}
+                        >
+                          {area.label}
+                        </span>
+                      ) : null
+                    })}
+                  </div>
+                ) : (
                   <p className="text-primary-600 font-medium mb-4">Life Coach</p>
                 )}
                 

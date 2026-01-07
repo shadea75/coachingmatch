@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   Search,
@@ -35,10 +36,19 @@ interface Coach {
 }
 
 export default function CoachesListPage() {
+  const searchParams = useSearchParams()
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedArea, setSelectedArea] = useState<string>('all')
+
+  // Leggi parametro area dall'URL al caricamento
+  useEffect(() => {
+    const areaFromUrl = searchParams.get('area')
+    if (areaFromUrl) {
+      setSelectedArea(areaFromUrl)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     const loadCoaches = async () => {
