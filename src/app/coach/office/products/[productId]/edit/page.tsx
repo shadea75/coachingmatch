@@ -22,8 +22,9 @@ import {
   Trash2
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { db } from '@/lib/firebase'
+import { db, storage } from '@/lib/firebase'
 import { doc, getDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 
 const categories = [
   { id: 'ebook', label: 'eBook / PDF', icon: FileText, description: 'Documenti PDF, guide, manuali' },
@@ -129,18 +130,34 @@ export default function EditProductPage() {
     const file = e.target.files?.[0]
     if (!file) return
     
+    if (!user?.id) {
+      setError('Devi essere autenticato per caricare file')
+      return
+    }
+    
     setUploadingFile(true)
+    setError('')
+    
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Genera nome file unico
+      const timestamp = Date.now()
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+      const filePath = `products/${user.id}/${timestamp}_${safeName}`
+      
+      // Carica su Firebase Storage
+      const storageRef = ref(storage, filePath)
+      await uploadBytes(storageRef, file)
+      const downloadUrl = await getDownloadURL(storageRef)
       
       setFormData(prev => ({
         ...prev,
         fileName: file.name,
         fileSize: file.size,
-        fileUrl: `https://storage.example.com/products/${file.name}`
+        fileUrl: downloadUrl
       }))
-    } catch (err) {
-      setError('Errore durante il caricamento del file')
+    } catch (err: any) {
+      console.error('Errore upload file:', err)
+      setError('Errore durante il caricamento del file: ' + (err.message || 'Riprova'))
     } finally {
       setUploadingFile(false)
     }
@@ -155,22 +172,39 @@ export default function EditProductPage() {
       return
     }
     
+    if (!user?.id) {
+      setError('Devi essere autenticato per caricare file')
+      return
+    }
+    
     setUploadingCover(true)
+    setError('')
+    
     try {
+      // Crea preview locale
       const reader = new FileReader()
       reader.onload = (e) => {
         setCoverPreview(e.target?.result as string)
       }
       reader.readAsDataURL(file)
       
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Genera nome file unico
+      const timestamp = Date.now()
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+      const filePath = `covers/${user.id}/${timestamp}_${safeName}`
+      
+      // Carica su Firebase Storage
+      const storageRef = ref(storage, filePath)
+      await uploadBytes(storageRef, file)
+      const downloadUrl = await getDownloadURL(storageRef)
       
       setFormData(prev => ({
         ...prev,
-        coverImage: `https://storage.example.com/covers/${file.name}`
+        coverImage: downloadUrl
       }))
-    } catch (err) {
-      setError('Errore durante il caricamento dell\'immagine')
+    } catch (err: any) {
+      console.error('Errore upload cover:', err)
+      setError('Errore durante il caricamento dell\'immagine: ' + (err.message || 'Riprova'))
     } finally {
       setUploadingCover(false)
     }
