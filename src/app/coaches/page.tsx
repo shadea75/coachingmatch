@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -35,7 +35,8 @@ interface Coach {
   location: string
 }
 
-export default function CoachesListPage() {
+// Componente interno che usa useSearchParams
+function CoachesContent() {
   const searchParams = useSearchParams()
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [loading, setLoading] = useState(true)
@@ -318,5 +319,18 @@ export default function CoachesListPage() {
         </div>
       </footer>
     </div>
+  )
+}
+
+// Export con Suspense wrapper
+export default function CoachesListPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <Loader2 className="animate-spin text-primary-500" size={40} />
+      </div>
+    }>
+      <CoachesContent />
+    </Suspense>
   )
 }
