@@ -30,6 +30,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import StripeConnectSetup from '@/components/coach/StripeConnectSetup'
+import CalendarSettings from '@/components/CalendarSettings'
 import { db, storage } from '@/lib/firebase'
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
@@ -64,7 +65,8 @@ export default function CoachSettingsPage() {
     // Nuovi campi
     certifications: [] as string[],
     focusTopics: [] as string[],
-    targetAudience: [] as string[]
+    targetAudience: [] as string[],
+    yearsExperience: 0
   })
   
   // Input temporanei per aggiungere nuovi elementi
@@ -142,7 +144,8 @@ export default function CoachSettingsPage() {
             photo: data.photo || '',
             certifications: certs,
             focusTopics: data.specializations?.focusTopics || data.problemsAddressed || [],
-            targetAudience: data.specializations?.targetAudience || data.clientTypes || []
+            targetAudience: data.specializations?.targetAudience || data.clientTypes || [],
+            yearsExperience: data.experience?.yearsCoaching || data.yearsOfExperience || 0
           })
           
           // Carica dati fatturazione se esistono
@@ -258,6 +261,8 @@ export default function CoachSettingsPage() {
         'specializations.focusTopics': profile.focusTopics,
         'specializations.targetAudience': profile.targetAudience,
         'experience.certifications': profile.certifications,
+        'experience.yearsCoaching': profile.yearsExperience,
+        yearsOfExperience: profile.yearsExperience,
         updatedAt: serverTimestamp()
       })
       
@@ -510,6 +515,26 @@ export default function CoachSettingsPage() {
                         placeholder="Milano, Italia"
                         className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
                       />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Anni di esperienza
+                      </label>
+                      <select
+                        value={profile.yearsExperience}
+                        onChange={(e) => setProfile({ ...profile, yearsExperience: parseInt(e.target.value) })}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value={0}>Meno di 1 anno</option>
+                        <option value={1}>1 anno</option>
+                        <option value={2}>2 anni</option>
+                        <option value={3}>3 anni</option>
+                        <option value={5}>5 anni</option>
+                        <option value={10}>10+ anni</option>
+                        <option value={15}>15+ anni</option>
+                        <option value={20}>20+ anni</option>
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -866,6 +891,9 @@ export default function CoachSettingsPage() {
                 
                 {/* Stripe Connect - Ricevi pagamenti automatici */}
                 <StripeConnectSetup />
+                
+                {/* Google Calendar - Sincronizza disponibilità */}
+                <CalendarSettings />
                 
                 {/* Dati aziendali */}
                 <div className="bg-white rounded-2xl p-6 border border-gray-200">
