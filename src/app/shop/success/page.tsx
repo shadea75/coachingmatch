@@ -96,6 +96,33 @@ function SuccessContent() {
               })
             }
             
+            // Invia email di conferma
+            try {
+              const commissionRate = productData.commissionRate || 0.035
+              const commissionAmount = productData.price * commissionRate
+              const coachEarnings = productData.price - commissionAmount
+              
+              await fetch('/api/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'product_purchase',
+                  data: {
+                    customerEmail: user?.email || 'guest@example.com',
+                    coachEmail: productData.coachEmail,
+                    productTitle: productData.title,
+                    coachName: productData.coachName,
+                    price: productData.price,
+                    commissionAmount,
+                    coachEarnings,
+                    downloadUrl: `${window.location.origin}/shop/success?productId=${productId}&session_id=${sessionId}`
+                  }
+                })
+              })
+            } catch (emailErr) {
+              console.error('Errore invio email:', emailErr)
+            }
+            
             setPurchaseRecorded(true)
           }
         }
