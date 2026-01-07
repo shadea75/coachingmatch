@@ -96,6 +96,12 @@ export default function HomePage() {
               I Nostri Coach
             </Link>
             <Link 
+              href="/shop" 
+              className="text-gray-600 hover:text-charcoal transition-colors hidden sm:block"
+            >
+              Vetrina
+            </Link>
+            <Link 
               href="/coach/register" 
               className="text-gray-600 hover:text-charcoal transition-colors hidden sm:block"
             >
