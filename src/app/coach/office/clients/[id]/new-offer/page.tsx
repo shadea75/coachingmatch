@@ -185,7 +185,7 @@ export default function NewOfferPage() {
       let generatedLink = ''
       
       if (isCoachaMiClient && coacheeId) {
-        // Cliente CoachaMi - salva in collection 'offers' (con commissione 30%)
+        // Cliente CoachaMi - salva in collection 'offers'
         offerRef = await addDoc(collection(db, 'offers'), {
           coachId: user.id,
           coachName: user.name || 'Coach',
@@ -213,6 +213,9 @@ export default function NewOfferPage() {
           commissionRate: officeCommission,
           commissionAmount: priceTotal * officeCommission,
           coachEarnings: priceTotal * (1 - officeCommission),
+          // Contratto
+          requireContract: includeContract && contractEnabled,
+          contractAccepted: false,
           // Validità
           status: 'pending', // Pending finché il coachee non accetta
           validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 giorni
