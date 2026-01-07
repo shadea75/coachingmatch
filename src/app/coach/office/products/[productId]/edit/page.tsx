@@ -97,8 +97,7 @@ export default function EditProductPage() {
           category: data.category || 'ebook',
           coverImage: data.coverImage || '',
           fileUrl: data.fileUrl || '',
-          fileName: data.fileName || '',
-          fileSize: data.fileSize || 0
+          fileName: data.fileName || ''
         })
         
         if (data.coverImage) {
