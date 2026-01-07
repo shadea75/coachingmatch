@@ -6,8 +6,6 @@ import { useRouter, useParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   ArrowLeft,
-  Upload,
-  Image as ImageIcon,
   FileText,
   Video,
   Headphones,
@@ -17,9 +15,10 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
-  X,
   Info,
-  Trash2
+  Trash2,
+  Image as ImageIcon,
+  X
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { db, storage } from '@/lib/firebase'
@@ -39,7 +38,6 @@ export default function EditProductPage() {
   const params = useParams()
   const { user, loading: authLoading } = useAuth()
   const productId = params.productId as string
-  
   const coverInputRef = useRef<HTMLInputElement>(null)
   
   const [isLoading, setIsLoading] = useState(true)
@@ -48,6 +46,8 @@ export default function EditProductPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [commission, setCommission] = useState(3.5)
+  const [uploadingCover, setUploadingCover] = useState(false)
+  const [coverPreview, setCoverPreview] = useState<string | null>(null)
   
   const [formData, setFormData] = useState({
     title: '',
@@ -59,10 +59,7 @@ export default function EditProductPage() {
     fileName: ''
   })
   
-  const [uploadingCover, setUploadingCover] = useState(false)
-  const [coverPreview, setCoverPreview] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [coverProgress, setCoverProgress] = useState(0)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -99,10 +96,6 @@ export default function EditProductPage() {
           fileUrl: data.fileUrl || '',
           fileName: data.fileName || ''
         })
-        
-        if (data.coverImage) {
-          setCoverPreview(data.coverImage)
-        }
         
         // Carica commissione
         const settingsDoc = await getDoc(doc(db, 'settings', 'platform'))
@@ -143,7 +136,6 @@ export default function EditProductPage() {
     }
     
     setUploadingCover(true)
-    setCoverProgress(0)
     setError('')
     
     const reader = new FileReader()
@@ -161,10 +153,7 @@ export default function EditProductPage() {
       const uploadTask = uploadBytesResumable(storageRef, file)
       
       uploadTask.on('state_changed',
-        (snapshot) => {
-          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
-          setCoverProgress(progress)
-        },
+        () => {},
         (error) => {
           console.error('Errore upload cover:', error)
           setError('Errore durante il caricamento: ' + error.message)
@@ -177,12 +166,11 @@ export default function EditProductPage() {
             coverImage: downloadUrl
           }))
           setUploadingCover(false)
-          setCoverProgress(0)
         }
       )
     } catch (err: any) {
       console.error('Errore upload cover:', err)
-      setError('Errore durante il caricamento dell\'immagine: ' + (err.message || 'Riprova'))
+      setError('Errore durante il caricamento dell\'immagine')
       setUploadingCover(false)
     }
   }
@@ -394,14 +382,14 @@ export default function EditProductPage() {
           </div>
         </motion.div>
 
-        {/* Cover Image */}
+        {/* Cover Image - Upload */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
           className="bg-white rounded-2xl p-6 shadow-sm"
         >
-          <h2 className="font-semibold text-charcoal mb-4">Immagine di copertina</h2>
+          <h2 className="font-semibold text-charcoal mb-4">Immagine di copertina (opzionale)</h2>
           
           <input
             type="file"
@@ -411,10 +399,10 @@ export default function EditProductPage() {
             className="hidden"
           />
           
-          {coverPreview ? (
+          {coverPreview || formData.coverImage ? (
             <div className="relative">
               <img 
-                src={coverPreview} 
+                src={coverPreview || formData.coverImage} 
                 alt="Cover preview"
                 className="w-full h-48 object-cover rounded-xl"
               />
@@ -437,11 +425,15 @@ export default function EditProductPage() {
               className="w-full h-48 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary-400 hover:bg-primary-50 transition-colors"
             >
               {uploadingCover ? (
-                <Loader2 className="animate-spin text-primary-500" size={32} />
+                <div className="text-center">
+                  <Loader2 className="animate-spin text-primary-500 mx-auto" size={32} />
+                  <p className="text-primary-600 font-medium mt-2">Caricamento...</p>
+                </div>
               ) : (
                 <>
                   <ImageIcon className="text-gray-400" size={32} />
                   <span className="text-gray-500">Clicca per caricare</span>
+                  <span className="text-xs text-gray-400">JPG, PNG, WebP (max 5MB)</span>
                 </>
               )}
             </button>
