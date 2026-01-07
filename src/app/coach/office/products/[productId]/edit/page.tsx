@@ -216,7 +216,6 @@ export default function EditProductPage() {
         coverImage: formData.coverImage || null,
         fileUrl: formData.fileUrl || null,
         fileName: formData.fileName || null,
-        fileSize: formData.fileSize || 0,
         commissionRate: commissionRate,
         commissionAmount: price * commissionRate,
         coachEarnings: price * (1 - commissionRate),
