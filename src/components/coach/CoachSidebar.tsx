@@ -16,7 +16,8 @@ import {
   LogOut,
   Menu,
   X,
-  ChevronRight
+  ChevronRight,
+  Package
 } from 'lucide-react'
 import Logo from '@/components/Logo'
 import { useAuth } from '@/contexts/AuthContext'
@@ -49,6 +50,7 @@ export default function CoachSidebar({
     { href: '/coach/dashboard', label: 'Dashboard', icon: BarChart3 },
     { href: '/coach/sessions', label: 'Sessioni', icon: Video, badge: pendingSessions },
     { href: '/coach/office', label: 'Ufficio Virtuale', icon: Building2 },
+    { href: '/coach/office/products', label: 'Prodotti Digitali', icon: Package },
     { href: '/coach/reviews', label: 'Recensioni', icon: Star, badge: pendingReviews },
     { href: '/community/my-points', label: 'I miei punti', icon: Trophy },
     { href: '/coach/availability', label: 'Disponibilità', icon: Calendar },
