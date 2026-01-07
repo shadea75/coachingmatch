@@ -16,10 +16,13 @@ import {
   Loader2,
   Save,
   Ban,
-  User
+  User,
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
+import CalendarSettings from '@/components/CalendarSettings'
 import { db } from '@/lib/firebase'
 import { doc, getDoc, setDoc, collection, query, where, getDocs, addDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 import { format, addDays, startOfWeek, endOfWeek, isSameDay, addWeeks, isBefore, startOfDay } from 'date-fns'
@@ -43,6 +46,14 @@ interface BlockedDate {
   id: string
   date: Date
   reason?: string
+}
+
+interface GoogleEvent {
+  id: string
+  title: string
+  start: Date
+  end: Date
+  isAllDay: boolean
 }
 
 const DEFAULT_AVAILABILITY: WeeklyAvailability = {
@@ -77,6 +88,13 @@ export default function CoachAvailabilityPage() {
   const [manualEvents, setManualEvents] = useState<ManualEvent[]>([])
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([])
   const [bookedSessions, setBookedSessions] = useState<any[]>([])
+  const [externalSessions, setExternalSessions] = useState<any[]>([])
+  
+  // Google Calendar state
+  const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false)
+  const [googleEvents, setGoogleEvents] = useState<GoogleEvent[]>([])
+  const [isLoadingGoogle, setIsLoadingGoogle] = useState(false)
+  const [googleError, setGoogleError] = useState<string | null>(null)
   
   const [currentWeekStart, setCurrentWeekStart] = useState(() => 
     startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -89,6 +107,7 @@ export default function CoachAvailabilityPage() {
   // Modal states
   const [showEventModal, setShowEventModal] = useState(false)
   const [showBlockModal, setShowBlockModal] = useState(false)
+  const [showCalendarSettings, setShowCalendarSettings] = useState(false)
   const [newEvent, setNewEvent] = useState({
     title: '',
     date: new Date(),
@@ -122,6 +141,13 @@ export default function CoachAvailabilityPage() {
           }
         }
         
+        // Controlla se Google Calendar è connesso
+        const coachDoc = await getDoc(doc(db, 'coachApplications', user.id))
+        if (coachDoc.exists()) {
+          const coachData = coachDoc.data()
+          setGoogleCalendarConnected(coachData.googleCalendarConnected || false)
+        }
+        
         // Carica eventi manuali
         const eventsQuery = query(
           collection(db, 'coachEvents'),
@@ -148,7 +174,7 @@ export default function CoachAvailabilityPage() {
         })) as BlockedDate[]
         setBlockedDates(blocked)
         
-        // Carica sessioni prenotate
+        // Carica sessioni prenotate (CoachaMi)
         const sessionsQuery = query(
           collection(db, 'sessions'),
           where('coachId', '==', user.id),
@@ -162,6 +188,24 @@ export default function CoachAvailabilityPage() {
         }))
         setBookedSessions(sessions)
         
+        // Carica sessioni esterne (clienti esterni)
+        try {
+          const extSessionsQuery = query(
+            collection(db, 'externalSessions'),
+            where('coachId', '==', user.id),
+            where('status', 'in', ['pending', 'confirmed'])
+          )
+          const extSessionsSnap = await getDocs(extSessionsQuery)
+          const extSessions = extSessionsSnap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            scheduledAt: doc.data().scheduledAt?.toDate?.() || new Date(doc.data().scheduledAt)
+          }))
+          setExternalSessions(extSessions)
+        } catch (err) {
+          console.log('Nessuna sessione esterna o collection non esistente')
+        }
+        
       } catch (err) {
         console.error('Errore caricamento dati:', err)
       } finally {
@@ -171,6 +215,76 @@ export default function CoachAvailabilityPage() {
     
     loadData()
   }, [user?.id])
+  
+  // Carica eventi da Google Calendar quando cambia la settimana
+  useEffect(() => {
+    const loadGoogleEvents = async () => {
+      if (!user?.id || !googleCalendarConnected) return
+      
+      setIsLoadingGoogle(true)
+      setGoogleError(null)
+      
+      try {
+        const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 })
+        
+        const response = await fetch(
+          `/api/calendar/events?coachId=${user.id}&startDate=${currentWeekStart.toISOString()}&endDate=${weekEnd.toISOString()}`
+        )
+        
+        const data = await response.json()
+        
+        if (data.error) {
+          setGoogleError(data.error)
+          return
+        }
+        
+        if (data.events) {
+          const events: GoogleEvent[] = data.events.map((e: any) => ({
+            id: e.id,
+            title: e.summary || 'Evento',
+            start: new Date(e.start.dateTime || e.start.date),
+            end: new Date(e.end.dateTime || e.end.date),
+            isAllDay: !e.start.dateTime
+          }))
+          setGoogleEvents(events)
+        }
+      } catch (err) {
+        console.error('Errore caricamento eventi Google:', err)
+        setGoogleError('Errore nel caricamento eventi')
+      } finally {
+        setIsLoadingGoogle(false)
+      }
+    }
+    
+    loadGoogleEvents()
+  }, [user?.id, googleCalendarConnected, currentWeekStart])
+  
+  // Funzione per ricaricare eventi Google
+  const refreshGoogleEvents = () => {
+    if (user?.id && googleCalendarConnected) {
+      setGoogleEvents([])
+      // Trigger reload
+      const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 })
+      setIsLoadingGoogle(true)
+      
+      fetch(`/api/calendar/events?coachId=${user.id}&startDate=${currentWeekStart.toISOString()}&endDate=${weekEnd.toISOString()}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.events) {
+            const events: GoogleEvent[] = data.events.map((e: any) => ({
+              id: e.id,
+              title: e.summary || 'Evento',
+              start: new Date(e.start.dateTime || e.start.date),
+              end: new Date(e.end.dateTime || e.end.date),
+              isAllDay: !e.start.dateTime
+            }))
+            setGoogleEvents(events)
+          }
+        })
+        .catch(err => console.error(err))
+        .finally(() => setIsLoadingGoogle(false))
+    }
+  }
   
   // Salva disponibilità settimanale
   const saveWeeklyAvailability = async () => {
@@ -312,12 +426,12 @@ export default function CoachAvailabilityPage() {
       }
     })
     
-    // Sessioni prenotate
+    // Sessioni prenotate (CoachaMi)
     bookedSessions.forEach(s => {
       if (isSameDay(s.scheduledAt, date)) {
         events.push({
           id: s.id,
-          title: `Sessione con ${s.coacheeName}`,
+          title: `${s.coacheeName}`,
           date: s.scheduledAt,
           startTime: format(s.scheduledAt, 'HH:mm'),
           endTime: format(new Date(s.scheduledAt.getTime() + (s.duration || 30) * 60000), 'HH:mm'),
@@ -327,7 +441,41 @@ export default function CoachAvailabilityPage() {
       }
     })
     
-    return events.sort((a, b) => a.startTime.localeCompare(b.startTime))
+    // Sessioni esterne (clienti esterni)
+    externalSessions.forEach(s => {
+      if (isSameDay(s.scheduledAt, date)) {
+        events.push({
+          id: s.id,
+          title: `${s.clientName || 'Cliente esterno'}`,
+          date: s.scheduledAt,
+          startTime: format(s.scheduledAt, 'HH:mm'),
+          endTime: format(new Date(s.scheduledAt.getTime() + (s.duration || 60) * 60000), 'HH:mm'),
+          type: 'session',
+          source: 'external'
+        })
+      }
+    })
+    
+    // Eventi Google Calendar
+    googleEvents.forEach(g => {
+      if (isSameDay(g.start, date)) {
+        events.push({
+          id: g.id,
+          title: g.title,
+          date: g.start,
+          startTime: g.isAllDay ? 'Tutto il giorno' : format(g.start, 'HH:mm'),
+          endTime: g.isAllDay ? '' : format(g.end, 'HH:mm'),
+          type: 'external',
+          source: 'google'
+        })
+      }
+    })
+    
+    return events.sort((a, b) => {
+      if (a.startTime === 'Tutto il giorno') return -1
+      if (b.startTime === 'Tutto il giorno') return 1
+      return a.startTime.localeCompare(b.startTime)
+    })
   }
   
   if (loading || isLoading) {
@@ -398,6 +546,65 @@ export default function CoachAvailabilityPage() {
             animate={{ opacity: 1 }}
             className="space-y-6"
           >
+            {/* Status Google Calendar + Leggenda */}
+            <div className="bg-white rounded-2xl p-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                {/* Google Calendar Status */}
+                <div className="flex items-center gap-3">
+                  {googleCalendarConnected ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="text-sm text-gray-600">Google Calendar connesso</span>
+                      <button
+                        onClick={refreshGoogleEvents}
+                        disabled={isLoadingGoogle}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Aggiorna eventi"
+                      >
+                        <RefreshCw size={16} className={`text-gray-500 ${isLoadingGoogle ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowCalendarSettings(true)}
+                      className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700"
+                    >
+                      <Calendar size={16} />
+                      Connetti Google Calendar
+                      <ExternalLink size={14} />
+                    </button>
+                  )}
+                  {googleError && (
+                    <span className="text-xs text-red-500">{googleError}</span>
+                  )}
+                </div>
+                
+                {/* Leggenda */}
+                <div className="flex flex-wrap items-center gap-4 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 bg-orange-100 border border-orange-300 rounded"></div>
+                    <span className="text-gray-600">Coachee CoachaMi</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 bg-purple-100 border border-purple-300 rounded"></div>
+                    <span className="text-gray-600">Clienti esterni</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 bg-blue-100 border border-blue-300 rounded"></div>
+                    <span className="text-gray-600">Google Calendar</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 bg-gray-100 border border-gray-300 rounded"></div>
+                    <span className="text-gray-600">Eventi manuali</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 bg-red-100 border border-red-300 rounded"></div>
+                    <span className="text-gray-600">Giorno bloccato</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             {/* Navigazione settimana */}
             <div className="bg-white rounded-2xl p-4 flex items-center justify-between">
               <button
@@ -452,24 +659,26 @@ export default function CoachAvailabilityPage() {
                             Bloccato
                           </div>
                         )}
-                        {events.slice(0, 3).map(event => (
+                        {events.slice(0, 4).map(event => (
                           <div
                             key={event.id}
                             className={`text-xs rounded px-2 py-1 truncate ${
                               event.source === 'booking'
-                                ? 'bg-green-100 text-green-700'
-                                : event.type === 'external'
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : 'bg-gray-100 text-gray-700'
+                                ? 'bg-orange-100 text-orange-700 border-l-2 border-orange-500'
+                                : event.source === 'external'
+                                  ? 'bg-purple-100 text-purple-700 border-l-2 border-purple-500'
+                                  : event.source === 'google'
+                                    ? 'bg-blue-100 text-blue-700 border-l-2 border-blue-500'
+                                    : 'bg-gray-100 text-gray-700 border-l-2 border-gray-400'
                             }`}
-                            title={event.title}
+                            title={`${event.title}${event.source === 'google' ? ' (Google)' : event.source === 'external' ? ' (Esterno)' : ''}`}
                           >
                             {event.startTime} {event.title}
                           </div>
                         ))}
-                        {events.length > 3 && (
+                        {events.length > 4 && (
                           <div className="text-xs text-gray-500 px-2">
-                            +{events.length - 3} altri
+                            +{events.length - 4} altri
                           </div>
                         )}
                       </div>
@@ -882,6 +1091,37 @@ export default function CoachAvailabilityPage() {
                 Blocca Data
               </button>
             </div>
+          </motion.div>
+        </div>
+      )}
+      
+      {/* Modal Impostazioni Google Calendar */}
+      {showCalendarSettings && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl p-6 max-w-md w-full"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Google Calendar</h3>
+              <button
+                onClick={() => setShowCalendarSettings(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <CalendarSettings 
+              onStatusChange={(connected) => {
+                setGoogleCalendarConnected(connected)
+                if (connected) {
+                  refreshGoogleEvents()
+                }
+                setShowCalendarSettings(false)
+              }}
+            />
           </motion.div>
         </div>
       )}
