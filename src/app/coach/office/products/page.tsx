@@ -115,6 +115,8 @@ export default function CoachProductsPage() {
     const loadProducts = async () => {
       if (!user?.id) return
       
+      console.log('Loading products for coachId:', user.id)
+      
       setIsLoading(true)
       try {
         // Carica prodotti del coach
@@ -124,6 +126,8 @@ export default function CoachProductsPage() {
           orderBy('createdAt', 'desc')
         )
         const productsSnap = await getDocs(productsQuery)
+        
+        console.log('Products found:', productsSnap.size)
         
         const loadedProducts: Product[] = productsSnap.docs.map(doc => {
           const data = doc.data()
