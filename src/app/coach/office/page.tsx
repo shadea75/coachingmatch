@@ -694,158 +694,150 @@ export default function CoachOfficePage() {
         </button>
       </div>
 
+
       {/* TAB CLIENTI */}
       {activeTab === 'clients' && (
         <>
-      {/* Search and Filter */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm mb-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Cerca cliente per nome o email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterSource('all')}
-                className={`px-4 py-2 rounded-xl font-medium transition-colors ${
-                  filterSource === 'all'
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Tutti
-              </button>
-              <button
-                onClick={() => setFilterSource('coachami')}
-                className={`px-4 py-2 rounded-xl font-medium transition-colors ${
-                  filterSource === 'coachami'
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                CoachaMi
-              </button>
-              <button
-                onClick={() => setFilterSource('external')}
-                className={`px-4 py-2 rounded-xl font-medium transition-colors ${
-                  filterSource === 'external'
-                    ? 'bg-purple-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Esterni
-              </button>
+          {/* Search and Filter */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm mb-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  placeholder="Cerca cliente per nome o email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFilterSource('all')}
+                  className={`px-4 py-2 rounded-xl font-medium transition-colors ${
+                    filterSource === 'all'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Tutti
+                </button>
+                <button
+                  onClick={() => setFilterSource('coachami')}
+                  className={`px-4 py-2 rounded-xl font-medium transition-colors ${
+                    filterSource === 'coachami'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  CoachaMi
+                </button>
+                <button
+                  onClick={() => setFilterSource('external')}
+                  className={`px-4 py-2 rounded-xl font-medium transition-colors ${
+                    filterSource === 'external'
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Esterni
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Clients List */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="font-semibold text-charcoal flex items-center gap-2">
-              <Users size={20} />
-              I Miei Clienti ({filteredClients.length})
-            </h2>
-            <Link
-              href="/coach/office/clients/new"
-              className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors"
-            >
-              <Plus size={18} />
-              <span className="hidden md:inline">Aggiungi Cliente</span>
-            </Link>
-          </div>
-
-          {filteredClients.length === 0 ? (
-            <div className="p-12 text-center">
-              <Users className="mx-auto mb-4 text-gray-300" size={48} />
-              <h3 className="text-lg font-medium text-charcoal mb-2">
-                {searchQuery || filterSource !== 'all' 
-                  ? 'Nessun cliente trovato' 
-                  : 'Nessun cliente ancora'}
-              </h3>
-              <p className="text-gray-500 mb-6">
-                {searchQuery || filterSource !== 'all'
-                  ? 'Prova a modificare i filtri di ricerca'
-                  : 'Aggiungi il tuo primo cliente esterno o attendi prenotazioni da CoachaMi'}
-              </p>
+          {/* Clients List */}
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="font-semibold text-charcoal flex items-center gap-2">
+                <Users size={20} />
+                I Miei Clienti ({filteredClients.length})
+              </h2>
               <Link
                 href="/coach/office/clients/new"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600"
+                className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors"
               >
-                <UserPlus size={20} />
-                Aggiungi Cliente Esterno
+                <Plus size={18} />
+                <span className="hidden md:inline">Aggiungi Cliente</span>
               </Link>
             </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {filteredClients.map((client, index) => (
-                <motion.div
-                  key={client.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
+
+            {filteredClients.length === 0 ? (
+              <div className="p-12 text-center">
+                <Users className="mx-auto mb-4 text-gray-300" size={48} />
+                <h3 className="text-lg font-medium text-charcoal mb-2">
+                  {searchQuery || filterSource !== 'all' 
+                    ? 'Nessun cliente trovato' 
+                    : 'Nessun cliente ancora'}
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  {searchQuery || filterSource !== 'all'
+                    ? 'Prova a modificare i filtri di ricerca'
+                    : 'Aggiungi il tuo primo cliente esterno o attendi prenotazioni da CoachaMi'}
+                </p>
+                <Link
+                  href="/coach/office/clients/new"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600"
                 >
-                  <Link
-                    href={`/coach/office/clients/${client.id}?source=${client.source}`}
-                    className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
+                  <UserPlus size={20} />
+                  Aggiungi Cliente
+                </Link>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {filteredClients.map((client, index) => (
+                  <motion.div
+                    key={client.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
                   >
-                    {/* Avatar */}
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold ${
-                      client.source === 'coachami' ? 'bg-primary-500' : 'bg-purple-500'
-                    }`}>
-                      {client.name.charAt(0).toUpperCase()}
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-charcoal truncate">{client.name}</h3>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          client.source === 'coachami' 
-                            ? 'bg-primary-100 text-primary-700' 
-                            : 'bg-purple-100 text-purple-700'
-                        }`}>
-                          {client.source === 'coachami' ? 'CoachaMi' : 'Esterno'}
-                        </span>
+                    <Link
+                      href={`/coach/office/clients/${client.id}`}
+                      className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold ${
+                        client.source === 'coachami' ? 'bg-primary-500' : 'bg-purple-500'
+                      }`}>
+                        {client.name.charAt(0).toUpperCase()}
                       </div>
-                      <p className="text-sm text-gray-500 truncate">{client.email}</p>
-                      {client.activeOffer && (
-                        <p className="text-xs text-amber-600 mt-1">
-                          {client.activeOffer.title} • {client.activeOffer.completedSessions}/{client.activeOffer.totalSessions} sessioni
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Stats */}
-                    <div className="hidden md:flex items-center gap-6 text-sm">
-                      <div className="text-center">
-                        <p className="text-gray-400">Sessioni</p>
-                        <p className="font-semibold text-charcoal">
-                          {client.completedSessions}/{client.totalSessions}
-                        </p>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-charcoal truncate">{client.name}</h3>
+                          <span className={`px-2 py-0.5 rounded-full text-xs ${
+                            client.source === 'coachami' 
+                              ? 'bg-primary-100 text-primary-700' 
+                              : 'bg-purple-100 text-purple-700'
+                          }`}>
+                            {client.source === 'coachami' ? 'CoachaMi' : 'Esterno'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500 truncate">{client.email}</p>
                       </div>
-                      <div className="text-center">
-                        <p className="text-gray-400">Fatturato</p>
-                        <p className="font-semibold text-green-600">
-                          €{client.totalRevenue.toLocaleString('it-IT')}
-                        </p>
-                      </div>
-                    </div>
 
-                    <ChevronRight className="text-gray-400" size={20} />
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+                      <div className="hidden md:flex items-center gap-6 text-sm">
+                        <div className="text-center">
+                          <p className="text-gray-400">Sessioni</p>
+                          <p className="font-semibold text-charcoal">
+                            {client.completedSessions}/{client.totalSessions}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-gray-400">Fatturato</p>
+                          <p className="font-semibold text-green-600">
+                            €{client.totalRevenue.toLocaleString('it-IT')}
+                          </p>
+                        </div>
+                      </div>
+
+                      <ChevronRight className="text-gray-400" size={20} />
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
         </>
       )}
 
