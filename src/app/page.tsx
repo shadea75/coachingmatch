@@ -226,12 +226,14 @@ export default function HomePage() {
                   >
                     <Link href={`/coaches/${coach.id}`}>
                       <div className="group relative bg-white rounded-2xl overflow-hidden card-hover shadow-sm border border-gray-100">
-                        {/* Illustrazione Area */}
-                        <div className="aspect-[3/4] relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6">
-                          {AreaIllustration ? (
-                            <div className="transform group-hover:scale-110 transition-transform duration-300">
-                              <AreaIllustration size={180} />
-                            </div>
+                        {/* Foto Profilo */}
+                        <div className="aspect-[3/4] relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+                          {coach.photo ? (
+                            <img 
+                              src={coach.photo} 
+                              alt={coach.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
                           ) : (
                             <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
                               <span className="text-5xl font-bold text-primary-400">
@@ -246,6 +248,13 @@ export default function HomePage() {
                               COACH
                             </span>
                           </div>
+                          
+                          {/* Badge Illustrazione Area in basso a destra */}
+                          {AreaIllustration && (
+                            <div className="absolute bottom-3 right-3 w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full p-1 shadow-md flex items-center justify-center">
+                              <AreaIllustration size={36} />
+                            </div>
+                          )}
                         </div>
                         
                         {/* Info bottom - su sfondo bianco */}
