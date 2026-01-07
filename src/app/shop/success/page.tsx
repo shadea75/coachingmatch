@@ -29,6 +29,8 @@ function SuccessContent() {
   const [product, setProduct] = useState<any>(null)
   const [error, setError] = useState('')
   const [purchaseRecorded, setPurchaseRecorded] = useState(false)
+  const [customerEmail, setCustomerEmail] = useState<string | null>(null)
+  const [customerName, setCustomerName] = useState<string | null>(null)
 
   useEffect(() => {
     const processSuccess = async () => {
@@ -39,6 +41,26 @@ function SuccessContent() {
       }
       
       try {
+        // Recupera dati cliente dalla sessione Stripe
+        let fetchedEmail = user?.email || null
+        let fetchedName = user?.name || null
+        
+        if (sessionId) {
+          try {
+            const sessionRes = await fetch(`/api/payments/get-session?session_id=${sessionId}`)
+            if (sessionRes.ok) {
+              const sessionData = await sessionRes.json()
+              fetchedEmail = sessionData.customerEmail || fetchedEmail
+              fetchedName = sessionData.customerName || fetchedName
+            }
+          } catch (e) {
+            console.error('Errore recupero sessione:', e)
+          }
+        }
+        
+        setCustomerEmail(fetchedEmail)
+        setCustomerName(fetchedName)
+        
         // Carica prodotto
         const productDoc = await getDoc(doc(db, 'digitalProducts', productId))
         if (!productDoc.exists()) {
@@ -66,7 +88,8 @@ function SuccessContent() {
               coachId: productData.coachId,
               coachName: productData.coachName,
               userId: user?.id || 'guest',
-              userEmail: user?.email || null,
+              userEmail: fetchedEmail,
+              userName: fetchedName,
               price: productData.price,
               commissionRate: productData.commissionRate || 0.035,
               commissionAmount: productData.price * (productData.commissionRate || 0.035),
@@ -102,23 +125,27 @@ function SuccessContent() {
               const commissionAmount = productData.price * commissionRate
               const coachEarnings = productData.price - commissionAmount
               
-              await fetch('/api/send-email', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  type: 'product_purchase',
-                  data: {
-                    customerEmail: user?.email || 'guest@example.com',
-                    coachEmail: productData.coachEmail,
-                    productTitle: productData.title,
-                    coachName: productData.coachName,
-                    price: productData.price,
-                    commissionAmount,
-                    coachEarnings,
-                    downloadUrl: `${window.location.origin}/shop/success?productId=${productId}&session_id=${sessionId}`
-                  }
+              // Invia email solo se abbiamo un'email valida
+              if (fetchedEmail && fetchedEmail !== 'guest@example.com') {
+                await fetch('/api/send-email', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    type: 'product_purchase',
+                    data: {
+                      customerEmail: fetchedEmail,
+                      customerName: fetchedName || 'Cliente',
+                      coachEmail: productData.coachEmail,
+                      productTitle: productData.title,
+                      coachName: productData.coachName,
+                      price: productData.price,
+                      commissionAmount,
+                      coachEarnings,
+                      downloadUrl: productData.fileUrl || `${window.location.origin}/shop/success?productId=${productId}&session_id=${sessionId}`
+                    }
+                  })
                 })
-              })
+              }
             } catch (emailErr) {
               console.error('Errore invio email:', emailErr)
             }
