@@ -60,6 +60,10 @@ interface Offer {
   status: string
   createdAt: Date
   validUntil: Date
+  // Contratto
+  requireContract?: boolean
+  contractAccepted?: boolean
+  source?: string // 'office' se creata dall'ufficio virtuale
 }
 
 interface Session {
@@ -116,7 +120,11 @@ export default function CoacheeOffersPage() {
           installments: doc.data().installments || [],
           status: doc.data().status || 'pending',
           createdAt: doc.data().createdAt?.toDate() || new Date(),
-          validUntil: doc.data().validUntil?.toDate() || new Date()
+          validUntil: doc.data().validUntil?.toDate() || new Date(),
+          // Contratto
+          requireContract: doc.data().requireContract || false,
+          contractAccepted: doc.data().contractAccepted || false,
+          source: doc.data().source
         }))
         setOffers(loadedOffers)
         
@@ -183,10 +191,17 @@ export default function CoacheeOffersPage() {
     }
   }
   
-  // Accetta offerta (vai al pagamento)
+  // Accetta offerta (vai al contratto se richiesto, altrimenti al pagamento)
   const handleAccept = async (offer: Offer) => {
     setProcessingId(offer.id)
     try {
+      // Se richiede contratto e non ancora accettato, vai alla pagina contratto
+      if (offer.requireContract && !offer.contractAccepted) {
+        router.push(`/offers/${offer.id}/contract`)
+        return
+      }
+      
+      // Altrimenti procedi con l'accettazione e pagamento
       await updateDoc(doc(db, 'offers', offer.id), {
         status: 'accepted',
         respondedAt: serverTimestamp()
@@ -384,8 +399,17 @@ export default function CoacheeOffersPage() {
                                 <Loader2 size={18} className="animate-spin" />
                               ) : (
                                 <>
-                                  <CheckCircle size={18} />
-                                  Accetta e Paga
+                                  {offer.requireContract && !offer.contractAccepted ? (
+                                    <>
+                                      <FileText size={18} />
+                                      Leggi e Firma Contratto
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle size={18} />
+                                      Accetta e Paga
+                                    </>
+                                  )}
                                 </>
                               )}
                             </button>
