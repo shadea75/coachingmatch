@@ -45,6 +45,7 @@ export default function CoacheeContractPage() {
   const [offer, setOffer] = useState<any>(null)
   const [contract, setContract] = useState<any>(null)
   const [coachBilling, setCoachBilling] = useState<any>(null)
+  const [coacheeData, setCoacheeData] = useState<any>(null)
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   
@@ -106,6 +107,12 @@ export default function CoacheeContractPage() {
           setCoachBilling(coachDoc.data().billing || {})
         }
         
+        // Carica dati coachee
+        const coacheeDoc = await getDoc(doc(db, 'users', user.id))
+        if (coacheeDoc.exists()) {
+          setCoacheeData(coacheeDoc.data())
+        }
+        
       } catch (err) {
         console.error('Errore:', err)
         setError('Errore nel caricamento')
@@ -119,6 +126,76 @@ export default function CoacheeContractPage() {
     }
   }, [offerId, user, router])
 
+  // Genera il testo completo del contratto con header, data e parti
+  const generateContractText = () => {
+    if (!contract || !offer) return ''
+    
+    // Costruisci la sezione dati delle parti
+    const coachInfo = coachBilling ? `
+**COACH (Prestatore del servizio)**
+${coachBilling.businessName || offer.coachName}
+${coachBilling.address ? `${coachBilling.address}, ${coachBilling.postalCode} ${coachBilling.city} (${coachBilling.province})` : ''}
+${coachBilling.fiscalCode ? `C.F.: ${coachBilling.fiscalCode}` : ''}
+${coachBilling.vatNumber ? `P.IVA: ${coachBilling.vatNumber}` : ''}
+Email: ${offer.coachEmail}
+` : `
+**COACH (Prestatore del servizio)**
+${offer.coachName}
+Email: ${offer.coachEmail}
+`
+
+    const coacheeName = coacheeData?.name || user?.name || offer.coacheeName
+    const coacheeEmail = coacheeData?.email || user?.email || offer.coacheeEmail
+    
+    const clientInfo = `
+**CLIENTE (Committente)**
+${coacheeName}
+Email: ${coacheeEmail}
+`
+
+    // Header contratto con dati parti
+    let text = `**CONTRATTO DI COACHING**
+
+Data: ${format(new Date(), "d MMMM yyyy", { locale: it })}
+
+**TRA LE PARTI**
+${coachInfo}
+${clientInfo}
+
+---
+
+`
+    
+    // Aggiungi il template del coach
+    text += contract.template
+      .replace(/\{\{totalSessions\}\}/g, String(offer.totalSessions))
+      .replace(/\{\{sessionDuration\}\}/g, String(offer.sessionDuration))
+      .replace(/\{\{priceTotal\}\}/g, formatCurrency(offer.priceTotal))
+      .replace(/\{\{pricePerSession\}\}/g, formatCurrency(offer.pricePerSession))
+      .replace(/\{\{priceTotalWithFee\}\}/g, formatCurrency(offer.priceTotalWithFee || offer.priceTotal))
+      .replace(/\{\{installmentFeePercent\}\}/g, String(offer.installmentFeePercent || 0))
+      .replace(/\{\{coachCity\}\}/g, contract.coachCity || coachBilling?.city || 'Italia')
+      .replace(/\{\{coachName\}\}/g, offer.coachName || '')
+    
+    // Gestisci condizioni
+    if (offer.allowInstallments) {
+      text = text.replace(/\{\{#if allowInstallments\}\}/g, '').replace(/\{\{\/if\}\}/g, '')
+      if (offer.installmentFeePercent > 0) {
+        text = text.replace(/\{\{#if installmentFeePercent\}\}/g, '').replace(/\{\{\/if\}\}/g, '')
+      } else {
+        text = text.replace(/\{\{#if installmentFeePercent\}\}[\s\S]*?\{\{\/if\}\}/g, '')
+      }
+    } else {
+      text = text.replace(/\{\{#if allowInstallments\}\}[\s\S]*?\{\{\/if\}\}/g, '')
+    }
+    
+    if (contract.customClauses) {
+      text += '\n\n**CLAUSOLE AGGIUNTIVE**\n' + contract.customClauses
+    }
+    
+    return text
+  }
+
   const handleAcceptContract = async () => {
     if (!acceptedTerms || !acceptedPrivacy) {
       setError('Devi accettare i termini e la privacy per continuare')
@@ -129,29 +206,20 @@ export default function CoacheeContractPage() {
     setError('')
     
     try {
-      // Genera il testo del contratto con le variabili sostituite
-      let contractText = contract.template || ''
-      contractText = contractText
-        .replace(/\{\{totalSessions\}\}/g, String(offer.totalSessions))
-        .replace(/\{\{sessionDuration\}\}/g, String(offer.sessionDuration))
-        .replace(/\{\{priceTotal\}\}/g, formatCurrency(offer.priceTotal))
-        .replace(/\{\{pricePerSession\}\}/g, formatCurrency(offer.pricePerSession))
-        .replace(/\{\{priceTotalWithFee\}\}/g, formatCurrency(offer.priceTotalWithFee || offer.priceTotal))
-        .replace(/\{\{installmentFeePercent\}\}/g, String(offer.installmentFeePercent || 0))
-        .replace(/\{\{coachCity\}\}/g, contract.coachCity || coachBilling?.city || 'Italia')
-        .replace(/\{\{coachName\}\}/g, offer.coachName)
+      // Genera il testo del contratto completo
+      const contractText = generateContractText()
       
       // Salva il contratto firmato
       const signedContractRef = await addDoc(collection(db, 'signedContracts'), {
         offerId: offerId,
-        offerCollection: 'offers', // Per distinguere da externalOffers
+        offerCollection: 'offers',
         coachId: offer.coachId,
         coachName: offer.coachName,
         coachEmail: offer.coachEmail,
         coachBilling: coachBilling,
         coacheeId: user?.id,
-        coacheeName: user?.name || offer.coacheeName,
-        coacheeEmail: user?.email || offer.coacheeEmail,
+        coacheeName: coacheeData?.name || user?.name || offer.coacheeName,
+        coacheeEmail: coacheeData?.email || user?.email || offer.coacheeEmail,
         offerTitle: offer.title,
         contractText: contractText,
         acceptedTerms: true,
@@ -203,17 +271,8 @@ export default function CoacheeContractPage() {
     )
   }
 
-  // Genera testo contratto con variabili
-  let displayContract = contract?.template || ''
-  displayContract = displayContract
-    .replace(/\{\{totalSessions\}\}/g, String(offer?.totalSessions || 0))
-    .replace(/\{\{sessionDuration\}\}/g, String(offer?.sessionDuration || 60))
-    .replace(/\{\{priceTotal\}\}/g, formatCurrency(offer?.priceTotal || 0))
-    .replace(/\{\{pricePerSession\}\}/g, formatCurrency(offer?.pricePerSession || 0))
-    .replace(/\{\{priceTotalWithFee\}\}/g, formatCurrency(offer?.priceTotalWithFee || offer?.priceTotal || 0))
-    .replace(/\{\{installmentFeePercent\}\}/g, String(offer?.installmentFeePercent || 0))
-    .replace(/\{\{coachCity\}\}/g, contract?.coachCity || coachBilling?.city || 'Italia')
-    .replace(/\{\{coachName\}\}/g, offer?.coachName || 'Coach')
+  // Genera testo contratto per visualizzazione
+  const displayContract = generateContractText()
 
   return (
     <div className="min-h-screen bg-cream">
