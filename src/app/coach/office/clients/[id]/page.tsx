@@ -203,6 +203,20 @@ export default function ClientDetailPage() {
           }
         } else {
           // Cliente CoachaMi (coacheeId)
+          // Prima carica i dati base dal documento users
+          const userDoc = await getDoc(doc(db, 'users', clientId))
+          let userData: any = null
+          if (userDoc.exists()) {
+            userData = userDoc.data()
+          }
+          
+          // Carica i dati fiscali salvati dal coach per questo coachee
+          const contractDataDoc = await getDoc(doc(db, 'coacheeContractData', `${user.id}_${clientId}`))
+          let contractData: any = null
+          if (contractDataDoc.exists()) {
+            contractData = contractDataDoc.data()
+          }
+          
           const offersQuery = query(
             collection(db, 'offers'),
             where('coacheeId', '==', clientId),
@@ -210,17 +224,25 @@ export default function ClientDetailPage() {
           )
           const offersSnap = await getDocs(offersQuery)
           
+          // Costruisci i dati del cliente anche se non ci sono offerte
+          clientData = {
+            id: clientId,
+            name: userData?.name || userData?.displayName || (offersSnap.docs.length > 0 ? offersSnap.docs[0].data().coacheeName : 'Cliente'),
+            email: userData?.email || (offersSnap.docs.length > 0 ? offersSnap.docs[0].data().coacheeEmail : ''),
+            phone: userData?.phone || contractData?.phone || '',
+            source: 'coachami',
+            coacheeId: clientId,
+            createdAt: userData?.createdAt?.toDate() || new Date(),
+            // Dati fiscali salvati dal coach
+            address: contractData?.address || '',
+            city: contractData?.city || '',
+            postalCode: contractData?.postalCode || '',
+            province: contractData?.province || '',
+            fiscalCode: contractData?.fiscalCode || '',
+            vatNumber: contractData?.vatNumber || ''
+          }
+          
           if (offersSnap.docs.length > 0) {
-            const firstOffer = offersSnap.docs[0].data()
-            clientData = {
-              id: clientId,
-              name: firstOffer.coacheeName || 'Cliente',
-              email: firstOffer.coacheeEmail || '',
-              source: 'coachami',
-              coacheeId: clientId,
-              createdAt: firstOffer.createdAt?.toDate() || new Date()
-            }
-            
             clientOffers = offersSnap.docs.map(doc => {
               const d = doc.data()
               return {
@@ -237,27 +259,27 @@ export default function ClientDetailPage() {
                 source: 'coachami'
               }
             })
-            
-            // Carica sessioni CoachaMi
-            const sessionsQuery = query(
-              collection(db, 'sessions'),
-              where('coacheeId', '==', clientId),
-              where('coachId', '==', user.id)
-            )
-            const sessionsSnap = await getDocs(sessionsQuery)
-            clientSessions = sessionsSnap.docs.map(doc => {
-              const d = doc.data()
-              return {
-                id: doc.id,
-                scheduledAt: d.scheduledAt?.toDate() || new Date(),
-                duration: d.duration,
-                status: d.status,
-                type: d.type,
-                offerId: d.offerId,
-                offerTitle: d.offerTitle
-              }
-            })
           }
+            
+          // Carica sessioni CoachaMi (sempre, anche senza offerte)
+          const sessionsQuery = query(
+            collection(db, 'sessions'),
+            where('coacheeId', '==', clientId),
+            where('coachId', '==', user.id)
+          )
+          const sessionsSnap = await getDocs(sessionsQuery)
+          clientSessions = sessionsSnap.docs.map(doc => {
+            const d = doc.data()
+            return {
+              id: doc.id,
+              scheduledAt: d.scheduledAt?.toDate() || new Date(),
+              duration: d.duration,
+              status: d.status,
+              type: d.type,
+              offerId: d.offerId,
+              offerTitle: d.offerTitle
+            }
+          })
         }
         
         setClient(clientData)
@@ -300,23 +322,42 @@ export default function ClientDetailPage() {
   }, [clientId, source, user])
 
   const handleSave = async () => {
-    if (!client || source === 'coachami') return
+    if (!client || !user?.id) return
     
     setIsSaving(true)
     try {
-      await updateDoc(doc(db, 'coachClients', clientId), {
-        name: editData.name,
-        email: editData.email,
-        phone: editData.phone || null,
-        notes: editData.notes || null,
-        address: editData.address || null,
-        city: editData.city || null,
-        postalCode: editData.postalCode || null,
-        province: editData.province || null,
-        fiscalCode: editData.fiscalCode?.toUpperCase() || null,
-        vatNumber: editData.vatNumber || null,
-        updatedAt: serverTimestamp()
-      })
+      if (source === 'coachami') {
+        // Per clienti CoachaMi, salva i dati fiscali in una collection separata
+        // che il coach gestisce per i suoi coachee
+        const { setDoc } = await import('firebase/firestore')
+        await setDoc(doc(db, 'coacheeContractData', `${user.id}_${clientId}`), {
+          coachId: user.id,
+          coacheeId: clientId,
+          phone: editData.phone || null,
+          address: editData.address || null,
+          city: editData.city || null,
+          postalCode: editData.postalCode || null,
+          province: editData.province || null,
+          fiscalCode: editData.fiscalCode?.toUpperCase() || null,
+          vatNumber: editData.vatNumber || null,
+          updatedAt: serverTimestamp()
+        })
+      } else {
+        // Per clienti esterni, aggiorna direttamente in coachClients
+        await updateDoc(doc(db, 'coachClients', clientId), {
+          name: editData.name,
+          email: editData.email,
+          phone: editData.phone || null,
+          notes: editData.notes || null,
+          address: editData.address || null,
+          city: editData.city || null,
+          postalCode: editData.postalCode || null,
+          province: editData.province || null,
+          fiscalCode: editData.fiscalCode?.toUpperCase() || null,
+          vatNumber: editData.vatNumber || null,
+          updatedAt: serverTimestamp()
+        })
+      }
       
       setClient({ ...client, ...editData })
       setIsEditing(false)
@@ -466,24 +507,44 @@ export default function ClientDetailPage() {
                 {isEditing ? (
                   // Edit Mode
                   <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-                      <input
-                        type="text"
-                        value={editData.name}
-                        onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                      <input
-                        type="email"
-                        value={editData.email}
-                        onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl"
-                      />
-                    </div>
+                    {/* Campi nome/email/telefono solo per clienti esterni */}
+                    {source === 'external' && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                          <input
+                            type="text"
+                            value={editData.name}
+                            onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                          <input
+                            type="email"
+                            value={editData.email}
+                            onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl"
+                          />
+                        </div>
+                      </>
+                    )}
+                    
+                    {/* Per clienti CoachaMi, mostra info non modificabili */}
+                    {source === 'coachami' && (
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                        <p className="text-sm text-blue-700">
+                          <strong>Cliente:</strong> {client.name}<br />
+                          <strong>Email:</strong> {client.email}<br />
+                          <span className="text-xs text-blue-500 mt-2 block">
+                            I dati personali del cliente CoachaMi non possono essere modificati.
+                            Puoi aggiungere solo i dati fiscali necessari per il contratto.
+                          </span>
+                        </p>
+                      </div>
+                    )}
+                    
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
                       <input
@@ -580,15 +641,18 @@ export default function ClientDetailPage() {
                       </div>
                     </div>
                     
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
-                      <textarea
-                        value={editData.notes}
-                        onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
-                        rows={4}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl resize-none"
-                      />
-                    </div>
+                    {/* Note solo per clienti esterni */}
+                    {source === 'external' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
+                        <textarea
+                          value={editData.notes}
+                          onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
+                          rows={4}
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl resize-none"
+                        />
+                      </div>
+                    )}
                     <div className="flex gap-3">
                       <button
                         onClick={handleSave}
@@ -685,6 +749,24 @@ export default function ClientDetailPage() {
                         >
                           <Trash2 size={18} />
                         </button>
+                      </div>
+                    )}
+                    
+                    {/* Per clienti CoachaMi, pulsante per modificare dati fiscali */}
+                    {source === 'coachami' && (
+                      <div className="pt-4">
+                        <button
+                          onClick={() => setIsEditing(true)}
+                          className="w-full py-3 border border-gray-200 rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2"
+                        >
+                          <Edit size={18} />
+                          {client.fiscalCode ? 'Modifica dati fiscali' : 'Aggiungi dati fiscali per contratto'}
+                        </button>
+                        {!client.fiscalCode && (
+                          <p className="text-xs text-orange-600 text-center mt-2">
+                            ⚠️ Completa i dati fiscali per poter inviare offerte con contratto
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
