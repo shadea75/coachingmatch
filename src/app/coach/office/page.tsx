@@ -352,13 +352,26 @@ export default function CoachOfficePage() {
           hourlyRate: loadedHourlyRate
         })
         
-        // Carica prodotti del coach
+      } catch (err) {
+        console.error('Errore caricamento clienti:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    // Funzione separata per caricare i prodotti
+    const loadProducts = async () => {
+      if (!user?.id) return
+      
+      try {
         const productsQuery = query(
           collection(db, 'digitalProducts'),
           where('coachId', '==', user.id),
           orderBy('createdAt', 'desc')
         )
         const productsSnap = await getDocs(productsQuery)
+        
+        console.log('Prodotti trovati:', productsSnap.size)
         
         const loadedProducts: Product[] = productsSnap.docs.map(doc => {
           const data = doc.data()
@@ -378,7 +391,6 @@ export default function CoachOfficePage() {
         
         setProducts(loadedProducts)
         
-        // Calcola statistiche prodotti
         const activeProducts = loadedProducts.filter(p => p.isActive)
         const totalSales = loadedProducts.reduce((sum, p) => sum + p.salesCount, 0)
         const productRevenue = loadedProducts.reduce((sum, p) => sum + p.totalRevenue, 0)
@@ -389,16 +401,14 @@ export default function CoachOfficePage() {
           totalSales,
           totalRevenue: productRevenue
         })
-        
       } catch (err) {
-        console.error('Errore caricamento clienti:', err)
-      } finally {
-        setIsLoading(false)
+        console.error('Errore caricamento prodotti:', err)
       }
     }
     
     if (user) {
       loadClients()
+      loadProducts()
     }
   }, [user])
 
