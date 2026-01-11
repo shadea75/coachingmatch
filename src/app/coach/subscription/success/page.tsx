@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { CheckCircle, ArrowRight, Loader2, PartyPopper, Sparkles } from 'lucide-react'
@@ -10,7 +10,7 @@ import { db } from '@/lib/firebase'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import Link from 'next/link'
 
-export default function SubscriptionSuccessPage() {
+function SubscriptionSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
@@ -166,5 +166,26 @@ export default function SubscriptionSuccessPage() {
         </div>
       </motion.div>
     </div>
+  )
+}
+
+// Loading fallback
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen bg-cream flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="animate-spin text-primary-500 mx-auto mb-4" size={40} />
+        <p className="text-gray-600">Caricamento...</p>
+      </div>
+    </div>
+  )
+}
+
+// Main component wrapped in Suspense
+export default function SubscriptionSuccessPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <SubscriptionSuccessContent />
+    </Suspense>
   )
 }
