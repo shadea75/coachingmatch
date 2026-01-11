@@ -343,15 +343,27 @@ export default function CoachSubscriptionPage() {
               <p className="text-sm text-gray-600 mb-4">
                 Il nostro team è qui per aiutarti con qualsiasi domanda sull'abbonamento.
               </p>
-              <a 
-                href="mailto:coach@coachami.it"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg text-primary-600 font-medium text-sm hover:bg-primary-100 transition-colors border border-primary-200"
-              >
-                Contatta il supporto
-                <ArrowRight size={14} />
-              </a>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <a 
+                  href="mailto:coach@coachami.it"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-white rounded-lg text-primary-600 font-medium text-sm hover:bg-primary-100 transition-colors border border-primary-200"
+                >
+                  Contatta il supporto
+                  <ArrowRight size={14} />
+                </a>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText('coach@coachami.it')
+                    alert('Email copiata: coach@coachami.it')
+                  }}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 rounded-lg text-gray-600 font-medium text-sm hover:bg-gray-200 transition-colors"
+                >
+                  Copia email
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-3">
+                📧 coach@coachami.it
+              </p>
             </div>
 
             {/* Trust badges */}
