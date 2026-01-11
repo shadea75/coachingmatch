@@ -543,7 +543,7 @@ export default function CoachDashboardPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setDismissedAlerts(prev => new Set([...prev, 'profile-alerts']))}
+                  onClick={() => setDismissedAlerts(prev => new Set([...Array.from(prev), 'profile-alerts']))}
                   className="p-1 text-amber-400 hover:text-amber-600 transition-colors"
                 >
                   <X size={18} />
