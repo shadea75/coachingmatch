@@ -2,6 +2,14 @@
 // File: src/lib/coachMatching.ts
 
 import { LifeAreaId } from '@/types'
+import { 
+  calculateEngagementScore, 
+  calculateInactivityBoost, 
+  calculateRandomBoost,
+  calculateFinalRankingScore,
+  getEngagementLevel,
+  CoachEngagementMetrics
+} from './coachEngagement'
 
 // =====================
 // TIPI
@@ -30,6 +38,8 @@ export interface CoachProfile {
   sessionMode?: string[]
   freeCallAvailable?: boolean
   certifications?: string[]
+  // Engagement metrics
+  engagementMetrics?: Partial<CoachEngagementMetrics>
 }
 
 export interface CoacheeProfile {
@@ -51,9 +61,15 @@ export interface CoacheeProfile {
 
 export interface MatchResult {
   coach: CoachProfile
-  score: number // 0-100
+  score: number // 0-100 (match score puro)
+  finalScore: number // 0-100 (match + engagement + random)
   matchReasons: MatchReason[]
   compatibility: 'perfect' | 'high' | 'good' | 'moderate'
+  engagementLevel?: {
+    level: string
+    label: string
+    emoji: string
+  }
 }
 
 export interface MatchReason {
@@ -508,16 +524,19 @@ function scorePracticality(
 
 /**
  * Calcola il match tra un coachee e una lista di coach
+ * Formula ranking: Match (70%) + Engagement (20%) + Random (10%)
  */
 export function calculateMatches(
   coaches: CoachProfile[],
   coachee: CoacheeProfile
 ): MatchResult[] {
+  const dayOfMonth = new Date().getDate()
+  
   const results: MatchResult[] = coaches.map(coach => {
     const allReasons: MatchReason[] = []
     let totalScore = 0
     
-    // Calcola tutti i punteggi
+    // Calcola tutti i punteggi di match
     const areaResult = scoreAreaMatch(coach, coachee)
     const specResult = scoreSpecializations(coach, coachee)
     const qualityResult = scoreQuality(coach)
@@ -533,27 +552,54 @@ export function calculateMatches(
     allReasons.push(...personalResult.reasons)
     allReasons.push(...practicalResult.reasons)
     
-    // Normalizza score a 0-100
+    // Normalizza match score a 0-100
     const maxPossibleScore = Object.values(WEIGHTS).reduce((a, b) => a + b, 0)
-    const normalizedScore = Math.round((totalScore / maxPossibleScore) * 100)
+    const matchScore = Math.round((totalScore / maxPossibleScore) * 100)
     
-    // Determina livello compatibilità
+    // Calcola engagement score
+    const engagementScore = coach.engagementMetrics 
+      ? calculateEngagementScore(coach.engagementMetrics)
+      : 50 // Default per coach senza metriche
+    
+    // Calcola boost
+    const daysInactive = coach.engagementMetrics?.daysInactive || 0
+    const inactivityBoost = calculateInactivityBoost(daysInactive, engagementScore)
+    const randomBoost = calculateRandomBoost(coach.id, dayOfMonth)
+    
+    // Calcola score finale per ranking
+    const finalScore = calculateFinalRankingScore({
+      matchScore,
+      engagementScore,
+      randomBoost,
+      inactivityBoost
+    })
+    
+    // Determina livello compatibilità (basato su match score puro)
     let compatibility: MatchResult['compatibility']
-    if (normalizedScore >= 75) compatibility = 'perfect'
-    else if (normalizedScore >= 55) compatibility = 'high'
-    else if (normalizedScore >= 35) compatibility = 'good'
+    if (matchScore >= 75) compatibility = 'perfect'
+    else if (matchScore >= 55) compatibility = 'high'
+    else if (matchScore >= 35) compatibility = 'good'
     else compatibility = 'moderate'
+    
+    // Engagement level info
+    const engagementLevel = getEngagementLevel(engagementScore)
     
     return {
       coach,
-      score: normalizedScore,
-      matchReasons: allReasons.filter(r => r.matched).slice(0, 5), // Top 5 reasons
-      compatibility
+      score: matchScore,
+      finalScore: Math.round(finalScore),
+      matchReasons: allReasons.filter(r => r.matched).slice(0, 5),
+      compatibility,
+      engagementLevel: {
+        level: engagementLevel.level,
+        label: engagementLevel.label,
+        emoji: engagementLevel.emoji
+      }
     }
   })
   
-  // Ordina per score decrescente
-  return results.sort((a, b) => b.score - a.score)
+  // Ordina per finalScore (che include engagement e random boost)
+  return results.sort((a, b) => b.finalScore - a.finalScore)
 }
 
 /**
