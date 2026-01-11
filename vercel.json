@@ -11,6 +11,14 @@
     {
       "path": "/api/cron/engagement-notifications",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/engagement-notifications",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/lead-nurturing",
+      "schedule": "0 10 * * *"
     }
   ]
 }
