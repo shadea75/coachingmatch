@@ -479,7 +479,7 @@ function CoachesContent() {
                             <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                               <span className="text-sm text-gray-500 flex items-center gap-1">
                                 {coach.averagePrice ? (
-                                  <>€{coach.averagePrice}/sess</>
+                                  <>€{coach.averagePrice}/sessione</>
                                 ) : (
                                   <><Video size={14} /> Online</>
                                 )}
