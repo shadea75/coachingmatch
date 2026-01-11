@@ -18,7 +18,8 @@ import {
   Ban,
   User,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  Settings
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -620,7 +621,7 @@ export default function CoachAvailabilityPage() {
                 <div className="flex items-center gap-3">
                   {googleCalendarConnected ? (
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <div className={`w-3 h-3 rounded-full ${googleError ? 'bg-amber-500' : 'bg-green-500'}`}></div>
                       <span className="text-sm text-gray-600">Google Calendar connesso</span>
                       <button
                         onClick={refreshGoogleEvents}
@@ -629,6 +630,14 @@ export default function CoachAvailabilityPage() {
                         title="Aggiorna eventi"
                       >
                         <RefreshCw size={16} className={`text-gray-500 ${isLoadingGoogle ? 'animate-spin' : ''}`} />
+                      </button>
+                      {/* Pulsante per aprire impostazioni/riconnettere */}
+                      <button
+                        onClick={() => setShowCalendarSettings(true)}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Impostazioni Google Calendar"
+                      >
+                        <Settings size={16} className="text-gray-500" />
                       </button>
                     </div>
                   ) : (
@@ -641,8 +650,14 @@ export default function CoachAvailabilityPage() {
                       <ExternalLink size={14} />
                     </button>
                   )}
+                  {/* Messaggio errore cliccabile */}
                   {googleError && (
-                    <span className="text-xs text-red-500">{googleError}</span>
+                    <button
+                      onClick={() => setShowCalendarSettings(true)}
+                      className="text-xs text-red-500 hover:text-red-700 underline cursor-pointer"
+                    >
+                      {googleError}
+                    </button>
                   )}
                 </div>
                 
