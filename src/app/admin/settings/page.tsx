@@ -145,16 +145,16 @@ export default function AdminSettingsPage() {
             </div>
           </div>
 
-          {/* Community */}
+          {/* Abbonamenti Piattaforma */}
           <div className="p-6">
             <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
               <Gift size={20} className="text-green-500" />
-              Community & Abbonamenti
+              Abbonamenti Piattaforma
             </h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Periodo di prova gratuito (giorni)
+                  Periodo di prova gratuito Coach (giorni)
                 </label>
                 <select
                   value={settings.communityFreeTrialDays}
@@ -169,13 +169,13 @@ export default function AdminSettingsPage() {
                   <option value={90}>90 giorni</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  I nuovi utenti avranno accesso gratuito alla community per questo periodo
+                  I nuovi coach avranno accesso gratuito alla piattaforma per questo periodo
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Prezzo abbonamento Coachee (€/mese)
+                    Abbonamento Coachee (€/mese)
                   </label>
                   <input
                     type="number"
@@ -184,10 +184,13 @@ export default function AdminSettingsPage() {
                     onChange={(e) => setSettings({ ...settings, communityMonthlyPrice: parseInt(e.target.value) })}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Per accesso alla Community
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Prezzo abbonamento Coach (€/mese)
+                    Abbonamento Coach default (€/mese)
                   </label>
                   <input
                     type="number"
@@ -196,6 +199,9 @@ export default function AdminSettingsPage() {
                     onChange={(e) => setSettings({ ...settings, coachMonthlyPrice: parseInt(e.target.value) })}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Prezzo base, personalizzabile per ogni coach
+                  </p>
                 </div>
               </div>
               <div>
@@ -217,11 +223,16 @@ export default function AdminSettingsPage() {
                 </p>
               </div>
               
-              {/* Info accesso community */}
-              <div className="pt-4 border-t border-gray-100">
+              {/* Info abbonamenti */}
+              <div className="pt-4 border-t border-gray-100 space-y-3">
                 <div className="p-3 bg-blue-50 rounded-lg">
                   <p className="text-sm text-blue-700">
-                    <strong>ℹ️ Accesso Community:</strong> Gli utenti possono accedere alla Community solo se hanno un abbonamento attivo (€{settings.communityMonthlyPrice}/mese) oppure sono nel periodo di prova gratuito ({settings.communityFreeTrialDays} giorni dalla registrazione).
+                    <strong>ℹ️ Abbonamento Coach:</strong> Include accesso completo a: Ufficio Virtuale, Dashboard, Gestione Clienti, Community, Visibilità nella Vetrina. Il prezzo può essere personalizzato per ogni coach dalla sezione "Coach".
+                  </p>
+                </div>
+                <div className="p-3 bg-amber-50 rounded-lg">
+                  <p className="text-sm text-amber-700">
+                    <strong>💡 Prezzi personalizzati:</strong> Vai nella sezione "Coach" per impostare abbonamenti personalizzati (es. 0€ per partner, prezzi speciali per early adopters).
                   </p>
                 </div>
               </div>
