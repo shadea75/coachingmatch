@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   ArrowLeft,
+  ArrowRight,
   CreditCard,
   Check,
   Star,
@@ -344,10 +345,12 @@ export default function CoachSubscriptionPage() {
               </p>
               <a 
                 href="mailto:coach@coachami.it"
-                className="inline-flex items-center gap-2 text-primary-600 font-medium text-sm hover:text-primary-700"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg text-primary-600 font-medium text-sm hover:bg-primary-100 transition-colors border border-primary-200"
               >
                 Contatta il supporto
-                <ArrowLeft size={14} className="rotate-180" />
+                <ArrowRight size={14} />
               </a>
             </div>
 
@@ -368,4 +371,3 @@ export default function CoachSubscriptionPage() {
     </div>
   )
 }
-
