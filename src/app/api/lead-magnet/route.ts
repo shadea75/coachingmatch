@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { db } from '@/lib/firebase'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
-import { LifeAreaId, LIFE_AREAS } from '@/types'
+import { LIFE_AREAS } from '@/types'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Inizializza Resend solo se API key presente
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 // Label aree in italiano
 const AREA_LABELS: Record<string, string> = {
@@ -63,38 +62,29 @@ const AREA_TIPS: Record<string, string[]> = {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('🚀 API lead-magnet chiamata')
+  
   try {
     const body = await request.json()
+    console.log('📥 Dati ricevuti:', { email: body.email, name: body.name, priorityArea: body.priorityArea })
+    
     const { email, name, scores, priorityArea, lifeScore } = body
     
     if (!email || !name || !scores || !priorityArea) {
+      console.log('❌ Dati mancanti')
       return NextResponse.json(
         { error: 'Dati mancanti' },
         { status: 400 }
       )
     }
     
-    // 1. Salva il lead nel database Firebase
-    const leadData = {
-      email,
-      name,
-      scores,
-      priorityArea,
-      lifeScore: parseFloat(lifeScore),
-      source: 'test-gratuito',
-      createdAt: serverTimestamp(),
-      emailSent: false,
-      convertedToUser: false
-    }
+    let leadId = 'lead_' + Date.now()
     
-    const docRef = await addDoc(collection(db, 'leads'), leadData)
-    console.log('Lead salvato con ID:', docRef.id)
-    
-    // 2. Prepara i dati per l'email
+    // 1. Prepara i dati per l'email (prima cosa - veloce)
     const sortedAreas = Object.entries(scores)
       .sort(([,a], [,b]) => (b as number) - (a as number))
-    const strongestArea = sortedAreas[0]?.[0]
-    const weakestArea = sortedAreas[sortedAreas.length - 1]?.[0]
+    const strongestArea = sortedAreas[0]?.[0] || 'crescita'
+    const weakestArea = sortedAreas[sortedAreas.length - 1]?.[0] || 'crescita'
     
     const tips = AREA_TIPS[priorityArea] || AREA_TIPS.crescita
     
@@ -111,7 +101,7 @@ export async function POST(request: NextRequest) {
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
     
     <!-- Header -->
-    <div style="text-align: center; padding: 30px 20px; background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%); border-radius: 16px 16px 0 0;">
+    <div style="text-align: center; padding: 30px 20px; background: linear-gradient(135deg, #D4A574 0%, #C4956A 100%); border-radius: 16px 16px 0 0;">
       <h1 style="color: white; margin: 0; font-size: 28px;">🎯 La tua Ruota della Vita</h1>
       <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Ciao ${name}!</p>
     </div>
@@ -119,7 +109,7 @@ export async function POST(request: NextRequest) {
     <!-- Life Score -->
     <div style="background: white; padding: 30px; text-align: center; border-bottom: 1px solid #e5e7eb;">
       <p style="color: #6b7280; margin: 0 0 10px 0; font-size: 14px;">IL TUO LIFE SCORE</p>
-      <p style="font-size: 56px; font-weight: bold; color: #7C3AED; margin: 0;">${lifeScore}<span style="font-size: 24px; color: #9CA3AF;">/10</span></p>
+      <p style="font-size: 56px; font-weight: bold; color: #D4A574; margin: 0;">${lifeScore}<span style="font-size: 24px; color: #9CA3AF;">/10</span></p>
     </div>
     
     <!-- Scores Table -->
@@ -131,7 +121,7 @@ export async function POST(request: NextRequest) {
           const barWidth = (score / 10) * 100
           return `
           <tr>
-            <td style="padding: 8px 0; color: #374151; font-size: 14px; width: 40%;">${AREA_LABELS[area.id]}</td>
+            <td style="padding: 8px 0; color: #374151; font-size: 14px; width: 40%;">${AREA_LABELS[area.id] || area.id}</td>
             <td style="padding: 8px 0; width: 45%;">
               <div style="background: #e5e7eb; border-radius: 4px; height: 8px; overflow: hidden;">
                 <div style="background: ${area.color}; width: ${barWidth}%; height: 100%;"></div>
@@ -145,26 +135,30 @@ export async function POST(request: NextRequest) {
     </div>
     
     <!-- Insights -->
-    <div style="display: flex; gap: 10px; padding: 0 20px;">
-      <div style="flex: 1; background: #ecfdf5; padding: 20px; border-radius: 12px; text-align: center;">
-        <p style="color: #059669; font-size: 12px; margin: 0 0 5px 0;">✨ PUNTO DI FORZA</p>
-        <p style="color: #1f2937; font-weight: bold; margin: 0; font-size: 14px;">${AREA_LABELS[strongestArea]}</p>
-        <p style="color: #059669; font-size: 20px; font-weight: bold; margin: 5px 0 0 0;">${scores[strongestArea]}/10</p>
-      </div>
-      <div style="flex: 1; background: #fef3c7; padding: 20px; border-radius: 12px; text-align: center;">
-        <p style="color: #d97706; font-size: 12px; margin: 0 0 5px 0;">⚡ DA MIGLIORARE</p>
-        <p style="color: #1f2937; font-weight: bold; margin: 0; font-size: 14px;">${AREA_LABELS[weakestArea]}</p>
-        <p style="color: #d97706; font-size: 20px; font-weight: bold; margin: 5px 0 0 0;">${scores[weakestArea]}/10</p>
-      </div>
+    <div style="padding: 20px; background: white;">
+      <table style="width: 100%; border-collapse: separate; border-spacing: 10px;">
+        <tr>
+          <td style="background: #ecfdf5; padding: 20px; border-radius: 12px; text-align: center; width: 50%;">
+            <p style="color: #059669; font-size: 12px; margin: 0 0 5px 0;">✨ PUNTO DI FORZA</p>
+            <p style="color: #1f2937; font-weight: bold; margin: 0; font-size: 14px;">${AREA_LABELS[strongestArea] || strongestArea}</p>
+            <p style="color: #059669; font-size: 20px; font-weight: bold; margin: 5px 0 0 0;">${scores[strongestArea]}/10</p>
+          </td>
+          <td style="background: #fef3c7; padding: 20px; border-radius: 12px; text-align: center; width: 50%;">
+            <p style="color: #d97706; font-size: 12px; margin: 0 0 5px 0;">⚡ DA MIGLIORARE</p>
+            <p style="color: #1f2937; font-weight: bold; margin: 0; font-size: 14px;">${AREA_LABELS[weakestArea] || weakestArea}</p>
+            <p style="color: #d97706; font-size: 20px; font-weight: bold; margin: 5px 0 0 0;">${scores[weakestArea]}/10</p>
+          </td>
+        </tr>
+      </table>
     </div>
     
     <!-- Priority Area Tips -->
-    <div style="background: #7C3AED; margin: 20px; padding: 25px; border-radius: 12px;">
-      <h2 style="color: white; font-size: 18px; margin: 0 0 5px 0;">🎯 La tua priorità: ${AREA_LABELS[priorityArea]}</h2>
+    <div style="background: #D4A574; margin: 0 20px 20px 20px; padding: 25px; border-radius: 12px;">
+      <h2 style="color: white; font-size: 18px; margin: 0 0 5px 0;">🎯 La tua priorità: ${AREA_LABELS[priorityArea] || priorityArea}</h2>
       <p style="color: rgba(255,255,255,0.8); font-size: 14px; margin: 0 0 20px 0;">Ecco 3 azioni concrete per iniziare:</p>
       
       ${tips.map((tip, i) => `
-      <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; margin-bottom: ${i < 2 ? '10px' : '0'};">
+      <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px; margin-bottom: ${i < 2 ? '10px' : '0'};">
         <p style="color: white; margin: 0; font-size: 14px;">${tip}</p>
       </div>
       `).join('')}
@@ -172,13 +166,13 @@ export async function POST(request: NextRequest) {
     
     <!-- CTA -->
     <div style="background: white; padding: 30px; text-align: center; border-radius: 0 0 16px 16px;">
-      <h2 style="color: #1f2937; font-size: 20px; margin: 0 0 10px 0;">Pronto a trasformare la tua ${AREA_LABELS[priorityArea]}?</h2>
+      <h2 style="color: #1f2937; font-size: 20px; margin: 0 0 10px 0;">Pronto a trasformare la tua ${AREA_LABELS[priorityArea] || priorityArea}?</h2>
       <p style="color: #6b7280; font-size: 14px; margin: 0 0 20px 0;">
         I nostri coach specializzati possono aiutarti a raggiungere i tuoi obiettivi.
         <br>La prima call conoscitiva è gratuita.
       </p>
       <a href="https://www.coachami.it/coaches?area=${priorityArea}" 
-         style="display: inline-block; background: #7C3AED; color: white; padding: 14px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
+         style="display: inline-block; background: #D4A574; color: white; padding: 14px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
         Trova il tuo Coach →
       </a>
     </div>
@@ -189,7 +183,7 @@ export async function POST(request: NextRequest) {
         Hai ricevuto questa email perché hai completato il test gratuito su CoachaMi.
       </p>
       <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-        <a href="https://www.coachami.it" style="color: #7C3AED;">www.coachami.it</a>
+        <a href="https://www.coachami.it" style="color: #D4A574;">www.coachami.it</a>
       </p>
     </div>
     
@@ -199,33 +193,75 @@ export async function POST(request: NextRequest) {
     `
     
     // 4. Invia l'email
-    try {
-      await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
-        to: email,
-        subject: `${name}, ecco il tuo Report della Ruota della Vita 🎯`,
-        html: emailHtml
-      })
-      
-      // Aggiorna il lead per segnare che l'email è stata inviata
-      // (in produzione useresti updateDoc)
-      console.log('Email inviata a:', email)
-      
-    } catch (emailError) {
-      console.error('Errore invio email:', emailError)
-      // Non bloccare - il lead è comunque salvato
+    if (resend) {
+      try {
+        const emailResult = await resend.emails.send({
+          from: 'CoachaMi <noreply@coachami.it>',
+          to: email,
+          subject: `${name}, ecco il tuo Report della Ruota della Vita 🎯`,
+          html: emailHtml
+        })
+        
+        console.log('✅ Email inviata a:', email, emailResult)
+        
+      } catch (emailError: any) {
+        console.error('❌ Errore invio email:', emailError?.message || emailError)
+        // Non bloccare - ritorna comunque successo
+      }
+    } else {
+      console.log('⚠️ Resend non configurato, email non inviata')
     }
+    
+    console.log('✅ API completata con successo')
+    
+    // Firebase disabilitato temporaneamente - da riattivare quando le env variables sono corrette
+    // saveLeadToFirebase(email, name, scores, priorityArea, lifeScore).catch(err => {
+    //   console.log('⚠️ Firebase save fallito (non critico):', err?.message)
+    // })
     
     return NextResponse.json({ 
       success: true,
-      leadId: docRef.id 
+      leadId: leadId 
     })
     
-  } catch (error) {
-    console.error('Errore API lead-magnet:', error)
+  } catch (error: any) {
+    console.error('❌ Errore API lead-magnet:', error?.message || error)
     return NextResponse.json(
-      { error: 'Errore interno del server' },
+      { error: 'Errore interno del server', details: error?.message },
       { status: 500 }
     )
+  }
+}
+
+// Funzione separata per salvare in Firebase (non blocca la response)
+async function saveLeadToFirebase(
+  email: string, 
+  name: string, 
+  scores: Record<string, number>, 
+  priorityArea: string, 
+  lifeScore: string
+) {
+  try {
+    const { adminDb } = await import('@/lib/firebase-admin')
+    const { FieldValue } = await import('firebase-admin/firestore')
+    
+    const leadData = {
+      email,
+      name,
+      scores,
+      priorityArea,
+      lifeScore: parseFloat(lifeScore),
+      source: 'test-gratuito',
+      createdAt: FieldValue.serverTimestamp(),
+      emailSent: true,
+      convertedToUser: false
+    }
+    
+    const docRef = await adminDb.collection('leads').add(leadData)
+    console.log('✅ Lead salvato in Firebase con ID:', docRef.id)
+    return docRef.id
+  } catch (error: any) {
+    console.error('❌ Errore salvataggio Firebase:', error?.message)
+    throw error
   }
 }

@@ -13,12 +13,20 @@ import {
   Mail,
   TrendingUp,
   TrendingDown,
-  Target
+  Target,
+  Zap,
+  Star,
+  ChevronRight
 } from 'lucide-react'
 import { LIFE_AREAS, LifeAreaId } from '@/types'
 import { AreaIllustrations } from '@/components/AreaIllustrations'
 import RadarChart from '@/components/RadarChart'
 import Logo from '@/components/Logo'
+import { 
+  generateFullAnalysis, 
+  getScoreBand,
+  FullAnalysis 
+} from '@/lib/lifeScoreInterpretation'
 
 // Steps del test
 type TestStep = 'intro' | 'scoring' | 'priority' | 'results' | 'email'
@@ -57,11 +65,20 @@ export default function TestGratuitoPage() {
   const [name, setName] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  const [analysis, setAnalysis] = useState<FullAnalysis | null>(null)
   
   // Calcola il Life Score medio
   const lifeScore = Object.values(scores).length > 0 
     ? (Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length).toFixed(1)
     : '0'
+  
+  // Genera analisi completa quando arriviamo ai risultati
+  useEffect(() => {
+    if (currentStep === 'results' && Object.keys(scores).length === 8 && priorityArea) {
+      const fullAnalysis = generateFullAnalysis(scores, priorityArea)
+      setAnalysis(fullAnalysis)
+    }
+  }, [currentStep, scores, priorityArea])
   
   // Trova area più forte e più debole
   const sortedAreas = Object.entries(scores).sort(([,a], [,b]) => b - a)
@@ -418,7 +435,7 @@ export default function TestGratuitoPage() {
           )}
           
           {/* RESULTS - Risultato immediato */}
-          {currentStep === 'results' && (
+          {currentStep === 'results' && analysis && (
             <motion.div
               key="results"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -426,19 +443,27 @@ export default function TestGratuitoPage() {
               exit={{ opacity: 0 }}
               className="max-w-2xl mx-auto"
             >
+              {/* Header con emoji e titolo */}
               <div className="text-center mb-6">
+                <span className="text-5xl mb-4 block">{analysis.scoreBand.emoji}</span>
                 <h2 className="text-2xl md:text-3xl font-display font-bold text-charcoal mb-2">
-                  Ecco la tua Ruota della Vita!
+                  {analysis.scoreBand.title}
                 </h2>
                 <p className="text-gray-500">
-                  Una fotografia delle 8 aree della tua vita
+                  La tua Ruota della Vita
                 </p>
               </div>
               
-              {/* Life Score */}
-              <div className="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white text-center mb-6">
-                <p className="text-primary-100 text-sm mb-1">Il tuo Life Score</p>
-                <p className="text-5xl font-bold">{lifeScore}<span className="text-2xl">/10</span></p>
+              {/* Life Score Card */}
+              <div 
+                className="rounded-2xl p-6 text-white text-center mb-6"
+                style={{ background: `linear-gradient(135deg, ${analysis.scoreBand.color} 0%, ${analysis.scoreBand.color}dd 100%)` }}
+              >
+                <p className="text-white/80 text-sm mb-1">Il tuo Life Score</p>
+                <p className="text-5xl font-bold mb-2">{analysis.lifeScore}<span className="text-2xl">/10</span></p>
+                <p className="text-white/90 text-sm max-w-md mx-auto">
+                  {analysis.scoreBand.description}
+                </p>
               </div>
               
               {/* Radar Chart */}
@@ -446,67 +471,135 @@ export default function TestGratuitoPage() {
                 <div className="flex justify-center">
                   <RadarChart 
                     scores={scores} 
-                    size={320}
+                    size={300}
                     showLabels={true}
                   />
                 </div>
+                <p className="text-center text-sm text-gray-500 mt-4">
+                  {analysis.balanceInsight}
+                </p>
               </div>
               
-              {/* Insights */}
-              <div className="grid md:grid-cols-3 gap-4 mb-6">
-                {/* Area più forte */}
-                {strongestArea && (
-                  <div className="bg-green-50 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <TrendingUp size={18} className="text-green-600" />
-                      <span className="text-sm font-medium text-green-700">Area più forte</span>
-                    </div>
-                    <p className="font-semibold text-charcoal">
-                      {AREA_LABELS[strongestArea]}
-                    </p>
-                    <p className="text-2xl font-bold text-green-600">
-                      {scores[strongestArea]}/10
-                    </p>
+              {/* Archetipo */}
+              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-6 mb-6 border border-purple-100">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-4xl">{analysis.archetype.emoji}</span>
+                  <div>
+                    <p className="text-xs text-purple-600 font-medium uppercase tracking-wide">Il tuo profilo</p>
+                    <h3 className="text-xl font-bold text-charcoal">{analysis.archetype.name}</h3>
                   </div>
-                )}
+                </div>
+                <p className="text-gray-600 mb-4">
+                  {analysis.archetype.description}
+                </p>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1">
+                      <Star size={14} /> I tuoi punti di forza
+                    </p>
+                    <ul className="space-y-1">
+                      {analysis.archetype.strengths.map((s, i) => (
+                        <li key={i} className="text-sm text-gray-600 flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                          {s}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-amber-700 mb-2 flex items-center gap-1">
+                      <Zap size={14} /> Le tue sfide
+                    </p>
+                    <ul className="space-y-1">
+                      {analysis.archetype.challenges.map((c, i) => (
+                        <li key={i} className="text-sm text-gray-600 flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                          {c}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-purple-200">
+                  <p className="text-sm text-purple-800 italic">
+                    💡 {analysis.archetype.advice}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Top 3 e Bottom 3 */}
+              <div className="grid md:grid-cols-2 gap-4 mb-6">
+                {/* Aree forti */}
+                <div className="bg-green-50 rounded-xl p-4">
+                  <h4 className="font-semibold text-green-800 mb-3 flex items-center gap-2">
+                    <TrendingUp size={18} />
+                    Le tue aree più forti
+                  </h4>
+                  <div className="space-y-2">
+                    {analysis.strongestAreas.map((area, i) => (
+                      <div key={area.area} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
+                          <span className="text-sm text-gray-700">{area.label}</span>
+                        </div>
+                        <span className="font-bold text-green-600">{area.score}/10</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 
-                {/* Area da migliorare */}
-                {weakestArea && (
-                  <div className="bg-amber-50 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <TrendingDown size={18} className="text-amber-600" />
-                      <span className="text-sm font-medium text-amber-700">Da migliorare</span>
-                    </div>
-                    <p className="font-semibold text-charcoal">
-                      {AREA_LABELS[weakestArea]}
-                    </p>
-                    <p className="text-2xl font-bold text-amber-600">
-                      {scores[weakestArea]}/10
-                    </p>
+                {/* Aree da migliorare */}
+                <div className="bg-amber-50 rounded-xl p-4">
+                  <h4 className="font-semibold text-amber-800 mb-3 flex items-center gap-2">
+                    <TrendingDown size={18} />
+                    Aree con più potenziale
+                  </h4>
+                  <div className="space-y-2">
+                    {analysis.weakestAreas.map((area, i) => (
+                      <div key={area.area} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{i === 0 ? '🎯' : i === 1 ? '📈' : '💪'}</span>
+                          <span className="text-sm text-gray-700">{area.label}</span>
+                        </div>
+                        <span className="font-bold text-amber-600">{area.score}/10</span>
+                      </div>
+                    ))}
                   </div>
-                )}
-                
-                {/* Area prioritaria */}
-                {priorityArea && (
-                  <div className="bg-primary-50 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Target size={18} className="text-primary-600" />
-                      <span className="text-sm font-medium text-primary-700">La tua priorità</span>
+                </div>
+              </div>
+              
+              {/* Analisi area prioritaria */}
+              {analysis.priorityAnalysis && priorityArea && (
+                <div className="bg-primary-50 rounded-2xl p-6 mb-6 border border-primary-200">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Target size={24} className="text-primary-600" />
+                    <div>
+                      <p className="text-xs text-primary-600 font-medium uppercase tracking-wide">La tua priorità</p>
+                      <h3 className="text-xl font-bold text-charcoal">{AREA_LABELS[priorityArea]}</h3>
                     </div>
-                    <p className="font-semibold text-charcoal">
-                      {AREA_LABELS[priorityArea]}
-                    </p>
-                    <p className="text-2xl font-bold text-primary-600">
-                      {scores[priorityArea]}/10
-                    </p>
+                    <span className="ml-auto text-2xl font-bold text-primary-600">{scores[priorityArea]}/10</span>
                   </div>
-                )}
+                  <p className="text-gray-600 mb-4">
+                    {analysis.priorityAnalysis.interpretation}
+                  </p>
+                  <div className="bg-white rounded-xl p-4">
+                    <p className="text-sm font-medium text-primary-700 mb-2">⚡ Azione immediata:</p>
+                    <p className="text-gray-700">{analysis.priorityAnalysis.quickWin}</p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Messaggio di incoraggiamento */}
+              <div className="bg-white rounded-xl p-4 mb-6 text-center border border-gray-100">
+                <p className="text-gray-600 italic">
+                  "{analysis.scoreBand.encouragement}"
+                </p>
               </div>
               
               {/* CTA per report completo */}
               <div className="bg-gradient-to-br from-charcoal to-gray-800 rounded-2xl p-6 text-white">
                 <h3 className="text-xl font-semibold mb-2">
-                  Vuoi il report completo?
+                  Vuoi trasformare questi insight in azione?
                 </h3>
                 <p className="text-gray-300 text-sm mb-4">
                   Ricevi gratis via email:
@@ -514,15 +607,15 @@ export default function TestGratuitoPage() {
                 <ul className="space-y-2 mb-6">
                   <li className="flex items-center gap-2 text-sm">
                     <Check size={16} className="text-green-400" />
-                    <span>PDF con analisi dettagliata di ogni area</span>
+                    <span>Piano d'azione personalizzato per {priorityArea ? AREA_LABELS[priorityArea] : 'la tua priorità'}</span>
                   </li>
                   <li className="flex items-center gap-2 text-sm">
                     <Check size={16} className="text-green-400" />
-                    <span>3 consigli pratici per la tua area prioritaria</span>
+                    <span>Guida specifica per il profilo "{analysis.archetype.name}"</span>
                   </li>
                   <li className="flex items-center gap-2 text-sm">
                     <Check size={16} className="text-green-400" />
-                    <span>Lista di coach specializzati nel tuo obiettivo</span>
+                    <span>Coach specializzati nel tuo obiettivo</span>
                   </li>
                 </ul>
                 
@@ -531,7 +624,7 @@ export default function TestGratuitoPage() {
                   className="w-full bg-white text-charcoal font-semibold py-3 px-6 rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
                 >
                   <Mail size={18} />
-                  Ricevi il report gratuito
+                  Ricevi il piano d'azione gratuito
                 </button>
               </div>
               
@@ -669,4 +762,3 @@ export default function TestGratuitoPage() {
     </div>
   )
 }
-
