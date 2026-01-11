@@ -21,7 +21,8 @@ import {
   CheckCircle,
   ArrowRight,
   Clock,
-  Target
+  Target,
+  FileText
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -372,6 +373,7 @@ export default function CoachLayoutWrapper({
     { href: '/coach/dashboard', label: 'Dashboard', icon: BarChart3 },
     { href: '/coach/sessions', label: 'Sessioni', icon: Video, badge: coachData.pendingSessions },
     { href: '/coach/office', label: 'Ufficio Virtuale', icon: Building2 },
+    { href: '/coach/invoices', label: 'Fatturazione', icon: FileText },
     { href: '/coach/reviews', label: 'Recensioni', icon: Star, badge: coachData.pendingReviews },
     { href: '/community/my-points', label: 'I miei punti', icon: Trophy },
     { href: '/coach/availability', label: 'Disponibilità', icon: Calendar },
