@@ -521,9 +521,6 @@ export default function HomePage() {
               <Link href="/terms" className="hover:text-charcoal transition-colors">
                 Termini di Servizio
               </Link>
-              <Link href="/come-funziona-il-match" className="hover:text-charcoal transition-colors">
-                Come funziona il Match
-              </Link>
               <Link href="/coach/register" className="hover:text-charcoal transition-colors">
                 Diventa Coach
               </Link>
