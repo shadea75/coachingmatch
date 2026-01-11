@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { LIFE_AREAS, LifeAreaId } from '@/types'
+import { db } from '@/lib/firebase'
+import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore'
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
@@ -311,6 +313,25 @@ export async function POST(request: NextRequest) {
       }
     } else {
       console.log('⚠️ Resend non configurato')
+    }
+    
+    // Salva lead in Firebase per nurturing
+    try {
+      await setDoc(doc(collection(db, 'leads'), leadId), {
+        email,
+        name,
+        scores,
+        archetypeId: archetype.id,
+        priorityArea,
+        lifeScore: parseFloat(lifeScore.toFixed(1)),
+        status: 'new', // new | reminded | assigned | booked | converted
+        reminderCount: 0,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+      console.log('✅ Lead salvato in Firebase:', leadId)
+    } catch (dbError: any) {
+      console.error('❌ Errore salvataggio lead:', dbError?.message || dbError)
     }
     
     console.log('✅ API completata')
