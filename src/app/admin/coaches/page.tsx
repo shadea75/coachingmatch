@@ -71,7 +71,7 @@ export default function AdminCoachesPage() {
   // Modal per modifica abbonamento
   const [editingCoach, setEditingCoach] = useState<Coach | null>(null)
   const [editPrice, setEditPrice] = useState<number>(0)
-  const [editStatus, setEditStatus] = useState<string>('trial')
+  const [editStatus, setEditStatus] = useState<'trial' | 'active' | 'expired' | 'free'>('trial')
   const [saving, setSaving] = useState(false)
 
   // Carica impostazioni default
@@ -563,7 +563,7 @@ export default function AdminCoachesPage() {
                   </label>
                   <select
                     value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value)}
+                    onChange={(e) => setEditStatus(e.target.value as 'trial' | 'active' | 'expired' | 'free')}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   >
                     <option value="trial">In prova ({trialDays} giorni)</option>
