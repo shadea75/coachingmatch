@@ -148,9 +148,21 @@ function CoachesContent() {
   // Calcola match quando cambiano coach o profilo coachee
   useEffect(() => {
     if (coaches.length > 0) {
-      const profile = coacheeProfile || { priorityArea: selectedArea !== 'all' ? selectedArea as LifeAreaId : undefined }
-      const results = calculateMatches(coaches, profile)
-      setMatchResults(results)
+      try {
+        const profile = coacheeProfile || { priorityArea: selectedArea !== 'all' ? selectedArea as LifeAreaId : undefined }
+        const results = calculateMatches(coaches, profile)
+        setMatchResults(results)
+      } catch (err) {
+        console.error('Errore calcolo match:', err)
+        // Fallback: mostra coach senza punteggio match
+        setMatchResults(coaches.map(coach => ({
+          coach,
+          score: 50,
+          finalScore: 50,
+          matchReasons: [],
+          compatibility: 'moderate' as const
+        })))
+      }
     }
   }, [coaches, coacheeProfile, selectedArea])
 

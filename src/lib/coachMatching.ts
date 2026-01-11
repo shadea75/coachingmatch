@@ -605,78 +605,99 @@ export function calculateMatches(
   coaches: CoachProfile[],
   coachee: CoacheeProfile
 ): MatchResult[] {
+  if (!coaches || coaches.length === 0) {
+    return []
+  }
+  
   const dayOfMonth = new Date().getDate()
   
   const results: MatchResult[] = coaches.map(coach => {
-    const allReasons: MatchReason[] = []
-    let totalScore = 0
-    
-    // Calcola tutti i punteggi di match
-    const areaResult = scoreAreaMatch(coach, coachee)
-    const specResult = scoreSpecializations(coach, coachee)
-    const qualityResult = scoreQuality(coach)
-    const personalResult = scorePersonalCompatibility(coach, coachee)
-    const practicalResult = scorePracticality(coach, coachee)
-    
-    totalScore = areaResult.score + specResult.score + qualityResult.score + 
-                 personalResult.score + practicalResult.score
-    
-    allReasons.push(...areaResult.reasons)
-    allReasons.push(...specResult.reasons)
-    allReasons.push(...qualityResult.reasons)
-    allReasons.push(...personalResult.reasons)
-    allReasons.push(...practicalResult.reasons)
-    
-    // Normalizza match score a 0-100
-    const maxPossibleScore = Object.values(WEIGHTS).reduce((a, b) => a + b, 0)
-    const matchScore = Math.round((totalScore / maxPossibleScore) * 100)
-    
-    // Calcola engagement score
-    const engagementScore = coach.engagementMetrics 
-      ? calculateEngagementScore(coach.engagementMetrics)
-      : 50 // Default per coach senza metriche
-    
-    // Calcola boost
-    const daysInactive = coach.engagementMetrics?.daysInactive || 0
-    const inactivityBoost = calculateInactivityBoost(daysInactive, engagementScore)
-    const randomBoost = calculateRandomBoost(coach.id, dayOfMonth)
-    
-    // Calcola penalità profilo incompleto
-    const profileCompleteness = calculateProfileCompleteness(coach)
-    
-    // Calcola score finale per ranking
-    const baseScore = calculateFinalRankingScore({
-      matchScore,
-      engagementScore,
-      randomBoost,
-      inactivityBoost
-    })
-    
-    // Applica penalità profilo (sottrae punti dal ranking finale)
-    const finalScore = Math.max(0, Math.round(baseScore - profileCompleteness.totalPenalty))
-    
-    // Determina livello compatibilità (basato su match score puro)
-    let compatibility: MatchResult['compatibility']
-    if (matchScore >= 75) compatibility = 'perfect'
-    else if (matchScore >= 55) compatibility = 'high'
-    else if (matchScore >= 35) compatibility = 'good'
-    else compatibility = 'moderate'
-    
-    // Engagement level info
-    const engagementLevel = getEngagementLevel(engagementScore)
-    
-    return {
-      coach,
-      score: matchScore,
-      finalScore,
-      matchReasons: allReasons.filter(r => r.matched).slice(0, 5),
-      compatibility,
-      engagementLevel: {
-        level: engagementLevel.level,
-        label: engagementLevel.label,
-        emoji: engagementLevel.emoji
-      },
-      profileCompleteness
+    try {
+      const allReasons: MatchReason[] = []
+      let totalScore = 0
+      
+      // Calcola tutti i punteggi di match
+      const areaResult = scoreAreaMatch(coach, coachee)
+      const specResult = scoreSpecializations(coach, coachee)
+      const qualityResult = scoreQuality(coach)
+      const personalResult = scorePersonalCompatibility(coach, coachee)
+      const practicalResult = scorePracticality(coach, coachee)
+      
+      totalScore = areaResult.score + specResult.score + qualityResult.score + 
+                   personalResult.score + practicalResult.score
+      
+      allReasons.push(...areaResult.reasons)
+      allReasons.push(...specResult.reasons)
+      allReasons.push(...qualityResult.reasons)
+      allReasons.push(...personalResult.reasons)
+      allReasons.push(...practicalResult.reasons)
+      
+      // Normalizza match score a 0-100
+      const maxPossibleScore = Object.values(WEIGHTS).reduce((a, b) => a + b, 0)
+      const matchScore = Math.round((totalScore / maxPossibleScore) * 100)
+      
+      // Calcola engagement score
+      let engagementScore = 50 // Default
+      try {
+        engagementScore = coach.engagementMetrics 
+          ? calculateEngagementScore(coach.engagementMetrics)
+          : 50
+      } catch (e) {
+        // Ignora errori engagement
+      }
+      
+      // Calcola boost
+      const daysInactive = coach.engagementMetrics?.daysInactive || 0
+      const inactivityBoost = calculateInactivityBoost(daysInactive, engagementScore)
+      const randomBoost = calculateRandomBoost(coach.id, dayOfMonth)
+      
+      // Calcola penalità profilo incompleto
+      const profileCompleteness = calculateProfileCompleteness(coach)
+      
+      // Calcola score finale per ranking
+      const baseScore = calculateFinalRankingScore({
+        matchScore,
+        engagementScore,
+        randomBoost,
+        inactivityBoost
+      })
+      
+      // Applica penalità profilo (sottrae punti dal ranking finale)
+      const finalScore = Math.max(0, Math.round(baseScore - profileCompleteness.totalPenalty))
+      
+      // Determina livello compatibilità (basato su match score puro)
+      let compatibility: MatchResult['compatibility']
+      if (matchScore >= 75) compatibility = 'perfect'
+      else if (matchScore >= 55) compatibility = 'high'
+      else if (matchScore >= 35) compatibility = 'good'
+      else compatibility = 'moderate'
+      
+      // Engagement level info
+      const engagementLevel = getEngagementLevel(engagementScore)
+      
+      return {
+        coach,
+        score: matchScore,
+        finalScore,
+        matchReasons: allReasons.filter(r => r.matched).slice(0, 5),
+        compatibility,
+        engagementLevel: {
+          level: engagementLevel.level,
+          label: engagementLevel.label,
+          emoji: engagementLevel.emoji
+        },
+        profileCompleteness
+      }
+    } catch (err) {
+      // Fallback per coach con errori
+      console.error(`Error calculating match for coach ${coach.id}:`, err)
+      return {
+        coach,
+        score: 50,
+        finalScore: 50,
+        matchReasons: [],
+        compatibility: 'moderate' as const
+      }
     }
   })
   
