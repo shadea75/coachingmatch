@@ -152,7 +152,7 @@ function SubscriptionSuccessContent() {
 
             {/* CTA */}
             <Link
-              href="/coach"
+              href="/coach/dashboard"
               className="w-full btn btn-primary py-4 text-lg flex items-center justify-center gap-2"
             >
               Vai alla Dashboard
