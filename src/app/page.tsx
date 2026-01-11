@@ -16,7 +16,9 @@ import {
   PiggyBank,
   PartyPopper,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Menu,
+  X
 } from 'lucide-react'
 import Logo from '@/components/Logo'
 import { AreaIllustrations } from '@/components/AreaIllustrations'
@@ -39,6 +41,7 @@ interface Coach {
 export default function HomePage() {
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [loadingCoaches, setLoadingCoaches] = useState(true)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Carica coach approvati
   useEffect(() => {
@@ -94,22 +97,23 @@ export default function HomePage() {
             <Logo size="md" />
           </Link>
           
-          <div className="flex items-center gap-4">
+          {/* Desktop Menu */}
+          <div className="hidden md:flex items-center gap-4">
             <Link 
               href="#coaches" 
-              className="text-gray-600 hover:text-charcoal transition-colors hidden sm:block"
+              className="text-gray-600 hover:text-charcoal transition-colors"
             >
               I Nostri Coach
             </Link>
             <Link 
               href="/shop" 
-              className="text-gray-600 hover:text-charcoal transition-colors hidden sm:block"
+              className="text-gray-600 hover:text-charcoal transition-colors"
             >
               Vetrina
             </Link>
             <Link 
               href="/coach/register" 
-              className="text-gray-600 hover:text-charcoal transition-colors hidden sm:block"
+              className="text-gray-600 hover:text-charcoal transition-colors"
             >
               Diventa Coach
             </Link>
@@ -126,7 +130,64 @@ export default function HomePage() {
               Inizia ora
             </Link>
           </div>
+          
+          {/* Mobile Menu Button */}
+          <div className="flex md:hidden items-center gap-2">
+            <Link 
+              href="/onboarding"
+              className="btn btn-primary text-sm px-4 py-2"
+            >
+              Inizia
+            </Link>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
+        
+        {/* Mobile Menu Dropdown */}
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="md:hidden bg-white border-t border-gray-100 shadow-lg"
+          >
+            <div className="px-4 py-4 space-y-3">
+              <Link 
+                href="#coaches" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 text-gray-600 hover:text-charcoal transition-colors"
+              >
+                I Nostri Coach
+              </Link>
+              <Link 
+                href="/shop" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 text-gray-600 hover:text-charcoal transition-colors"
+              >
+                Vetrina
+              </Link>
+              <Link 
+                href="/coach/register" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 text-gray-600 hover:text-charcoal transition-colors"
+              >
+                Diventa Coach
+              </Link>
+              <Link 
+                href="/login" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 text-gray-600 hover:text-charcoal transition-colors"
+              >
+                Accedi
+              </Link>
+            </div>
+          </motion.div>
+        )}
       </nav>
       
       {/* Hero Section */}
