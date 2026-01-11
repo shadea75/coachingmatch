@@ -30,7 +30,6 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import StripeConnectSetup from '@/components/coach/StripeConnectSetup'
-import CalendarSettings from '@/components/CalendarSettings'
 import { db, storage } from '@/lib/firebase'
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
@@ -891,9 +890,6 @@ export default function CoachSettingsPage() {
                 
                 {/* Stripe Connect - Ricevi pagamenti automatici */}
                 <StripeConnectSetup />
-                
-                {/* Google Calendar - Sincronizza disponibilità */}
-                <CalendarSettings />
                 
                 {/* Dati aziendali */}
                 <div className="bg-white rounded-2xl p-6 border border-gray-200">
