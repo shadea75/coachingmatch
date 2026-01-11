@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Users, 
   Mail, 
@@ -16,11 +16,13 @@ import {
   Filter,
   ChevronDown,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  X,
+  UserPlus
 } from 'lucide-react'
 import AdminLayout from '@/components/AdminLayout'
 import { db } from '@/lib/firebase'
-import { collection, getDocs, query, orderBy, doc, getDoc } from 'firebase/firestore'
+import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore'
 import { LifeAreaId } from '@/types'
 
 interface Lead {
@@ -42,6 +44,15 @@ interface Lead {
   lastReminderAt?: any
 }
 
+interface Coach {
+  id: string
+  name: string
+  email: string
+  lifeArea?: string
+  lifeAreas?: string[]
+  photo?: string
+}
+
 const AREA_LABELS: Record<string, string> = {
   salute: 'Salute',
   finanze: 'Finanze',
@@ -53,7 +64,7 @@ const AREA_LABELS: Record<string, string> = {
   divertimento: 'Divertimento'
 }
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string, color: string, icon: any }> = {
   new: { label: 'Nuovo', color: 'bg-blue-100 text-blue-700', icon: Clock },
   reminded: { label: 'Contattato', color: 'bg-yellow-100 text-yellow-700', icon: Mail },
   assigned: { label: 'Assegnato', color: 'bg-purple-100 text-purple-700', icon: UserCheck },
@@ -72,14 +83,45 @@ const ARCHETYPE_LABELS: Record<string, string> = {
 
 export default function AdminLeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
+  const [coaches, setCoaches] = useState<Coach[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [areaFilter, setAreaFilter] = useState<string>('all')
+  
+  // Modal assegnazione
+  const [showAssignModal, setShowAssignModal] = useState(false)
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
+  const [selectedCoachId, setSelectedCoachId] = useState<string>('')
+  const [assigning, setAssigning] = useState(false)
 
   useEffect(() => {
     loadLeads()
+    loadCoaches()
   }, [])
+
+  const loadCoaches = async () => {
+    try {
+      const coachesQuery = query(
+        collection(db, 'coachApplications'),
+        orderBy('name')
+      )
+      const snapshot = await getDocs(coachesQuery)
+      const loadedCoaches: Coach[] = snapshot.docs
+        .filter(doc => doc.data().status === 'approved')
+        .map(doc => ({
+          id: doc.id,
+          name: doc.data().name || 'Coach',
+          email: doc.data().email || '',
+          lifeArea: doc.data().lifeArea,
+          lifeAreas: doc.data().lifeAreas || [],
+          photo: doc.data().photo
+        }))
+      setCoaches(loadedCoaches)
+    } catch (err) {
+      console.error('Error loading coaches:', err)
+    }
+  }
 
   const loadLeads = async () => {
     setLoading(true)
@@ -120,6 +162,46 @@ export default function AdminLeadsPage() {
       console.error('Error loading leads:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const openAssignModal = (lead: Lead) => {
+    setSelectedLead(lead)
+    setSelectedCoachId(lead.assignedCoachId || '')
+    setShowAssignModal(true)
+  }
+
+  const handleAssign = async () => {
+    if (!selectedLead || !selectedCoachId) return
+    
+    setAssigning(true)
+    try {
+      const coach = coaches.find(c => c.id === selectedCoachId)
+      
+      await updateDoc(doc(db, 'leads', selectedLead.id), {
+        assignedCoachId: selectedCoachId,
+        status: 'assigned',
+        assignedAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      })
+      
+      // Aggiorna lista locale
+      setLeads(prev => prev.map(l => 
+        l.id === selectedLead.id 
+          ? { ...l, assignedCoachId: selectedCoachId, assignedCoachName: coach?.name, status: 'assigned' as const }
+          : l
+      ))
+      
+      setShowAssignModal(false)
+      setSelectedLead(null)
+      setSelectedCoachId('')
+      
+      alert(`Lead assegnato a ${coach?.name}!`)
+    } catch (err) {
+      console.error('Error assigning lead:', err)
+      alert('Errore durante l\'assegnazione')
+    } finally {
+      setAssigning(false)
     }
   }
 
@@ -164,6 +246,14 @@ export default function AdminLeadsPage() {
     if (!timestamp) return 0
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
     return Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24))
+  }
+
+  // Coach consigliati per un lead (basati sull'area prioritaria)
+  const getRecommendedCoaches = (lead: Lead) => {
+    return coaches.filter(coach => {
+      const coachAreas = coach.lifeAreas?.length ? coach.lifeAreas : (coach.lifeArea ? [coach.lifeArea] : [])
+      return coachAreas.includes(lead.priorityArea)
+    })
   }
 
   return (
@@ -312,11 +402,12 @@ export default function AdminLeadsPage() {
                     <th className="text-left px-4 py-3 text-sm font-semibold text-gray-600">Coach</th>
                     <th className="text-left px-4 py-3 text-sm font-semibold text-gray-600">Creato</th>
                     <th className="text-left px-4 py-3 text-sm font-semibold text-gray-600">Giorni</th>
+                    <th className="text-left px-4 py-3 text-sm font-semibold text-gray-600">Azioni</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredLeads.map((lead) => {
-                    const statusConfig = STATUS_CONFIG[lead.status]
+                    const statusConfig = STATUS_CONFIG[lead.status] || STATUS_CONFIG.new
                     const StatusIcon = statusConfig.icon
                     const days = daysSince(lead.createdAt)
                     
@@ -373,6 +464,15 @@ export default function AdminLeadsPage() {
                             {days}g
                           </span>
                         </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => openAssignModal(lead)}
+                            className="flex items-center gap-1 px-3 py-1.5 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
+                          >
+                            <UserPlus size={14} />
+                            {lead.assignedCoachId ? 'Riassegna' : 'Assegna'}
+                          </button>
+                        </td>
                       </tr>
                     )
                   })}
@@ -382,6 +482,122 @@ export default function AdminLeadsPage() {
           )}
         </div>
       </div>
+
+      {/* Modal Assegnazione */}
+      <AnimatePresence>
+        {showAssignModal && selectedLead && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowAssignModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-charcoal">Assegna Lead</h2>
+                <button 
+                  onClick={() => setShowAssignModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Info Lead */}
+              <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                <p className="font-semibold text-charcoal">{selectedLead.name}</p>
+                <p className="text-sm text-gray-500">{selectedLead.email}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary-100 text-primary-700 text-xs">
+                    <Target size={12} />
+                    {AREA_LABELS[selectedLead.priorityArea] || selectedLead.priorityArea}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    Life Score: {selectedLead.lifeScore?.toFixed(1) || '-'}/10
+                  </span>
+                </div>
+              </div>
+
+              {/* Coach consigliati */}
+              {getRecommendedCoaches(selectedLead).length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm font-semibold text-gray-600 mb-2">
+                    ⭐ Coach consigliati per {AREA_LABELS[selectedLead.priorityArea]}:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {getRecommendedCoaches(selectedLead).map(coach => (
+                      <button
+                        key={coach.id}
+                        onClick={() => setSelectedCoachId(coach.id)}
+                        className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                          selectedCoachId === coach.id
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-primary-100 text-primary-700 hover:bg-primary-200'
+                        }`}
+                      >
+                        {coach.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Seleziona Coach */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Seleziona Coach
+                </label>
+                <select
+                  value={selectedCoachId}
+                  onChange={(e) => setSelectedCoachId(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">-- Seleziona un coach --</option>
+                  {coaches.map(coach => (
+                    <option key={coach.id} value={coach.id}>
+                      {coach.name} {coach.lifeArea ? `(${AREA_LABELS[coach.lifeArea] || coach.lifeArea})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Bottoni */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowAssignModal(false)}
+                  className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={handleAssign}
+                  disabled={!selectedCoachId || assigning}
+                  className="flex-1 px-4 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {assigning ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Assegnando...
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck size={18} />
+                      Assegna
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AdminLayout>
   )
 }
