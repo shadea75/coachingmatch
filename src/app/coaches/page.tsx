@@ -168,7 +168,16 @@ function CoachesContent() {
 
   // Filtra e ordina coach
   const getFilteredAndSortedCoaches = () => {
-    let filtered = matchResults
+    // Se non ci sono matchResults ma ci sono coaches, usa i coaches direttamente
+    let filtered: MatchResult[] = matchResults.length > 0 
+      ? matchResults 
+      : coaches.map(coach => ({
+          coach,
+          score: 50,
+          finalScore: 50,
+          matchReasons: [],
+          compatibility: 'moderate' as const
+        }))
 
     // Filtro per ricerca testuale
     if (searchQuery) {
