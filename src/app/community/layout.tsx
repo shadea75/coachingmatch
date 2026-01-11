@@ -16,7 +16,8 @@ import {
   LogOut,
   Menu,
   X,
-  ArrowLeft
+  ArrowLeft,
+  Target
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -178,6 +179,7 @@ export default function CommunityLayout({
     { href: '/community/my-points', label: 'I miei punti', icon: Trophy },
     { href: '/coach/availability', label: 'Disponibilità', icon: Calendar },
     { href: '/community', label: 'Community', icon: Users },
+    { href: '/coach/come-funziona-il-match', label: 'Come funziona il Match', icon: Target },
     { href: '/coach/settings', label: 'Impostazioni', icon: Settings },
   ]
 
