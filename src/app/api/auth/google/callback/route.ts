@@ -15,13 +15,13 @@ export async function GET(request: NextRequest) {
   // Gestisci errore o rifiuto
   if (error) {
     return NextResponse.redirect(
-      `${baseUrl}/coach/settings?calendar=error&message=${encodeURIComponent(error)}`
+      `${baseUrl}/coach/availability?calendar=error&message=${encodeURIComponent(error)}`
     )
   }
   
   if (!code || !state) {
     return NextResponse.redirect(
-      `${baseUrl}/coach/settings?calendar=error&message=missing_params`
+      `${baseUrl}/coach/availability?calendar=error&message=missing_params`
     )
   }
   
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     if (tokens.error) {
       console.error('Token error:', tokens)
       return NextResponse.redirect(
-        `${baseUrl}/coach/settings?calendar=error&message=${encodeURIComponent(tokens.error)}`
+        `${baseUrl}/coach/availability?calendar=error&message=${encodeURIComponent(tokens.error)}`
       )
     }
     
@@ -67,14 +67,15 @@ export async function GET(request: NextRequest) {
     
     const encodedData = Buffer.from(JSON.stringify(tokenData)).toString('base64')
     
+    // Reindirizza a /coach/availability (dove ora si trova l'integrazione)
     return NextResponse.redirect(
-      `${baseUrl}/coach/settings?calendar=pending&data=${encodedData}`
+      `${baseUrl}/coach/availability?calendar=pending&data=${encodedData}`
     )
     
   } catch (err) {
     console.error('OAuth callback error:', err)
     return NextResponse.redirect(
-      `${baseUrl}/coach/settings?calendar=error&message=server_error`
+      `${baseUrl}/coach/availability?calendar=error&message=server_error`
     )
   }
 }
