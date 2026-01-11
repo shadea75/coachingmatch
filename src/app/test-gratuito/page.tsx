@@ -25,6 +25,8 @@ import {
 } from '@/lib/archetypes'
 import { getScoreBand, ScoreBand } from '@/lib/lifeScoreInterpretation'
 
+import { getScoreDescription, getScoreLabel } from '@/lib/areaDescriptions'
+
 // Steps del test
 type TestStep = 'intro' | 'scoring' | 'questions' | 'priority' | 'results' | 'email' | 'success'
 
@@ -177,39 +179,65 @@ export default function TestGratuitoPage() {
   }
   
   // Componente Slider Score
-  const ScoreSlider = ({ value, onChange }: { value: number, onChange: (v: number) => void }) => (
-    <div className="space-y-4">
-      <div className="flex justify-between text-xs text-gray-400">
-        <span>Molto insoddisfatto</span>
-        <span>Completamente soddisfatto</span>
-      </div>
-      
-      <div className="flex justify-between gap-1">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
-          <button
-            key={num}
-            onClick={() => onChange(num)}
-            className={`w-full h-12 rounded-lg text-sm font-semibold transition-all ${
-              value === num 
-                ? 'bg-primary-500 text-white scale-105 shadow-lg' 
-                : num <= (value || 0)
-                ? 'bg-primary-100 text-primary-600'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-            }`}
-          >
-            {num}
-          </button>
-        ))}
-      </div>
-      
-      {value > 0 && (
-        <div className="text-center">
-          <span className="text-4xl font-bold text-primary-600">{value}</span>
-          <span className="text-gray-400 text-lg">/10</span>
+  const ScoreSlider = ({ value, onChange, areaId }: { value: number, onChange: (v: number) => void, areaId: LifeAreaId }) => {
+    const [hoveredScore, setHoveredScore] = useState<number | null>(null)
+    const displayScore = hoveredScore ?? value
+    const description = displayScore ? getScoreDescription(areaId, displayScore) : ''
+    const label = displayScore ? getScoreLabel(displayScore) : ''
+    
+    return (
+      <div className="space-y-4">
+        {/* Score display with description */}
+        <div className="text-center min-h-[100px] flex flex-col justify-center">
+          {displayScore ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-4xl font-bold text-primary-600">{displayScore}</span>
+                <span className="text-gray-400 text-lg">/10</span>
+              </div>
+              <div className="text-sm font-semibold text-primary-600">
+                {label}
+              </div>
+              <div className="text-xs text-gray-500 px-2 leading-relaxed">
+                {description}
+              </div>
+            </div>
+          ) : (
+            <div className="text-gray-400 text-sm">
+              Seleziona un punteggio da 1 a 10
+            </div>
+          )}
         </div>
-      )}
-    </div>
-  )
+        
+        {/* Score buttons */}
+        <div className="flex justify-between gap-1">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+            <button
+              key={num}
+              onClick={() => onChange(num)}
+              onMouseEnter={() => setHoveredScore(num)}
+              onMouseLeave={() => setHoveredScore(null)}
+              className={`w-full h-11 rounded-lg text-sm font-semibold transition-all ${
+                value === num 
+                  ? 'bg-primary-500 text-white scale-105 shadow-lg' 
+                  : hoveredScore === num
+                  ? 'bg-primary-100 text-primary-600 scale-105'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              {num}
+            </button>
+          ))}
+        </div>
+        
+        {/* Scale labels */}
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>Critico</span>
+          <span>Eccellente</span>
+        </div>
+      </div>
+    )
+  }
   
   const currentArea = LIFE_AREAS[currentAreaIndex]
   const currentScore = currentArea ? scores[currentArea.id as LifeAreaId] : undefined
@@ -357,6 +385,7 @@ export default function TestGratuitoPage() {
                 <ScoreSlider 
                   value={currentScore || 0}
                   onChange={handleScoreSelect}
+                  areaId={currentArea.id as LifeAreaId}
                 />
               </div>
             </motion.div>
