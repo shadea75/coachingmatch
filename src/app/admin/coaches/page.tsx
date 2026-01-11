@@ -1,531 +1,619 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { 
-  Search,
-  Eye,
-  Check,
-  X,
-  ChevronRight,
-  Mail,
-  Phone,
-  MapPin,
-  Loader2,
-  RefreshCw,
-  Award,
-  GraduationCap,
-  Clock,
-  Users,
-  Target,
-  Heart
-} from 'lucide-react'
-import { collection, getDocs, doc, updateDoc, query, orderBy } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
 import AdminLayout from '@/components/AdminLayout'
-import { LIFE_AREAS, CoachStatus } from '@/types'
+import { 
+  Search, 
+  Filter, 
+  MoreVertical, 
+  Check, 
+  X, 
+  Mail, 
+  Eye,
+  Edit,
+  CreditCard,
+  Calendar,
+  Star,
+  Users,
+  Loader2,
+  ChevronDown,
+  Save,
+  Euro
+} from 'lucide-react'
+import { db } from '@/lib/firebase'
+import { collection, query, getDocs, doc, updateDoc, getDoc, where, orderBy } from 'firebase/firestore'
+import { format } from 'date-fns'
+import { it } from 'date-fns/locale'
+import Link from 'next/link'
 
-interface CoachApplication {
+interface Coach {
   id: string
-  userId?: string
   name: string
   email: string
-  photo?: string
-  bio?: string
-  motivation?: string
-  lifeArea?: string
-  certifications?: { name: string; institution: string; year: number }[]
-  education?: string[]
-  yearsOfExperience?: number
-  languages?: string[]
-  sessionMode?: string[]
-  location?: string
-  averagePrice?: number
-  freeCallAvailable?: boolean
-  clientTypes?: string[]
-  problemsAddressed?: string[]
-  coachingMethod?: string[]
-  style?: string[]
-  status: CoachStatus
-  submittedAt?: any
-  createdAt?: any
+  photo: string | null
+  status: 'pending' | 'approved' | 'rejected' | 'suspended'
+  lifeArea: string
+  lifeAreas: string[]
+  createdAt: any
+  approvedAt?: any
+  // Abbonamento
+  subscriptionStatus: 'trial' | 'active' | 'expired' | 'free'
+  subscriptionPrice: number // Prezzo personalizzato (null = usa default)
+  subscriptionStartDate?: any
+  subscriptionEndDate?: any
+  trialEndDate?: any
+  // Stats
+  sessionsCount: number
+  reviewsCount: number
+  rating: number
 }
 
-const STATUS_CONFIG: Record<CoachStatus, { label: string; color: string; bgColor: string }> = {
-  pending: { label: 'In attesa', color: 'text-yellow-700', bgColor: 'bg-yellow-100' },
-  reviewing: { label: 'In revisione', color: 'text-blue-700', bgColor: 'bg-blue-100' },
-  interview_scheduled: { label: 'Call programmata', color: 'text-purple-700', bgColor: 'bg-purple-100' },
-  interview_completed: { label: 'Call completata', color: 'text-indigo-700', bgColor: 'bg-indigo-100' },
-  approved: { label: 'Approvato', color: 'text-green-700', bgColor: 'bg-green-100' },
-  rejected: { label: 'Rifiutato', color: 'text-red-700', bgColor: 'bg-red-100' },
-  suspended: { label: 'Sospeso', color: 'text-gray-700', bgColor: 'bg-gray-100' },
+const LIFE_AREAS_MAP: Record<string, string> = {
+  'salute': 'Salute e Vitalità',
+  'finanze': 'Finanze',
+  'carriera': 'Carriera/Lavoro',
+  'relazioni': 'Relazioni',
+  'amore': 'Amore',
+  'crescita': 'Crescita Personale',
+  'spiritualita': 'Spiritualità',
+  'divertimento': 'Divertimento'
 }
 
 export default function AdminCoachesPage() {
-  const [applications, setApplications] = useState<CoachApplication[]>([])
-  const [selectedApplication, setSelectedApplication] = useState<CoachApplication | null>(null)
-  const [filterStatus, setFilterStatus] = useState<CoachStatus | 'all'>('all')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [coaches, setCoaches] = useState<Coach[]>([])
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [updating, setUpdating] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [subscriptionFilter, setSubscriptionFilter] = useState<string>('all')
+  const [defaultPrice, setDefaultPrice] = useState(19)
+  const [trialDays, setTrialDays] = useState(90)
+  
+  // Modal per modifica abbonamento
+  const [editingCoach, setEditingCoach] = useState<Coach | null>(null)
+  const [editPrice, setEditPrice] = useState<number>(0)
+  const [editStatus, setEditStatus] = useState<string>('trial')
+  const [saving, setSaving] = useState(false)
 
-  // Carica candidature da Firebase
-  const fetchApplications = async () => {
-    try {
-      const q = query(collection(db, 'coachApplications'), orderBy('createdAt', 'desc'))
-      const snapshot = await getDocs(q)
-      const apps = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as CoachApplication[]
-      setApplications(apps)
-    } catch (error) {
-      console.error('Errore caricamento candidature:', error)
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }
-
+  // Carica impostazioni default
   useEffect(() => {
-    fetchApplications()
+    const loadSettings = async () => {
+      try {
+        const communityDoc = await getDoc(doc(db, 'settings', 'community'))
+        if (communityDoc.exists()) {
+          const data = communityDoc.data()
+          setDefaultPrice(data.coachMonthlyPrice ?? 19)
+          setTrialDays(data.freeTrialDays ?? 90)
+        }
+      } catch (err) {
+        console.error('Errore caricamento settings:', err)
+      }
+    }
+    loadSettings()
   }, [])
 
-  const handleRefresh = () => {
-    setRefreshing(true)
-    fetchApplications()
-  }
-  
-  const filteredApplications = applications.filter(app => {
-    const matchesStatus = filterStatus === 'all' || app.status === filterStatus
-    const matchesSearch = 
-      app.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.email?.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesStatus && matchesSearch
+  // Carica coach
+  useEffect(() => {
+    const loadCoaches = async () => {
+      try {
+        const coachesQuery = query(
+          collection(db, 'coachApplications'),
+          orderBy('createdAt', 'desc')
+        )
+        const snapshot = await getDocs(coachesQuery)
+        
+        const loadedCoaches: Coach[] = snapshot.docs.map(docSnap => {
+          const data = docSnap.data()
+          
+          // Calcola stato abbonamento
+          let subscriptionStatus: 'trial' | 'active' | 'expired' | 'free' = 'trial'
+          const now = new Date()
+          
+          if (data.subscriptionPrice === 0) {
+            subscriptionStatus = 'free'
+          } else if (data.subscriptionEndDate?.toDate?.() > now) {
+            subscriptionStatus = 'active'
+          } else if (data.trialEndDate?.toDate?.() > now || 
+                     (data.createdAt?.toDate?.() && 
+                      new Date(data.createdAt.toDate().getTime() + trialDays * 24 * 60 * 60 * 1000) > now)) {
+            subscriptionStatus = 'trial'
+          } else {
+            subscriptionStatus = 'expired'
+          }
+          
+          return {
+            id: docSnap.id,
+            name: data.name || 'N/A',
+            email: data.email || 'N/A',
+            photo: data.photo || null,
+            status: data.status || 'pending',
+            lifeArea: data.lifeArea || '',
+            lifeAreas: data.lifeAreas || [],
+            createdAt: data.createdAt,
+            approvedAt: data.approvedAt,
+            subscriptionStatus: data.subscriptionStatus || subscriptionStatus,
+            subscriptionPrice: data.subscriptionPrice ?? defaultPrice,
+            subscriptionStartDate: data.subscriptionStartDate,
+            subscriptionEndDate: data.subscriptionEndDate,
+            trialEndDate: data.trialEndDate,
+            sessionsCount: data.sessionsCount || 0,
+            reviewsCount: data.reviewsCount || 0,
+            rating: data.rating || 0
+          }
+        })
+        
+        setCoaches(loadedCoaches)
+      } catch (err) {
+        console.error('Errore caricamento coach:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    loadCoaches()
+  }, [defaultPrice, trialDays])
+
+  // Filtra coach
+  const filteredCoaches = coaches.filter(coach => {
+    const matchesSearch = coach.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         coach.email.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter === 'all' || coach.status === statusFilter
+    const matchesSubscription = subscriptionFilter === 'all' || coach.subscriptionStatus === subscriptionFilter
+    return matchesSearch && matchesStatus && matchesSubscription
   })
-  
-  const stats = {
-    total: applications.length,
-    pending: applications.filter(a => a.status === 'pending').length,
-    approved: applications.filter(a => a.status === 'approved').length,
-    rejected: applications.filter(a => a.status === 'rejected').length,
+
+  // Apri modal modifica abbonamento
+  const openEditModal = (coach: Coach) => {
+    setEditingCoach(coach)
+    setEditPrice(coach.subscriptionPrice)
+    setEditStatus(coach.subscriptionStatus)
   }
-  
-  const updateStatus = async (id: string, newStatus: CoachStatus) => {
-    setUpdating(true)
+
+  // Salva modifiche abbonamento
+  const saveSubscription = async () => {
+    if (!editingCoach) return
+    
+    setSaving(true)
     try {
-      // Aggiorna status in coachApplications
-      await updateDoc(doc(db, 'coachApplications', id), {
-        status: newStatus,
+      const updateData: any = {
+        subscriptionPrice: editPrice,
+        subscriptionStatus: editPrice === 0 ? 'free' : editStatus,
         updatedAt: new Date()
-      })
-      
-      // Se approvato, aggiorna anche il ruolo in users da pending_coach a coach
-      if (newStatus === 'approved') {
-        const app = applications.find(a => a.id === id)
-        const userId = app?.userId || id // userId o usa l'id stesso
-        
-        try {
-          await updateDoc(doc(db, 'users', userId), {
-            role: 'coach',
-            updatedAt: new Date()
-          })
-          console.log('Ruolo utente aggiornato a coach')
-        } catch (userError) {
-          console.error('Errore aggiornamento ruolo utente:', userError)
-        }
-        
-        // Invia email di approvazione
-        try {
-          await fetch('/api/send-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'coach_approved',
-              data: {
-                name: app?.name,
-                email: app?.email
-              }
-            })
-          })
-        } catch (emailError) {
-          console.error('Errore invio email approvazione:', emailError)
-        }
       }
       
-      // Se rifiutato, mantieni pending_coach o imposta come coachee
-      if (newStatus === 'rejected') {
-        const app = applications.find(a => a.id === id)
-        const userId = app?.userId || id
-        
-        try {
-          await updateDoc(doc(db, 'users', userId), {
-            role: 'coachee', // Downgrade a coachee
-            updatedAt: new Date()
-          })
-        } catch (userError) {
-          console.error('Errore aggiornamento ruolo utente:', userError)
-        }
+      // Se viene attivato l'abbonamento, imposta le date
+      if (editStatus === 'active' && editPrice > 0) {
+        const now = new Date()
+        updateData.subscriptionStartDate = now
+        updateData.subscriptionEndDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // +30 giorni
       }
       
-      setApplications(prev => prev.map(app => 
-        app.id === id ? { ...app, status: newStatus } : app
+      await updateDoc(doc(db, 'coachApplications', editingCoach.id), updateData)
+      
+      // Aggiorna stato locale
+      setCoaches(prev => prev.map(c => 
+        c.id === editingCoach.id 
+          ? { ...c, subscriptionPrice: editPrice, subscriptionStatus: editPrice === 0 ? 'free' : editStatus }
+          : c
       ))
-      if (selectedApplication?.id === id) {
-        setSelectedApplication(prev => prev ? { ...prev, status: newStatus } : null)
-      }
-    } catch (error) {
-      console.error('Errore aggiornamento status:', error)
-      alert('Errore durante l\'aggiornamento')
+      
+      setEditingCoach(null)
+    } catch (err) {
+      console.error('Errore salvataggio:', err)
+      alert('Errore nel salvataggio')
     } finally {
-      setUpdating(false)
+      setSaving(false)
     }
   }
 
-  const getLifeAreaLabel = (areaId?: string) => {
-    if (!areaId) return null
-    const area = LIFE_AREAS.find(a => a.id === areaId)
-    return area
+  // Approva coach
+  const approveCoach = async (coachId: string) => {
+    try {
+      await updateDoc(doc(db, 'coachApplications', coachId), {
+        status: 'approved',
+        approvedAt: new Date(),
+        trialEndDate: new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000)
+      })
+      setCoaches(prev => prev.map(c => 
+        c.id === coachId ? { ...c, status: 'approved', subscriptionStatus: 'trial' } : c
+      ))
+    } catch (err) {
+      console.error('Errore approvazione:', err)
+    }
   }
-  
+
+  // Rifiuta coach
+  const rejectCoach = async (coachId: string) => {
+    try {
+      await updateDoc(doc(db, 'coachApplications', coachId), {
+        status: 'rejected',
+        rejectedAt: new Date()
+      })
+      setCoaches(prev => prev.map(c => 
+        c.id === coachId ? { ...c, status: 'rejected' } : c
+      ))
+    } catch (err) {
+      console.error('Errore rifiuto:', err)
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    const styles: Record<string, string> = {
+      pending: 'bg-amber-100 text-amber-700',
+      approved: 'bg-green-100 text-green-700',
+      rejected: 'bg-red-100 text-red-700',
+      suspended: 'bg-gray-100 text-gray-700'
+    }
+    const labels: Record<string, string> = {
+      pending: 'In attesa',
+      approved: 'Approvato',
+      rejected: 'Rifiutato',
+      suspended: 'Sospeso'
+    }
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || styles.pending}`}>
+        {labels[status] || status}
+      </span>
+    )
+  }
+
+  const getSubscriptionBadge = (status: string, price: number) => {
+    if (price === 0) {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+          Gratuito
+        </span>
+      )
+    }
+    const styles: Record<string, string> = {
+      trial: 'bg-blue-100 text-blue-700',
+      active: 'bg-green-100 text-green-700',
+      expired: 'bg-red-100 text-red-700',
+      free: 'bg-purple-100 text-purple-700'
+    }
+    const labels: Record<string, string> = {
+      trial: 'Prova',
+      active: 'Attivo',
+      expired: 'Scaduto',
+      free: 'Gratuito'
+    }
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || styles.trial}`}>
+        {labels[status] || status}
+      </span>
+    )
+  }
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="animate-spin text-primary-500" size={40} />
+        </div>
+      </AdminLayout>
+    )
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-charcoal">Candidature Coach</h1>
-            <p className="text-gray-500">{stats.total} candidature totali</p>
+            <h1 className="text-2xl font-bold text-charcoal">Gestione Coach</h1>
+            <p className="text-gray-500">Gestisci coach e abbonamenti personalizzati</p>
           </div>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
-            >
-              <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
-            </button>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full">{stats.pending} in attesa</span>
-              <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">{stats.approved} approvati</span>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span>Abbonamento default: <strong>€{defaultPrice}/mese</strong></span>
+            <span>•</span>
+            <span>Trial: <strong>{trialDays} giorni</strong></span>
+          </div>
+        </div>
+
+        {/* Filtri */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Cerca per nome o email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
             </div>
+            
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="all">Tutti gli stati</option>
+              <option value="pending">In attesa</option>
+              <option value="approved">Approvati</option>
+              <option value="rejected">Rifiutati</option>
+              <option value="suspended">Sospesi</option>
+            </select>
+            
+            {/* Subscription Filter */}
+            <select
+              value={subscriptionFilter}
+              onChange={(e) => setSubscriptionFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="all">Tutti gli abbonamenti</option>
+              <option value="free">Gratuiti</option>
+              <option value="trial">In prova</option>
+              <option value="active">Attivi</option>
+              <option value="expired">Scaduti</option>
+            </select>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Cerca per nome o email..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <p className="text-sm text-gray-500">Totale</p>
+            <p className="text-2xl font-bold text-charcoal">{coaches.length}</p>
           </div>
-          
-          <select
-            className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as CoachStatus | 'all')}
-          >
-            <option value="all">Tutti gli stati</option>
-            <option value="pending">In attesa</option>
-            <option value="reviewing">In revisione</option>
-            <option value="approved">Approvati</option>
-            <option value="rejected">Rifiutati</option>
-          </select>
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <p className="text-sm text-gray-500">Approvati</p>
+            <p className="text-2xl font-bold text-green-600">
+              {coaches.filter(c => c.status === 'approved').length}
+            </p>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <p className="text-sm text-gray-500">In prova</p>
+            <p className="text-2xl font-bold text-blue-600">
+              {coaches.filter(c => c.subscriptionStatus === 'trial').length}
+            </p>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <p className="text-sm text-gray-500">Gratuiti</p>
+            <p className="text-2xl font-bold text-purple-600">
+              {coaches.filter(c => c.subscriptionPrice === 0).length}
+            </p>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <p className="text-sm text-gray-500">Scaduti</p>
+            <p className="text-2xl font-bold text-red-600">
+              {coaches.filter(c => c.subscriptionStatus === 'expired').length}
+            </p>
+          </div>
         </div>
 
-        {/* Content */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
-          </div>
-        ) : (
-          <div className="flex gap-6">
-            {/* Applications List */}
-            <div className="flex-1 space-y-4">
-              {filteredApplications.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 bg-white rounded-xl border border-gray-200">
-                  {applications.length === 0 
-                    ? 'Nessuna candidatura ricevuta'
-                    : 'Nessuna candidatura trovata con questi filtri'
-                  }
-                </div>
-              ) : (
-                filteredApplications.map((app) => {
-                  const statusConfig = STATUS_CONFIG[app.status] || STATUS_CONFIG.pending
-                  const area = getLifeAreaLabel(app.lifeArea)
-                  
-                  return (
-                    <motion.div
-                      key={app.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`bg-white rounded-xl border p-4 cursor-pointer transition-shadow hover:shadow-md ${
-                        selectedApplication?.id === app.id ? 'ring-2 ring-primary-500' : 'border-gray-200'
-                      }`}
-                      onClick={() => setSelectedApplication(app)}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                          {app.photo ? (
-                            <img src={app.photo} alt={app.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="font-medium text-gray-500">
-                              {app.name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?'}
-                            </span>
-                          )}
-                        </div>
-                        
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-semibold text-charcoal">{app.name || 'Nome non fornito'}</h3>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.color}`}>
-                              {statusConfig.label}
+        {/* Lista Coach */}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Coach</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Area</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Stato</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Abbonamento</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Prezzo</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Registrato</th>
+                  <th className="text-right px-4 py-3 text-sm font-medium text-gray-600">Azioni</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredCoaches.map(coach => (
+                  <tr key={coach.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        {coach.photo ? (
+                          <img 
+                            src={coach.photo} 
+                            alt={coach.name}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                            <span className="text-primary-600 font-semibold">
+                              {coach.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-500">{app.email}</p>
-                          {area && (
-                            <span 
-                              className="inline-block mt-2 px-2 py-0.5 rounded-full text-xs text-white"
-                              style={{ backgroundColor: area.color }}
-                            >
-                              {area.label}
-                            </span>
-                          )}
+                        )}
+                        <div>
+                          <p className="font-medium text-charcoal">{coach.name}</p>
+                          <p className="text-xs text-gray-500">{coach.email}</p>
                         </div>
-                        
-                        <ChevronRight className="text-gray-300" />
                       </div>
-                    </motion.div>
-                  )
-                })
-              )}
-            </div>
-
-            {/* Detail Panel */}
-            {selectedApplication && (
-              <aside className="w-[450px] bg-white rounded-xl border border-gray-200 p-6 h-fit sticky top-6 max-h-[calc(100vh-120px)] overflow-y-auto">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="font-semibold text-charcoal">Dettagli Candidatura</h2>
-                  <button onClick={() => setSelectedApplication(null)} className="text-gray-400 hover:text-gray-600">
-                    <X size={20} />
-                  </button>
-                </div>
-                
-                {/* Profile */}
-                <div className="text-center mb-6">
-                  <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-3 overflow-hidden">
-                    {selectedApplication.photo ? (
-                      <img src={selectedApplication.photo} alt={selectedApplication.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-2xl font-medium text-gray-500">
-                        {selectedApplication.name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-sm text-gray-600">
+                        {LIFE_AREAS_MAP[coach.lifeArea] || coach.lifeArea || '-'}
                       </span>
-                    )}
-                  </div>
-                  <h3 className="font-semibold text-lg">{selectedApplication.name}</h3>
-                  {getLifeAreaLabel(selectedApplication.lifeArea) && (
-                    <span 
-                      className="inline-block px-3 py-1 rounded-full text-sm text-white mt-1"
-                      style={{ backgroundColor: getLifeAreaLabel(selectedApplication.lifeArea)?.color }}
-                    >
-                      {getLifeAreaLabel(selectedApplication.lifeArea)?.label}
-                    </span>
-                  )}
-                  <div className="mt-2">
-                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${STATUS_CONFIG[selectedApplication.status]?.bgColor} ${STATUS_CONFIG[selectedApplication.status]?.color}`}>
-                      {STATUS_CONFIG[selectedApplication.status]?.label}
-                    </span>
-                  </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {getStatusBadge(coach.status)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {getSubscriptionBadge(coach.subscriptionStatus, coach.subscriptionPrice)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`font-medium ${coach.subscriptionPrice === 0 ? 'text-purple-600' : 'text-charcoal'}`}>
+                        €{coach.subscriptionPrice}/mese
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-sm text-gray-500">
+                        {coach.createdAt?.toDate?.() 
+                          ? format(coach.createdAt.toDate(), 'd MMM yyyy', { locale: it })
+                          : '-'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Approva/Rifiuta per pending */}
+                        {coach.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => approveCoach(coach.id)}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                              title="Approva"
+                            >
+                              <Check size={18} />
+                            </button>
+                            <button
+                              onClick={() => rejectCoach(coach.id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                              title="Rifiuta"
+                            >
+                              <X size={18} />
+                            </button>
+                          </>
+                        )}
+                        
+                        {/* Modifica abbonamento */}
+                        <button
+                          onClick={() => openEditModal(coach)}
+                          className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg"
+                          title="Modifica abbonamento"
+                        >
+                          <Euro size={18} />
+                        </button>
+                        
+                        {/* Visualizza profilo */}
+                        <Link
+                          href={`/coaches/${coach.id}`}
+                          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                          title="Vedi profilo"
+                        >
+                          <Eye size={18} />
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {filteredCoaches.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              <Users size={48} className="mx-auto mb-4 opacity-50" />
+              <p>Nessun coach trovato</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal Modifica Abbonamento */}
+      {editingCoach && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold">Modifica Abbonamento</h3>
+              <button
+                onClick={() => setEditingCoach(null)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            {/* Info Coach */}
+            <div className="flex items-center gap-3 mb-6 p-3 bg-gray-50 rounded-xl">
+              {editingCoach.photo ? (
+                <img 
+                  src={editingCoach.photo} 
+                  alt={editingCoach.name}
+                  className="w-12 h-12 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center">
+                  <span className="text-primary-600 font-semibold text-lg">
+                    {editingCoach.name.charAt(0).toUpperCase()}
+                  </span>
                 </div>
-
-                {/* Contact */}
-                <div className="space-y-2 mb-6 text-sm">
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Mail size={16} /> {selectedApplication.email}
-                  </div>
-                  {selectedApplication.location && (
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <MapPin size={16} /> {selectedApplication.location}
-                    </div>
-                  )}
+              )}
+              <div>
+                <p className="font-medium text-charcoal">{editingCoach.name}</p>
+                <p className="text-sm text-gray-500">{editingCoach.email}</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Prezzo personalizzato */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Prezzo abbonamento (€/mese)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(parseInt(e.target.value) || 0)}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Imposta 0 per abbonamento gratuito. Default: €{defaultPrice}/mese
+                </p>
+              </div>
+              
+              {/* Stato abbonamento */}
+              {editPrice > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Stato abbonamento
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="trial">In prova ({trialDays} giorni)</option>
+                    <option value="active">Attivo (pagante)</option>
+                    <option value="expired">Scaduto</option>
+                  </select>
                 </div>
-
-                {/* La mia storia */}
-                {selectedApplication.bio && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
-                      <Heart size={14} /> La mia storia, la mia missione
-                    </h4>
-                    <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedApplication.bio}</p>
-                  </div>
-                )}
-
-                {/* Il mio scopo */}
-                {selectedApplication.motivation && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
-                      <Target size={14} /> Il mio scopo
-                    </h4>
-                    <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedApplication.motivation}</p>
-                  </div>
-                )}
-
-                {/* Certificazioni */}
-                {selectedApplication.certifications && selectedApplication.certifications.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
-                      <Award size={14} /> Certificazioni
-                    </h4>
-                    <div className="space-y-2">
-                      {selectedApplication.certifications.map((cert, idx) => (
-                        <div key={idx} className="bg-gray-50 p-2 rounded-lg text-sm">
-                          <p className="font-medium">{cert.name}</p>
-                          <p className="text-gray-500 text-xs">{cert.institution} - {cert.year}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Formazione */}
-                {selectedApplication.education && selectedApplication.education.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
-                      <GraduationCap size={14} /> Formazione
-                    </h4>
-                    <ul className="space-y-1">
-                      {selectedApplication.education.map((edu, idx) => (
-                        <li key={idx} className="text-sm text-gray-700 bg-gray-50 p-2 rounded-lg">{edu}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Info servizio */}
-                <div className="mb-6 bg-gray-50 rounded-lg p-3 text-sm space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Esperienza</span>
-                    <span className="font-medium">{selectedApplication.yearsOfExperience || 0} anni</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Modalità</span>
-                    <span className="font-medium">{selectedApplication.sessionMode?.join(', ') || '-'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Prezzo sessione</span>
-                    <span className="font-medium">€{selectedApplication.averagePrice || '-'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Call gratuita</span>
-                    <span className="font-medium">{selectedApplication.freeCallAvailable ? 'Sì' : 'No'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Lingue</span>
-                    <span className="font-medium">{selectedApplication.languages?.join(', ') || '-'}</span>
-                  </div>
-                </div>
-
-                {/* Clienti target */}
-                {selectedApplication.clientTypes && selectedApplication.clientTypes.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
-                      <Users size={14} /> Lavora con
-                    </h4>
-                    <div className="flex flex-wrap gap-1">
-                      {selectedApplication.clientTypes.map((type, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">{type}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Problemi trattati */}
-                {selectedApplication.problemsAddressed && selectedApplication.problemsAddressed.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Problemi trattati</h4>
-                    <div className="flex flex-wrap gap-1">
-                      {selectedApplication.problemsAddressed.map((problem, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">{problem}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Stile */}
-                {selectedApplication.style && selectedApplication.style.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Stile di coaching</h4>
-                    <div className="flex flex-wrap gap-1">
-                      {selectedApplication.style.map((s, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs capitalize">{s}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="space-y-2 pt-4 border-t border-gray-100">
-                  {selectedApplication.status === 'pending' && (
-                    <button 
-                      onClick={() => updateStatus(selectedApplication.id, 'reviewing')} 
-                      disabled={updating}
-                      className="w-full btn bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
-                    >
-                      {updating ? <Loader2 size={18} className="animate-spin" /> : <Eye size={18} />}
-                      Inizia revisione
-                    </button>
-                  )}
-                  
-                  {selectedApplication.status === 'reviewing' && (
+              )}
+              
+              {/* Preview */}
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  {editPrice === 0 ? (
                     <>
-                      <button 
-                        onClick={() => updateStatus(selectedApplication.id, 'approved')} 
-                        disabled={updating}
-                        className="w-full btn bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
-                      >
-                        {updating ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
-                        Approva Coach
-                      </button>
-                      <button 
-                        onClick={() => updateStatus(selectedApplication.id, 'rejected')} 
-                        disabled={updating}
-                        className="w-full btn bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
-                      >
-                        <X size={18} /> Rifiuta
-                      </button>
+                      <strong>Abbonamento gratuito:</strong> Il coach avrà accesso completo alla piattaforma senza pagare.
+                    </>
+                  ) : (
+                    <>
+                      <strong>Abbonamento €{editPrice}/mese:</strong> Il coach pagherà questo importo mensile per accedere alla piattaforma.
                     </>
                   )}
-                  
-                  {selectedApplication.status === 'approved' && (
-                    <div className="text-center py-3">
-                      <div className="text-green-600 font-medium flex items-center justify-center gap-2">
-                        <Check size={18} /> Coach approvato
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">L'utente può ora accedere come coach</p>
-                    </div>
-                  )}
-                  
-                  {selectedApplication.status === 'rejected' && (
-                    <button 
-                      onClick={() => updateStatus(selectedApplication.id, 'pending')} 
-                      disabled={updating}
-                      className="w-full btn bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
-                    >
-                      Riconsidera candidatura
-                    </button>
-                  )}
-                </div>
-              </aside>
-            )}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setEditingCoach(null)}
+                className="flex-1 btn btn-secondary"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={saveSubscription}
+                disabled={saving}
+                className="flex-1 btn btn-primary"
+              >
+                {saving ? (
+                  <Loader2 className="animate-spin" size={18} />
+                ) : (
+                  <>
+                    <Save size={18} />
+                    Salva
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </AdminLayout>
   )
 }
