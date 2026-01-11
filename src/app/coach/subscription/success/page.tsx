@@ -3,20 +3,18 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { CheckCircle, ArrowRight, Loader2, PartyPopper } from 'lucide-react'
+import { CheckCircle, ArrowRight, Loader2, PartyPopper, Sparkles } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import Link from 'next/link'
-import Confetti from 'react-confetti'
 
 export default function SubscriptionSuccessPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
   const [isUpdating, setIsUpdating] = useState(true)
-  const [showConfetti, setShowConfetti] = useState(true)
 
   useEffect(() => {
     const updateSubscription = async () => {
@@ -39,9 +37,6 @@ export default function SubscriptionSuccessPage() {
           stripeSessionId: sessionId,
           updatedAt: serverTimestamp(),
         })
-
-        // Nascondi confetti dopo 5 secondi
-        setTimeout(() => setShowConfetti(false), 5000)
       } catch (err) {
         console.error('Errore aggiornamento abbonamento:', err)
       } finally {
@@ -65,15 +60,6 @@ export default function SubscriptionSuccessPage() {
 
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center p-4">
-      {showConfetti && (
-        <Confetti
-          width={window.innerWidth}
-          height={window.innerHeight}
-          recycle={false}
-          numberOfPieces={200}
-        />
-      )}
-
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -87,7 +73,33 @@ export default function SubscriptionSuccessPage() {
         {/* Card successo */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           {/* Header verde */}
-          <div className="bg-gradient-to-r from-green-500 to-green-600 p-8 text-white text-center">
+          <div className="bg-gradient-to-r from-green-500 to-green-600 p-8 text-white text-center relative overflow-hidden">
+            {/* Decorazioni animate */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="absolute top-4 left-4"
+            >
+              <Sparkles size={20} className="text-white/50" />
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7 }}
+              className="absolute top-6 right-6"
+            >
+              <Sparkles size={16} className="text-white/50" />
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.9 }}
+              className="absolute bottom-4 right-4"
+            >
+              <Sparkles size={24} className="text-white/50" />
+            </motion.div>
+            
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
@@ -156,4 +168,3 @@ export default function SubscriptionSuccessPage() {
     </div>
   )
 }
-
