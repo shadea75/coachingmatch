@@ -230,14 +230,17 @@ function CoachesContent() {
 
   // Componente Match Badge
   const MatchBadge = ({ result }: { result: MatchResult }) => {
-    const colors = {
+    const compatibility = result?.compatibility || 'moderate'
+    const score = result?.score || 50
+    
+    const colors: Record<string, string> = {
       perfect: 'bg-green-100 text-green-700 border-green-200',
       high: 'bg-blue-100 text-blue-700 border-blue-200',
       good: 'bg-amber-100 text-amber-700 border-amber-200',
       moderate: 'bg-gray-100 text-gray-600 border-gray-200'
     }
     
-    const labels = {
+    const labels: Record<string, string> = {
       perfect: 'Match Perfetto',
       high: 'Ottimo Match',
       good: 'Buon Match',
@@ -245,10 +248,10 @@ function CoachesContent() {
     }
     
     return (
-      <div className={`px-2 py-1 rounded-full text-xs font-semibold border ${colors[result.compatibility]} flex items-center gap-1`}>
-        {result.compatibility === 'perfect' && <Sparkles size={12} />}
-        {result.compatibility === 'high' && <CheckCircle2 size={12} />}
-        {labels[result.compatibility]} {result.score}%
+      <div className={`px-2 py-1 rounded-full text-xs font-semibold border ${colors[compatibility] || colors.moderate} flex items-center gap-1`}>
+        {compatibility === 'perfect' && <Sparkles size={12} />}
+        {compatibility === 'high' && <CheckCircle2 size={12} />}
+        {labels[compatibility] || 'Match'} {score}%
       </div>
     )
   }
@@ -448,7 +451,7 @@ function CoachesContent() {
                             </p>
                             
                             {/* Match Reasons */}
-                            {result.matchReasons.length > 0 && (
+                            {result.matchReasons && result.matchReasons.length > 0 && result.matchReasons[0]?.label && (
                               <div className="mb-3">
                                 <p className="text-xs text-gray-500 flex items-center gap-1">
                                   <CheckCircle2 size={12} className="text-green-500" />
