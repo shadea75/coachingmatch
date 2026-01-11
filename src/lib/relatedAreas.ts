@@ -16,8 +16,8 @@ export const RELATED_AREAS: Record<LifeAreaId, LifeAreaId[]> = {
   divertimento: ['relazioni', 'salute', 'crescita']
 }
 
-// Descrizioni delle connessioni tra aree
-export const AREA_CONNECTIONS: Record<LifeAreaId, Record<LifeAreaId, string>> = {
+// Descrizioni delle connessioni tra aree (solo per aree affini)
+export const AREA_CONNECTIONS: Record<LifeAreaId, Partial<Record<LifeAreaId, string>>> = {
   salute: {
     crescita: 'La crescita personale spesso inizia dal prendersi cura del proprio corpo',
     divertimento: 'Il benessere fisico e la gioia di vivere sono strettamente collegati',
