@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   ArrowLeft,
@@ -82,6 +82,7 @@ const DAYS_OF_WEEK = [
 
 export default function CoachAvailabilityPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, loading } = useAuth()
   
   const [activeTab, setActiveTab] = useState<'weekly' | 'calendar' | 'events'>('calendar')
@@ -96,6 +97,7 @@ export default function CoachAvailabilityPage() {
   const [googleEvents, setGoogleEvents] = useState<GoogleEvent[]>([])
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false)
   const [googleError, setGoogleError] = useState<string | null>(null)
+  const [isSavingCalendar, setIsSavingCalendar] = useState(false)
   
   const [currentWeekStart, setCurrentWeekStart] = useState(() => 
     startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -125,6 +127,62 @@ export default function CoachAvailabilityPage() {
       router.replace('/login')
     }
   }, [user, loading, router])
+  
+  // Gestisce il callback OAuth da Google
+  useEffect(() => {
+    const handleOAuthCallback = async () => {
+      const calendarStatus = searchParams.get('calendar')
+      
+      if (calendarStatus === 'pending') {
+        // Abbiamo i token da salvare
+        const encodedData = searchParams.get('data')
+        if (encodedData && user?.id) {
+          setIsSavingCalendar(true)
+          try {
+            const tokenData = JSON.parse(atob(encodedData))
+            
+            // Salva i token in Firebase
+            await setDoc(doc(db, 'coachCalendarTokens', tokenData.userId), {
+              accessToken: tokenData.accessToken,
+              refreshToken: tokenData.refreshToken,
+              expiresAt: Date.now() + (tokenData.expiresIn * 1000),
+              googleEmail: tokenData.googleEmail,
+              googleName: tokenData.googleName,
+              connectedAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            })
+            
+            // Aggiorna anche il profilo coach
+            await setDoc(doc(db, 'coachApplications', tokenData.userId), {
+              googleCalendarConnected: true,
+              googleCalendarEmail: tokenData.googleEmail,
+              updatedAt: serverTimestamp(),
+            }, { merge: true })
+            
+            setGoogleCalendarConnected(true)
+            setGoogleError(null)
+            
+            // Pulisci URL
+            window.history.replaceState({}, '', '/coach/availability')
+            
+          } catch (err) {
+            console.error('Errore salvataggio token:', err)
+            setGoogleError('Errore nel completare la connessione')
+          } finally {
+            setIsSavingCalendar(false)
+          }
+        }
+      } else if (calendarStatus === 'error') {
+        const message = searchParams.get('message')
+        setGoogleError(`Errore: ${message}`)
+        window.history.replaceState({}, '', '/coach/availability')
+      }
+    }
+    
+    if (user?.id) {
+      handleOAuthCallback()
+    }
+  }, [searchParams, user?.id])
   
   // Carica dati
   useEffect(() => {
@@ -619,7 +677,12 @@ export default function CoachAvailabilityPage() {
               <div className="flex flex-wrap items-center justify-between gap-4">
                 {/* Google Calendar Status */}
                 <div className="flex items-center gap-3">
-                  {googleCalendarConnected ? (
+                  {isSavingCalendar ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 size={16} className="animate-spin text-primary-500" />
+                      <span className="text-sm text-gray-600">Connessione in corso...</span>
+                    </div>
+                  ) : googleCalendarConnected ? (
                     <div className="flex items-center gap-2">
                       <div className={`w-3 h-3 rounded-full ${googleError ? 'bg-amber-500' : 'bg-green-500'}`}></div>
                       <span className="text-sm text-gray-600">Google Calendar connesso</span>
