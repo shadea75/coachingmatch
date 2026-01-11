@@ -32,7 +32,7 @@ import {
   deleteDoc,
   Timestamp 
 } from 'firebase/firestore'
-import AdminLayout from '@/components/admin/AdminLayout'
+import AdminLayout from '@/components/AdminLayout'
 
 // =====================
 // TIPI
