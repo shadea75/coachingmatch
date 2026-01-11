@@ -249,7 +249,7 @@ export default function TestGratuitoPage() {
       </header>
       
       {/* Main Content */}
-      <main className="pt-20 pb-32 px-4">
+      <main className="pt-20 pb-24 px-4">
         <AnimatePresence mode="wait">
           
           {/* INTRO */}
@@ -329,19 +329,19 @@ export default function TestGratuitoPage() {
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -50 }}
-              className="max-w-lg mx-auto pt-4"
+              className="max-w-lg mx-auto pt-2"
             >
-              <div className="text-center mb-2">
+              <div className="text-center mb-1">
                 <span className="text-xs text-gray-400 uppercase tracking-wide">
                   Area {currentAreaIndex + 1} di {LIFE_AREAS.length}
                 </span>
               </div>
               
-              <div className="flex justify-center mb-4">
-                {AreaIllustration && <AreaIllustration size={120} />}
+              <div className="flex justify-center mb-3">
+                {AreaIllustration && <AreaIllustration size={100} />}
               </div>
               
-              <div className="text-center mb-6">
+              <div className="text-center mb-4">
                 <h2 className="text-xl font-display font-bold text-charcoal mb-1">
                   {AREA_LABELS[currentArea.id as LifeAreaId]}
                 </h2>
@@ -350,8 +350,8 @@ export default function TestGratuitoPage() {
                 </p>
               </div>
               
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <p className="text-center text-gray-600 mb-6 text-sm">
+              <div className="bg-white rounded-2xl p-5 shadow-sm">
+                <p className="text-center text-gray-600 mb-4 text-sm">
                   Quanto sei soddisfatto di quest'area?
                 </p>
                 <ScoreSlider 
