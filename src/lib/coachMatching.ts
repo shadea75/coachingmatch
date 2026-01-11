@@ -42,6 +42,80 @@ export interface CoachProfile {
   engagementMetrics?: Partial<CoachEngagementMetrics>
 }
 
+// =====================
+// PROFILE COMPLETENESS
+// =====================
+
+export interface ProfileCompletenessResult {
+  score: number // 0-100
+  missingFields: string[]
+  penalties: { field: string; points: number }[]
+  totalPenalty: number
+}
+
+const PROFILE_PENALTIES = {
+  photo: 10,        // -10 punti se manca foto
+  bio: 5,           // -5 punti se manca bio
+  specializations: 3, // -3 punti se mancano specializzazioni
+  location: 2,      // -2 punti se manca location
+  certifications: 2 // -2 punti se mancano certificazioni
+}
+
+/**
+ * Calcola la completezza del profilo e le penalità
+ */
+export function calculateProfileCompleteness(coach: CoachProfile): ProfileCompletenessResult {
+  const missingFields: string[] = []
+  const penalties: { field: string; points: number }[] = []
+  let totalPenalty = 0
+
+  // Verifica foto
+  if (!coach.photo) {
+    missingFields.push('Foto profilo')
+    penalties.push({ field: 'photo', points: PROFILE_PENALTIES.photo })
+    totalPenalty += PROFILE_PENALTIES.photo
+  }
+
+  // Verifica bio
+  if (!coach.bio || coach.bio.length < 50) {
+    missingFields.push('Biografia')
+    penalties.push({ field: 'bio', points: PROFILE_PENALTIES.bio })
+    totalPenalty += PROFILE_PENALTIES.bio
+  }
+
+  // Verifica specializzazioni
+  if (!coach.specializations?.focusTopics || coach.specializations.focusTopics.length === 0) {
+    missingFields.push('Specializzazioni')
+    penalties.push({ field: 'specializations', points: PROFILE_PENALTIES.specializations })
+    totalPenalty += PROFILE_PENALTIES.specializations
+  }
+
+  // Verifica location
+  if (!coach.location || coach.location.trim() === '') {
+    missingFields.push('Località')
+    penalties.push({ field: 'location', points: PROFILE_PENALTIES.location })
+    totalPenalty += PROFILE_PENALTIES.location
+  }
+
+  // Verifica certificazioni
+  if (!coach.certifications || coach.certifications.length === 0) {
+    missingFields.push('Certificazioni')
+    penalties.push({ field: 'certifications', points: PROFILE_PENALTIES.certifications })
+    totalPenalty += PROFILE_PENALTIES.certifications
+  }
+
+  // Calcola score completezza (100 - penalità totali)
+  const maxPenalty = Object.values(PROFILE_PENALTIES).reduce((a, b) => a + b, 0)
+  const score = Math.round(((maxPenalty - totalPenalty) / maxPenalty) * 100)
+
+  return {
+    score,
+    missingFields,
+    penalties,
+    totalPenalty
+  }
+}
+
 export interface CoacheeProfile {
   // Dal test
   scores?: Record<LifeAreaId, number>
@@ -62,7 +136,7 @@ export interface CoacheeProfile {
 export interface MatchResult {
   coach: CoachProfile
   score: number // 0-100 (match score puro)
-  finalScore: number // 0-100 (match + engagement + random)
+  finalScore: number // 0-100 (match + engagement + random - penalties)
   matchReasons: MatchReason[]
   compatibility: 'perfect' | 'high' | 'good' | 'moderate'
   engagementLevel?: {
@@ -70,6 +144,7 @@ export interface MatchResult {
     label: string
     emoji: string
   }
+  profileCompleteness?: ProfileCompletenessResult
 }
 
 export interface MatchReason {
@@ -524,7 +599,7 @@ function scorePracticality(
 
 /**
  * Calcola il match tra un coachee e una lista di coach
- * Formula ranking: Match (70%) + Engagement (20%) + Random (10%)
+ * Formula ranking: Match (70%) + Engagement (20%) + Random (10%) - Profile Penalty
  */
 export function calculateMatches(
   coaches: CoachProfile[],
@@ -566,13 +641,19 @@ export function calculateMatches(
     const inactivityBoost = calculateInactivityBoost(daysInactive, engagementScore)
     const randomBoost = calculateRandomBoost(coach.id, dayOfMonth)
     
+    // Calcola penalità profilo incompleto
+    const profileCompleteness = calculateProfileCompleteness(coach)
+    
     // Calcola score finale per ranking
-    const finalScore = calculateFinalRankingScore({
+    const baseScore = calculateFinalRankingScore({
       matchScore,
       engagementScore,
       randomBoost,
       inactivityBoost
     })
+    
+    // Applica penalità profilo (sottrae punti dal ranking finale)
+    const finalScore = Math.max(0, Math.round(baseScore - profileCompleteness.totalPenalty))
     
     // Determina livello compatibilità (basato su match score puro)
     let compatibility: MatchResult['compatibility']
@@ -587,18 +668,19 @@ export function calculateMatches(
     return {
       coach,
       score: matchScore,
-      finalScore: Math.round(finalScore),
+      finalScore,
       matchReasons: allReasons.filter(r => r.matched).slice(0, 5),
       compatibility,
       engagementLevel: {
         level: engagementLevel.level,
         label: engagementLevel.label,
         emoji: engagementLevel.emoji
-      }
+      },
+      profileCompleteness
     }
   })
   
-  // Ordina per finalScore (che include engagement e random boost)
+  // Ordina per finalScore (che include engagement, random boost e penalità profilo)
   return results.sort((a, b) => b.finalScore - a.finalScore)
 }
 

@@ -25,7 +25,9 @@ import {
   Check,
   Video,
   AlertCircle,
-  Building2
+  Building2,
+  Camera,
+  AlertTriangle
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -40,6 +42,22 @@ import { it } from 'date-fns/locale'
 
 // ADMIN_EMAILS - redirect forzato per admin
 const ADMIN_EMAILS = ['debora.carofiglio@gmail.com']
+
+// Profilo completeness config
+interface ProfileAlert {
+  type: 'photo' | 'bio' | 'specializations' | 'location' | 'certifications'
+  message: string
+  impact: string
+  link: string
+}
+
+const PROFILE_ALERTS: ProfileAlert[] = [
+  { type: 'photo', message: 'Aggiungi una foto profilo', impact: 'Aumenta la tua visibilità del 30%', link: '/coach/settings' },
+  { type: 'bio', message: 'Completa la tua biografia', impact: 'I coachee vogliono conoscerti meglio', link: '/coach/settings' },
+  { type: 'specializations', message: 'Aggiungi le tue specializzazioni', impact: 'Migliora il match con i coachee giusti', link: '/coach/settings' },
+  { type: 'location', message: 'Indica la tua località', impact: 'Raggiungi coachee nella tua zona', link: '/coach/settings' },
+  { type: 'certifications', message: 'Aggiungi le tue certificazioni', impact: 'Aumenta la tua credibilità', link: '/coach/settings' },
+]
 
 interface CoacheeData {
   id: string
@@ -80,6 +98,8 @@ export default function CoachDashboardPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [selectedCoachee, setSelectedCoachee] = useState<CoacheeData | null>(null)
   const [showCoacheeModal, setShowCoacheeModal] = useState(false)
+  const [profileAlerts, setProfileAlerts] = useState<ProfileAlert[]>([])
+  const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set())
   
   // Check se è admin
   const isAdminByEmail = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false
@@ -278,6 +298,36 @@ export default function CoachDashboardPage() {
           activeCoachees: loadedCoachees.length,
           pendingSessions: pendingSessionsList.length
         })
+        
+        // Carica profilo coach per verificare completezza
+        const coachProfileDoc = await getDoc(doc(db, 'coachApplications', user.id))
+        if (coachProfileDoc.exists()) {
+          const profileData = coachProfileDoc.data()
+          const alerts: ProfileAlert[] = []
+          
+          // Verifica foto
+          if (!profileData.photo) {
+            alerts.push(PROFILE_ALERTS.find(a => a.type === 'photo')!)
+          }
+          // Verifica bio
+          if (!profileData.bio || profileData.bio.length < 50) {
+            alerts.push(PROFILE_ALERTS.find(a => a.type === 'bio')!)
+          }
+          // Verifica specializzazioni
+          if (!profileData.specializations?.focusTopics || profileData.specializations.focusTopics.length === 0) {
+            alerts.push(PROFILE_ALERTS.find(a => a.type === 'specializations')!)
+          }
+          // Verifica location
+          if (!profileData.location || profileData.location.trim() === '') {
+            alerts.push(PROFILE_ALERTS.find(a => a.type === 'location')!)
+          }
+          // Verifica certificazioni
+          if (!profileData.certifications || profileData.certifications.length === 0) {
+            alerts.push(PROFILE_ALERTS.find(a => a.type === 'certifications')!)
+          }
+          
+          setProfileAlerts(alerts.filter(Boolean))
+        }
       } catch (err) {
         console.error('Errore caricamento dati:', err)
       } finally {
@@ -449,6 +499,58 @@ export default function CoachDashboardPage() {
           <h1 className="text-2xl font-display font-bold text-charcoal">
             Dashboard Coach
           </h1>
+          
+          {/* Profile Completeness Alerts */}
+          {profileAlerts.length > 0 && !dismissedAlerts.has('profile-alerts') && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-amber-100 rounded-full">
+                    <AlertTriangle className="text-amber-600" size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-amber-900 mb-1">
+                      Completa il tuo profilo per aumentare la visibilità
+                    </h3>
+                    <p className="text-sm text-amber-700 mb-3">
+                      I coach con profilo completo ricevono fino al <strong>30% in più di richieste</strong>
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {profileAlerts.slice(0, 3).map((alert, idx) => (
+                        <Link
+                          key={idx}
+                          href={alert.link}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-amber-200 rounded-full text-sm text-amber-800 hover:bg-amber-50 transition-colors"
+                        >
+                          {alert.type === 'photo' && <Camera size={14} />}
+                          {alert.message}
+                        </Link>
+                      ))}
+                      {profileAlerts.length > 3 && (
+                        <Link
+                          href="/coach/settings"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-500 text-white rounded-full text-sm hover:bg-amber-600 transition-colors"
+                        >
+                          +{profileAlerts.length - 3} altri
+                          <ChevronRight size={14} />
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setDismissedAlerts(prev => new Set([...prev, 'profile-alerts']))}
+                  className="p-1 text-amber-400 hover:text-amber-600 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </motion.div>
+          )}
             
             {/* Stats Grid */}
             <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
