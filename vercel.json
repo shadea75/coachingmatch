@@ -7,7 +7,7 @@
     {
       "path": "/api/cron/offers",
       "schedule": "0 9 * * *"
-    }
+    },
     {
       "path": "/api/cron/engagement-notifications",
       "schedule": "0 9 * * *"
