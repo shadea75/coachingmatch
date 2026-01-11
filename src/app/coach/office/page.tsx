@@ -305,11 +305,29 @@ export default function CoachOfficePage() {
         const totalSessionsThisMonth = sessionsThisMonth + extSessionsThisMonth
         
         // Carica disponibilità settimanale
+        let loadedWeeklySlots: Record<number | string, string[]> = {}
+        
+        // Prima prova a caricare con userId come document ID
         const availDoc = await getDoc(doc(db, 'coachAvailability', user.id))
-        let loadedWeeklySlots: Record<number, string[]> = {}
         
         if (availDoc.exists()) {
-          loadedWeeklySlots = availDoc.data().weeklySlots || {}
+          const data = availDoc.data()
+          loadedWeeklySlots = data.weeklySlots || data.slots || {}
+          console.log('Disponibilità caricata (by docId):', loadedWeeklySlots)
+        } else {
+          // Se non esiste, cerca per coachId
+          const availQuery = query(
+            collection(db, 'coachAvailability'),
+            where('coachId', '==', user.id)
+          )
+          const availSnap = await getDocs(availQuery)
+          if (!availSnap.empty) {
+            const data = availSnap.docs[0].data()
+            loadedWeeklySlots = data.weeklySlots || data.slots || {}
+            console.log('Disponibilità caricata (by coachId):', loadedWeeklySlots)
+          } else {
+            console.log('Nessuna disponibilità trovata per coach:', user.id)
+          }
         }
         setWeeklySlots(loadedWeeklySlots)
         
@@ -431,12 +449,18 @@ export default function CoachOfficePage() {
       let currentDate = new Date(startDate)
       currentDate.setHours(0, 0, 0, 0)
       
+      // Debug: log delle chiavi presenti in weeklySlots
+      console.log('weeklySlots keys:', Object.keys(weeklySlots))
+      
       while (currentDate <= endDate) {
         const dayOfWeek = currentDate.getDay()
-        const slotsForDay = weeklySlots[dayOfWeek] || weeklySlots[dayOfWeek.toString()] || []
+        // Prova sia con numero che con stringa
+        const slotsForDay = weeklySlots[dayOfWeek] || weeklySlots[dayOfWeek.toString()] || weeklySlots[String(dayOfWeek)] || []
         totalSlots += slotsForDay.length
         currentDate.setDate(currentDate.getDate() + 1)
       }
+      
+      console.log('Slot totali calcolati per il mese:', totalSlots)
       
       // Per il mese corrente, sottrai sessioni confermate e da prenotare
       // Per mesi futuri, mostra tutti gli slot (non ci sono ancora prenotazioni)
