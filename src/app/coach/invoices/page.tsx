@@ -89,6 +89,22 @@ interface Session {
   offerTitle?: string
 }
 
+interface Client {
+  id: string
+  name: string
+  email: string
+  phone?: string
+  codiceFiscale?: string
+  partitaIva?: string
+  indirizzo?: string
+  cap?: string
+  comune?: string
+  provincia?: string
+  codiceDestinatario?: string
+  pec?: string
+  source: 'coachClients' | 'externalClients'
+}
+
 const REGIMI_FISCALI = [
   { value: 'RF01', label: 'Ordinario' },
   { value: 'RF02', label: 'Contribuenti minimi' },
@@ -106,6 +122,7 @@ export default function CoachInvoicesPage() {
   const [loading, setLoading] = useState(true)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const [fiscalData, setFiscalData] = useState<FiscalData | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   
@@ -116,6 +133,7 @@ export default function CoachInvoicesPage() {
   
   // Form nuova fattura
   const [selectedSession, setSelectedSession] = useState<string>('')
+  const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [clientData, setClientData] = useState<ClientFiscalData>({
     denominazione: '',
     codiceFiscale: '',
@@ -170,24 +188,93 @@ export default function CoachInvoicesPage() {
       }
       
       // Carica fatture esistenti
-      const invoicesQuery = query(
-        collection(db, 'invoices'),
-        where('coachId', '==', user.id),
-        orderBy('createdAt', 'desc')
-      )
-      const invoicesSnap = await getDocs(invoicesQuery)
-      setInvoices(invoicesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Invoice)))
+      try {
+        const invoicesQuery = query(
+          collection(db, 'invoices'),
+          where('coachId', '==', user.id),
+          orderBy('createdAt', 'desc')
+        )
+        const invoicesSnap = await getDocs(invoicesQuery)
+        setInvoices(invoicesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Invoice)))
+      } catch (e) {
+        console.log('No invoices yet or index needed')
+        setInvoices([])
+      }
+      
+      // Carica clienti da coachClients
+      const loadedClients: Client[] = []
+      try {
+        const coachClientsQuery = query(
+          collection(db, 'coachClients'),
+          where('coachId', '==', user.id)
+        )
+        const coachClientsSnap = await getDocs(coachClientsQuery)
+        coachClientsSnap.docs.forEach(d => {
+          const data = d.data()
+          loadedClients.push({
+            id: d.id,
+            name: data.coacheeName || data.name || 'Cliente',
+            email: data.coacheeEmail || data.email || '',
+            phone: data.phone,
+            codiceFiscale: data.codiceFiscale,
+            partitaIva: data.partitaIva,
+            indirizzo: data.indirizzo,
+            cap: data.cap,
+            comune: data.comune,
+            provincia: data.provincia,
+            codiceDestinatario: data.codiceDestinatario,
+            pec: data.pec,
+            source: 'coachClients'
+          })
+        })
+      } catch (e) {
+        console.log('Error loading coachClients:', e)
+      }
+      
+      // Carica clienti da externalClients
+      try {
+        const externalClientsQuery = query(
+          collection(db, 'externalClients'),
+          where('coachId', '==', user.id)
+        )
+        const externalClientsSnap = await getDocs(externalClientsQuery)
+        externalClientsSnap.docs.forEach(d => {
+          const data = d.data()
+          loadedClients.push({
+            id: d.id,
+            name: data.name || 'Cliente',
+            email: data.email || '',
+            phone: data.phone,
+            codiceFiscale: data.codiceFiscale,
+            partitaIva: data.partitaIva,
+            indirizzo: data.indirizzo,
+            cap: data.cap,
+            comune: data.comune,
+            provincia: data.provincia,
+            codiceDestinatario: data.codiceDestinatario,
+            pec: data.pec,
+            source: 'externalClients'
+          })
+        })
+      } catch (e) {
+        console.log('Error loading externalClients:', e)
+      }
+      
+      setClients(loadedClients)
       
       // Carica sessioni completate (per creare fatture)
-      const sessionsQuery = query(
-        collection(db, 'sessions'),
-        where('coachId', '==', user.id),
-        where('status', '==', 'completed'),
-        where('type', '==', 'paid_session'),
-        orderBy('scheduledAt', 'desc')
-      )
-      const sessionsSnap = await getDocs(sessionsQuery)
-      setSessions(sessionsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Session)))
+      try {
+        const sessionsQuery = query(
+          collection(db, 'sessions'),
+          where('coachId', '==', user.id),
+          where('status', '==', 'completed')
+        )
+        const sessionsSnap = await getDocs(sessionsQuery)
+        setSessions(sessionsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Session)))
+      } catch (e) {
+        console.log('Error loading sessions:', e)
+        setSessions([])
+      }
       
     } catch (err) {
       console.error('Error loading data:', err)
@@ -217,6 +304,24 @@ export default function CoachInvoicesPage() {
     const year = new Date().getFullYear()
     const existingThisYear = invoices.filter(i => i.numero.includes(`${year}`)).length
     return `${year}/${String(existingThisYear + 1).padStart(4, '0')}`
+  }
+
+  const handleClientSelect = (clientId: string) => {
+    setSelectedClientId(clientId)
+    const client = clients.find(c => c.id === clientId)
+    if (client) {
+      setClientData({
+        denominazione: client.name || '',
+        codiceFiscale: client.codiceFiscale || '',
+        partitaIva: client.partitaIva || '',
+        indirizzo: client.indirizzo || '',
+        cap: client.cap || '',
+        comune: client.comune || '',
+        provincia: client.provincia || '',
+        codiceDestinatario: client.codiceDestinatario || '0000000',
+        pec: client.pec || ''
+      })
+    }
   }
 
   const handleSessionSelect = (sessionId: string) => {
@@ -373,6 +478,7 @@ export default function CoachInvoicesPage() {
       // Reset form
       setShowNewInvoice(false)
       setSelectedSession('')
+      setSelectedClientId('')
       setClientData({
         denominazione: '',
         codiceFiscale: '',
@@ -756,6 +862,30 @@ export default function CoachInvoicesPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+              )}
+
+              {/* Seleziona cliente esistente */}
+              {clients.length > 0 && (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    📋 Seleziona cliente dall'Ufficio Virtuale
+                  </label>
+                  <select
+                    value={selectedClientId}
+                    onChange={e => handleClientSelect(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="">-- Seleziona cliente esistente --</option>
+                    {clients.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.email ? `(${c.email})` : ''} {c.codiceFiscale ? `- CF: ${c.codiceFiscale}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">
+                    I dati verranno compilati automaticamente
+                  </p>
                 </div>
               )}
 
