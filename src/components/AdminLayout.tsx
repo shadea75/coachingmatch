@@ -15,7 +15,8 @@ import {
   ShoppingBag,
   TrendingUp,
   ExternalLink,
-  PenSquare
+  PenSquare,
+  Mail
 } from 'lucide-react'
 import Logo from '@/components/Logo'
 import AdminGuard from '@/components/AdminGuard'
@@ -32,6 +33,7 @@ const ADMIN_MENU = [
   { href: '/admin/community', label: 'Community', icon: MessageSquare },
   { href: '/admin/offers', label: 'Offerte & Sessioni', icon: ShoppingBag },
   { href: '/admin/payments', label: 'Pagamenti', icon: CreditCard },
+  { href: '/admin/email-broadcast', label: 'Email Broadcast', icon: Mail },
   { href: '/admin/settings', label: 'Impostazioni', icon: Settings },
 ]
 
