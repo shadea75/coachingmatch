@@ -277,7 +277,7 @@ export default function TestGratuitoPage() {
       </header>
       
       {/* Main Content */}
-      <main className="pt-20 pb-24 px-4">
+      <main className="pt-20 pb-8 px-4">
         <AnimatePresence mode="wait">
           
           {/* INTRO */}
@@ -387,6 +387,16 @@ export default function TestGratuitoPage() {
                   onChange={handleScoreSelect}
                   areaId={currentArea.id as LifeAreaId}
                 />
+                
+                {/* Bottone Continua inline */}
+                <button
+                  onClick={handleNext}
+                  disabled={!currentScore}
+                  className="w-full btn btn-primary py-4 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Continua
+                  <ArrowRight size={20} />
+                </button>
               </div>
             </motion.div>
           )}
@@ -688,16 +698,13 @@ export default function TestGratuitoPage() {
         </AnimatePresence>
       </main>
       
-      {/* Footer con bottone Next */}
-      {(currentStep === 'scoring' || currentStep === 'questions') && (
+      {/* Footer con bottone Next - solo per questions */}
+      {currentStep === 'questions' && (
         <footer className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-100 p-4">
           <div className="max-w-lg mx-auto">
             <button
               onClick={handleNext}
-              disabled={
-                (currentStep === 'scoring' && !currentScore) ||
-                (currentStep === 'questions' && currentQuestionAnswer === undefined)
-              }
+              disabled={currentQuestionAnswer === undefined}
               className="w-full btn btn-primary py-4 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Continua
