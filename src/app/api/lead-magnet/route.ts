@@ -317,13 +317,15 @@ export async function POST(request: NextRequest) {
     
     // Salva lead in Firebase per nurturing
     try {
+      const lifeScoreNum = typeof lifeScore === 'number' ? lifeScore : parseFloat(String(lifeScore)) || 0
+      
       await setDoc(doc(collection(db, 'leads'), leadId), {
         email,
         name,
         scores,
         archetypeId: archetype.id,
         priorityArea,
-        lifeScore: parseFloat(lifeScore.toFixed(1)),
+        lifeScore: parseFloat(lifeScoreNum.toFixed(1)),
         status: 'new', // new | reminded | assigned | booked | converted
         reminderCount: 0,
         createdAt: serverTimestamp(),
