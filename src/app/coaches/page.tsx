@@ -66,7 +66,6 @@ function CoachesContent() {
   const [selectedArea, setSelectedArea] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'match' | 'rating' | 'reviews' | 'price'>('match')
   const [coacheeProfile, setCoacheeProfile] = useState<CoacheeProfile | null>(null)
-  const [showRelated, setShowRelated] = useState(false)
 
   // Leggi parametri dall'URL
   useEffect(() => {
@@ -179,6 +178,8 @@ function CoachesContent() {
           compatibility: 'moderate' as const
         }))
 
+    let hasRelated = false
+
     // Filtro per ricerca testuale
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
@@ -205,14 +206,11 @@ function CoachesContent() {
            r.coach.lifeAreas?.some(a => relatedAreas.includes(a)))
         )
         
-        setShowRelated(relatedMatches.length > 0)
+        hasRelated = relatedMatches.length > 0
         filtered = [...directMatches, ...relatedMatches]
       } else {
-        setShowRelated(false)
         filtered = directMatches
       }
-    } else {
-      setShowRelated(false)
     }
 
     // Ordinamento
@@ -231,10 +229,10 @@ function CoachesContent() {
         break
     }
 
-    return filtered
+    return { coaches: filtered, hasRelated }
   }
 
-  const filteredCoaches = getFilteredAndSortedCoaches()
+  const { coaches: filteredCoaches, hasRelated: showRelatedCoaches } = getFilteredAndSortedCoaches()
   const hasCoacheeProfile = coacheeProfile && (coacheeProfile.priorityArea || coacheeProfile.archetypeId)
 
   // Componente Match Badge
@@ -384,7 +382,7 @@ function CoachesContent() {
             <>
               <div className="flex items-center justify-between mb-6">
                 <p className="text-gray-500">{filteredCoaches.length} coach trovati</p>
-                {showRelated && selectedArea !== 'all' && (
+                {showRelatedCoaches && selectedArea !== 'all' && (
                   <p className="text-sm text-amber-600 bg-amber-50 px-3 py-1 rounded-full">
                     Include coach di aree correlate
                   </p>
