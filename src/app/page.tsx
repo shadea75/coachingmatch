@@ -121,18 +121,18 @@ export default function HomePage() {
           >
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-100 text-primary-700 text-sm font-medium mb-6">
               <Sparkles size={16} />
-              Il tuo percorso di crescita inizia qui
+              Test gratuito + Report personalizzato
             </span>
             
             <h1 className="text-4xl md:text-6xl font-display font-bold text-charcoal mb-6 leading-tight">
-              Trova il coach{' '}
-              <span className="gradient-text">giusto per te</span>,<br />
-              senza perdere tempo
+              Scopri chi sei e trova<br />
+              il coach{' '}
+              <span className="gradient-text">giusto per te</span>
             </h1>
             
             <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
-              Completa un test gratuito di 5 minuti e scopri quali coach 
-              sono più adatti alle tue esigenze e ai tuoi obiettivi.
+              Fai il test gratuito della Ruota della Vita: ricevi un report personalizzato 
+              sulle 8 aree della tua vita e scopri i coach più compatibili con i tuoi obiettivi.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -140,7 +140,7 @@ export default function HomePage() {
                 href="/test-gratuito"
                 className="btn btn-primary text-lg px-8 py-4 relative btn-pulse"
               >
-                Inizia il test gratuito
+                Fai il test gratuito
                 <ArrowRight size={20} />
               </Link>
             </div>
@@ -155,7 +155,7 @@ export default function HomePage() {
           >
             <div className="flex items-center gap-2">
               <CheckCircle2 size={18} className="text-green-500" />
-              <span>Test gratuito</span>
+              <span>Report gratuito via email</span>
             </div>
             <div className="flex items-center gap-2">
               <Star size={18} className="text-amber-500" fill="currentColor" />
@@ -163,7 +163,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-2">
               <Shield size={18} className="text-blue-500" />
-              <span>100% riservato</span>
+              <span>Prima call gratuita</span>
             </div>
           </motion.div>
         </div>
