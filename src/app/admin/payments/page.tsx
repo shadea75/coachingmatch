@@ -115,13 +115,15 @@ interface PendingPayout {
 
 interface Subscription {
   id: string
-  userId: string
+  oderId: string
   userEmail: string
   userName: string
-  status: string
+  status: 'active' | 'trial' | 'expired' | 'free'
   amount: number
   startDate: Date
-  type: 'community'
+  endDate?: Date
+  trialDaysLeft?: number
+  type: 'community' | 'coach'
 }
 
 // Formatta valuta
@@ -186,15 +188,26 @@ export default function AdminPaymentsPage() {
       })
       setOffers(loadedOffers)
 
-      // Carica utenti con membership attiva
+      // Carica impostazioni per trial days
+      let trialDays = 90
+      let defaultCoachPrice = 19
+      try {
+        const settingsDoc = await getDoc(doc(db, 'settings', 'community'))
+        if (settingsDoc.exists()) {
+          trialDays = settingsDoc.data().freeTrialDays ?? 90
+          defaultCoachPrice = settingsDoc.data().coachMonthlyPrice ?? 19
+        }
+      } catch (e) {}
+
+      // Carica utenti con membership attiva (coachee)
       const usersQuery = query(
         collection(db, 'users'),
         where('membershipStatus', '==', 'active')
       )
       const usersSnap = await getDocs(usersQuery)
-      const loadedSubs: Subscription[] = usersSnap.docs.map(doc => ({
+      const communitySubs: Subscription[] = usersSnap.docs.map(doc => ({
         id: doc.id,
-        userId: doc.id,
+        oderId: doc.id,
         userEmail: doc.data().email || '',
         userName: doc.data().name || '',
         status: 'active',
@@ -202,7 +215,65 @@ export default function AdminPaymentsPage() {
         startDate: doc.data().membershipStartDate?.toDate() || doc.data().createdAt?.toDate() || new Date(),
         type: 'community'
       }))
-      setSubscriptions(loadedSubs)
+      
+      // Carica abbonamenti coach da coachApplications
+      const coachesQuery = query(
+        collection(db, 'coachApplications'),
+        where('status', '==', 'approved')
+      )
+      const coachesSnap = await getDocs(coachesQuery)
+      const now = new Date()
+      
+      const coachSubs: Subscription[] = coachesSnap.docs.map(docSnap => {
+        const data = docSnap.data()
+        const subPrice = data.subscriptionPrice ?? defaultCoachPrice
+        
+        // Calcola stato abbonamento
+        let subStatus: 'active' | 'trial' | 'expired' | 'free' = 'trial'
+        let daysLeft = 0
+        let endDate: Date | undefined
+        
+        if (subPrice === 0) {
+          subStatus = 'free'
+        } else if (data.subscriptionStatus === 'expired') {
+          subStatus = 'expired'
+        } else if (data.subscriptionStatus === 'active') {
+          if (data.subscriptionEndDate?.toDate?.() > now) {
+            subStatus = 'active'
+            endDate = data.subscriptionEndDate.toDate()
+          } else {
+            subStatus = 'expired'
+          }
+        } else {
+          // Calcola trial
+          const createdAt = data.createdAt?.toDate?.() || data.approvedAt?.toDate?.() || new Date()
+          const trialEndDate = data.trialEndDate?.toDate?.() || new Date(createdAt.getTime() + trialDays * 24 * 60 * 60 * 1000)
+          
+          if (trialEndDate > now) {
+            subStatus = 'trial'
+            daysLeft = Math.ceil((trialEndDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+            endDate = trialEndDate
+          } else {
+            subStatus = 'expired'
+          }
+        }
+        
+        return {
+          id: docSnap.id,
+          oderId: docSnap.id,
+          userEmail: data.email || '',
+          userName: data.name || '',
+          status: subStatus,
+          amount: subPrice,
+          startDate: data.createdAt?.toDate?.() || data.approvedAt?.toDate?.() || new Date(),
+          endDate,
+          trialDaysLeft: daysLeft,
+          type: 'coach' as const
+        }
+      })
+      
+      // Combina tutti gli abbonamenti
+      setSubscriptions([...communitySubs, ...coachSubs])
       
       // Genera pending payouts dalle installments pagate
       // Cerca anche nella collection payoutTracking per lo stato
@@ -445,7 +516,17 @@ export default function AdminPaymentsPage() {
   const platformEarningsGross = totalRevenue * 0.30 // 30% commissione
   const platformEarningsNet = platformEarningsGross / 1.22 // Scorporo IVA 22%
   const coachPayouts = totalRevenue * 0.70 // 70% al coach
-  const subscriptionRevenue = subscriptions.length * 29
+  
+  // Calcola revenue da abbonamenti (solo attivi, non trial o free)
+  const activeSubscriptions = subscriptions.filter(s => s.status === 'active')
+  const subscriptionRevenue = activeSubscriptions.reduce((sum, s) => sum + s.amount, 0)
+  
+  // Stats abbonamenti coach
+  const coachSubscriptions = subscriptions.filter(s => s.type === 'coach')
+  const activeCoachSubs = coachSubscriptions.filter(s => s.status === 'active').length
+  const trialCoachSubs = coachSubscriptions.filter(s => s.status === 'trial').length
+  const expiredCoachSubs = coachSubscriptions.filter(s => s.status === 'expired').length
+  const freeCoachSubs = coachSubscriptions.filter(s => s.status === 'free').length
 
   // Verifica fattura coach
   const handleVerifyInvoice = async (payout: PendingPayout, approved: boolean) => {
@@ -741,10 +822,12 @@ export default function AdminPaymentsPage() {
               <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
                 <Calendar className="w-5 h-5 text-purple-600" />
               </div>
-              <span className="text-sm text-gray-500">Abbonamenti</span>
+              <span className="text-sm text-gray-500">Abbonamenti Coach</span>
             </div>
-            <p className="text-2xl font-bold text-charcoal">{subscriptions.length}</p>
-            <p className="text-xs text-gray-400 mt-1">{formatCurrency(subscriptionRevenue)}/mese</p>
+            <p className="text-2xl font-bold text-charcoal">{activeCoachSubs + trialCoachSubs}</p>
+            <p className="text-xs text-gray-400 mt-1">
+              {activeCoachSubs} attivi • {trialCoachSubs} in prova • {formatCurrency(subscriptionRevenue)}/mese
+            </p>
           </div>
         </div>
 
@@ -1160,43 +1243,97 @@ export default function AdminPaymentsPage() {
             )
           ) : (
             /* Tab Abbonamenti */
-            subscriptions.length === 0 ? (
-              <div className="p-12 text-center text-gray-500">
-                <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>Nessun abbonamento attivo</p>
+            <>
+              {/* Stats abbonamenti coach */}
+              <div className="p-4 border-b bg-gray-50 grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-charcoal">{coachSubscriptions.length}</p>
+                  <p className="text-xs text-gray-500">Coach totali</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-600">{activeCoachSubs}</p>
+                  <p className="text-xs text-gray-500">Attivi</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">{trialCoachSubs}</p>
+                  <p className="text-xs text-gray-500">In prova</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-600">{freeCoachSubs}</p>
+                  <p className="text-xs text-gray-500">Gratuiti</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-red-600">{expiredCoachSubs}</p>
+                  <p className="text-xs text-gray-500">Scaduti</p>
+                </div>
               </div>
-            ) : (
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Utente</th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Email</th>
-                    <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                    <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Importo</th>
-                    <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Data inizio</th>
-                    <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Stato</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {subscriptions.map(sub => (
-                    <tr key={sub.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 font-medium text-charcoal">{sub.userName || 'Utente'}</td>
-                      <td className="px-6 py-4 text-gray-500">{sub.userEmail}</td>
-                      <td className="px-6 py-4 text-center text-gray-500">Community</td>
-                      <td className="px-6 py-4 text-center font-medium">{formatCurrency(sub.amount)}/mese</td>
-                      <td className="px-6 py-4 text-center text-gray-500">
-                        {format(sub.startDate, 'dd MMM yyyy', { locale: it })}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">
-                          Attivo
-                        </span>
-                      </td>
+              
+              {coachSubscriptions.length === 0 ? (
+                <div className="p-12 text-center text-gray-500">
+                  <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Nessun abbonamento coach</p>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Coach</th>
+                      <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Email</th>
+                      <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Prezzo</th>
+                      <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Inizio</th>
+                      <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Scadenza</th>
+                      <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">Stato</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {coachSubscriptions.map(sub => (
+                      <tr key={sub.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 font-medium text-charcoal">{sub.userName || 'Coach'}</td>
+                        <td className="px-6 py-4 text-gray-500">{sub.userEmail}</td>
+                        <td className="px-6 py-4 text-center">
+                          {sub.status === 'free' ? (
+                            <span className="text-purple-600 font-medium">Gratuito</span>
+                          ) : (
+                            <span className="font-medium">{formatCurrency(sub.amount)}/mese</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-center text-gray-500">
+                          {format(sub.startDate, 'dd MMM yyyy', { locale: it })}
+                        </td>
+                        <td className="px-6 py-4 text-center text-gray-500">
+                          {sub.endDate ? format(sub.endDate, 'dd MMM yyyy', { locale: it }) : '-'}
+                          {sub.trialDaysLeft && sub.trialDaysLeft > 0 && (
+                            <span className="block text-xs text-blue-500">({sub.trialDaysLeft}gg rimasti)</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          {sub.status === 'active' && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">
+                              Attivo
+                            </span>
+                          )}
+                          {sub.status === 'trial' && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
+                              In prova
+                            </span>
+                          )}
+                          {sub.status === 'free' && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700">
+                              Gratuito
+                            </span>
+                          )}
+                          {sub.status === 'expired' && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-700">
+                              Scaduto
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
           )}
         </div>
 
