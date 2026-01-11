@@ -81,6 +81,7 @@ export default function CoachDashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [shouldRedirect, setShouldRedirect] = useState(false)
+  const [assignedLeads, setAssignedLeads] = useState<any[]>([])
   const [stats, setStats] = useState({
     totalReviews: 0,
     averageRating: 0,
@@ -327,6 +328,24 @@ export default function CoachDashboardPage() {
           }
           
           setProfileAlerts(alerts.filter(Boolean))
+        }
+        
+        // Carica lead assegnati a questo coach
+        try {
+          const leadsQuery = query(
+            collection(db, 'leads'),
+            where('assignedCoachId', '==', user.id),
+            where('status', 'in', ['assigned', 'booked'])
+          )
+          const leadsSnap = await getDocs(leadsQuery)
+          const leads = leadsSnap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            assignedAt: doc.data().assignedAt?.toDate?.() || new Date()
+          }))
+          setAssignedLeads(leads)
+        } catch (err) {
+          console.error('Errore caricamento lead:', err)
         }
       } catch (err) {
         console.error('Errore caricamento dati:', err)
@@ -705,6 +724,84 @@ export default function CoachDashboardPage() {
                   >
                     + altre {pendingSessions.length - 3} sessioni in attesa
                   </Link>
+                )}
+              </motion.div>
+            )}
+            
+            {/* Lead Assegnati */}
+            {assignedLeads.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 shadow-sm border border-green-200"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-charcoal flex items-center gap-2">
+                    <Target size={20} className="text-green-500" />
+                    Lead Assegnati
+                    <span className="ml-2 px-2 py-0.5 rounded-full bg-green-500 text-white text-xs font-bold">
+                      {assignedLeads.length} nuovi
+                    </span>
+                  </h2>
+                </div>
+                
+                <p className="text-sm text-green-700 mb-4">
+                  🎉 Questi lead dal test gratuito sono stati abbinati a te! Contattali per prenotare la call gratuita.
+                </p>
+                
+                <div className="space-y-3">
+                  {assignedLeads.slice(0, 5).map(lead => (
+                    <div 
+                      key={lead.id}
+                      className="bg-white rounded-xl p-4 border border-green-200"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                            <span className="font-semibold text-green-600">
+                              {lead.name?.charAt(0).toUpperCase() || '?'}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-charcoal">{lead.name}</p>
+                            <p className="text-xs text-gray-500">{lead.email}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary-100 text-primary-700 text-xs">
+                            <Target size={12} />
+                            {lead.priorityArea === 'salute' ? 'Salute' :
+                             lead.priorityArea === 'finanze' ? 'Finanze' :
+                             lead.priorityArea === 'carriera' ? 'Carriera' :
+                             lead.priorityArea === 'relazioni' ? 'Relazioni' :
+                             lead.priorityArea === 'amore' ? 'Amore' :
+                             lead.priorityArea === 'crescita' ? 'Crescita' :
+                             lead.priorityArea === 'spiritualita' ? 'Spiritualità' :
+                             lead.priorityArea === 'divertimento' ? 'Divertimento' :
+                             lead.priorityArea}
+                          </span>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Life Score: {lead.lifeScore?.toFixed(1) || '-'}/10
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <a 
+                          href={`mailto:${lead.email}?subject=Ciao ${lead.name}, sono il tuo coach su CoachaMi!&body=Ciao ${lead.name},%0D%0A%0D%0ASono stato assegnato come tuo coach su CoachaMi. Ho visto che sei interessato a migliorare nell'area ${lead.priorityArea}.%0D%0A%0D%0ATi va di prenotare una call gratuita per conoscerci?%0D%0A%0D%0AA presto!`}
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
+                        >
+                          <Mail size={16} />
+                          Contatta
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {assignedLeads.length > 5 && (
+                  <p className="text-center text-sm text-green-600 mt-4">
+                    + altri {assignedLeads.length - 5} lead
+                  </p>
                 )}
               </motion.div>
             )}

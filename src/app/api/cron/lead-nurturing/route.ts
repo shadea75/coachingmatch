@@ -319,16 +319,138 @@ function generateCoachNotificationEmail(coach: any, lead: any): string {
       
       <div style="background: #fef3c7; padding: 20px; border-radius: 12px; margin: 20px 0;">
         <p style="color: #92400e; margin: 0; font-size: 14px;">
-          <strong>💡 Suggerimento</strong><br>
-          Contatta ${lead.name} entro 24 ore per massimizzare le possibilità di conversione. 
-          Puoi invitarlo/a a prenotare la call gratuita.
+          <strong>⚠️ Importante</strong><br>
+          Contatta ${lead.name} entro 7 giorni, altrimenti il lead verrà riassegnato automaticamente ad un altro coach.
         </p>
       </div>
       
       <div style="text-align: center;">
-        <a href="https://www.coachami.it/coach/office" 
+        <a href="https://www.coachami.it/coach/dashboard" 
            style="display: inline-block; background: #D4A574; color: white; padding: 16px 40px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px;">
-          Vai al tuo Ufficio Virtuale →
+          Vai alla Dashboard →
+        </a>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div style="text-align: center; padding: 20px;">
+      <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+        <a href="https://www.coachami.it" style="color: #D4A574;">www.coachami.it</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  `
+}
+
+// Email per coach che perde il lead
+function generateCoachLostLeadEmail(coach: any, lead: any): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f8f5f0;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    
+    <!-- Header -->
+    <div style="text-align: center; padding: 30px 20px; background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); border-radius: 20px 20px 0 0;">
+      <h1 style="color: white; margin: 0; font-size: 28px;">⚠️ Lead Riassegnato</h1>
+    </div>
+    
+    <!-- Content -->
+    <div style="background: white; padding: 30px; border-radius: 0 0 20px 20px;">
+      <h2 style="color: #1f2937; margin: 0 0 15px 0;">Ciao ${coach.name},</h2>
+      
+      <p style="color: #4b5563; line-height: 1.6; margin: 0 0 20px 0;">
+        Il lead <strong>${lead.name}</strong> che ti era stato assegnato è stato riassegnato 
+        ad un altro coach perché non è stato contattato entro 7 giorni.
+      </p>
+      
+      <div style="background: #fef2f2; padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid #EF4444;">
+        <p style="color: #991b1b; margin: 0; font-size: 14px;">
+          <strong>💡 Ricorda</strong><br>
+          I lead devono essere contattati entro 7 giorni dall'assegnazione per garantire 
+          un servizio di qualità ai nostri coachee.
+        </p>
+      </div>
+      
+      <p style="color: #4b5563; line-height: 1.6; margin: 0 0 20px 0;">
+        Per evitare che questo succeda in futuro, controlla regolarmente la tua dashboard 
+        per vedere i nuovi lead assegnati.
+      </p>
+      
+      <div style="text-align: center;">
+        <a href="https://www.coachami.it/coach/dashboard" 
+           style="display: inline-block; background: #6b7280; color: white; padding: 16px 40px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px;">
+          Vai alla Dashboard →
+        </a>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div style="text-align: center; padding: 20px;">
+      <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+        <a href="https://www.coachami.it" style="color: #D4A574;">www.coachami.it</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  `
+}
+
+// Email al lead quando viene riassegnato
+function generateLeadReassignedEmail(lead: any, newCoach: any): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f8f5f0;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    
+    <!-- Header -->
+    <div style="text-align: center; padding: 30px 20px; background: linear-gradient(135deg, #10B981 0%, #059669 100%); border-radius: 20px 20px 0 0;">
+      <h1 style="color: white; margin: 0; font-size: 28px;">🔄 Nuovo Coach per Te!</h1>
+    </div>
+    
+    <!-- Content -->
+    <div style="background: white; padding: 30px; border-radius: 0 0 20px 20px;">
+      <h2 style="color: #1f2937; margin: 0 0 15px 0;">Ciao ${lead.name}!</h2>
+      
+      <p style="color: #4b5563; line-height: 1.6; margin: 0 0 20px 0;">
+        Per offrirti un servizio migliore, ti abbiamo assegnato un nuovo coach 
+        specializzato in <strong>${AREA_LABELS[lead.priorityArea]}</strong>:
+      </p>
+      
+      <!-- New Coach Card -->
+      <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); padding: 25px; border-radius: 16px; margin: 20px 0; border: 2px solid #86efac;">
+        <div style="text-align: center;">
+          ${newCoach.photo 
+            ? `<img src="${newCoach.photo}" alt="${newCoach.name}" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid white; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">`
+            : `<div style="width: 100px; height: 100px; border-radius: 50%; background: #10B981; display: flex; align-items: center; justify-content: center; color: white; font-size: 40px; font-weight: bold; margin: 0 auto; border: 4px solid white;">${newCoach.name.charAt(0)}</div>`
+          }
+          <h3 style="color: #1f2937; margin: 15px 0 5px 0; font-size: 22px;">${newCoach.name}</h3>
+          <p style="color: #10B981; margin: 0 0 10px 0; font-size: 14px; font-weight: 600;">
+            ✓ Il tuo nuovo coach
+          </p>
+        </div>
+      </div>
+      
+      <p style="color: #4b5563; line-height: 1.6; margin: 0 0 20px 0;">
+        ${newCoach.name} ti contatterà presto per organizzare la tua prima call gratuita!
+      </p>
+      
+      <div style="text-align: center;">
+        <a href="https://www.coachami.it/booking/${newCoach.id}?lead=${lead.id}" 
+           style="display: inline-block; background: #10B981; color: white; padding: 16px 40px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px;">
+          Prenota la Call Gratuita →
         </a>
       </div>
     </div>
@@ -349,7 +471,7 @@ function generateCoachNotificationEmail(coach: any, lead: any): string {
 // HELPER FUNCTIONS
 // =====================
 
-async function findBestCoachForLead(lead: any): Promise<any | null> {
+async function findBestCoachForLead(lead: any, excludeCoachId?: string): Promise<any | null> {
   try {
     // Cerca coach approvati specializzati nell'area prioritaria
     const coachesQuery = query(
@@ -360,10 +482,13 @@ async function findBestCoachForLead(lead: any): Promise<any | null> {
     
     if (snapshot.empty) return null
     
-    // Filtra e ordina per area e rating
+    // Filtra e ordina per area e rating, escludendo il coach specificato
     const coaches = snapshot.docs
       .map(doc => ({ id: doc.id, ...doc.data() }))
       .filter((coach: any) => {
+        // Escludi il coach precedente se specificato
+        if (excludeCoachId && coach.id === excludeCoachId) return false
+        
         const areas = coach.lifeAreas || (coach.lifeArea ? [coach.lifeArea] : [])
         return areas.includes(lead.priorityArea)
       })
@@ -375,10 +500,11 @@ async function findBestCoachForLead(lead: any): Promise<any | null> {
         return (b.reviewCount || 0) - (a.reviewCount || 0)
       })
     
-    // Se nessun coach specializzato, prendi il primo disponibile
+    // Se nessun coach specializzato, prendi il primo disponibile (escluso quello precedente)
     if (coaches.length === 0) {
       const allCoaches = snapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter((coach: any) => !excludeCoachId || coach.id !== excludeCoachId)
         .sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0))
       return allCoaches[0] || null
     }
@@ -386,6 +512,19 @@ async function findBestCoachForLead(lead: any): Promise<any | null> {
     return coaches[0]
   } catch (err) {
     console.error('Errore ricerca coach:', err)
+    return null
+  }
+}
+
+async function getCoachById(coachId: string): Promise<any | null> {
+  try {
+    const coachDoc = await getDocs(query(
+      collection(db, 'coachApplications'),
+      where('__name__', '==', coachId)
+    ))
+    if (coachDoc.empty) return null
+    return { id: coachDoc.docs[0].id, ...coachDoc.docs[0].data() }
+  } catch (err) {
     return null
   }
 }
@@ -413,7 +552,7 @@ export async function GET(request: NextRequest) {
     // Carica tutti i lead non ancora convertiti
     const leadsQuery = query(
       collection(db, 'leads'),
-      where('status', 'in', ['new', 'reminded'])
+      where('status', 'in', ['new', 'reminded', 'assigned'])
     )
     const leadsSnapshot = await getDocs(leadsQuery)
     
@@ -422,6 +561,7 @@ export async function GET(request: NextRequest) {
       reminder1Sent: 0,
       reminder2Sent: 0,
       autoAssigned: 0,
+      reassigned: 0,
       errors: 0,
       details: [] as string[]
     }
@@ -429,10 +569,66 @@ export async function GET(request: NextRequest) {
     for (const leadDoc of leadsSnapshot.docs) {
       const lead = { id: leadDoc.id, ...leadDoc.data() } as any
       const daysOld = daysSince(lead.createdAt)
+      const daysSinceAssigned = daysSince(lead.assignedAt)
       
       try {
-        // Giorno 3: Primo reminder
-        if (daysOld >= 3 && lead.reminderCount === 0) {
+        // RIASSEGNAZIONE: Se assegnato da più di 7 giorni e non ancora prenotato
+        if (lead.status === 'assigned' && daysSinceAssigned >= 7) {
+          const oldCoachId = lead.assignedCoachId
+          const oldCoach = oldCoachId ? await getCoachById(oldCoachId) : null
+          const newCoach = await findBestCoachForLead(lead, oldCoachId)
+          
+          if (newCoach && newCoach.id !== oldCoachId) {
+            // Email al vecchio coach
+            if (resend && oldCoach?.email) {
+              await resend.emails.send({
+                from: 'CoachaMi <noreply@coachami.it>',
+                to: oldCoach.email,
+                subject: `⚠️ Lead riassegnato: ${lead.name}`,
+                html: generateCoachLostLeadEmail(oldCoach, lead)
+              })
+            }
+            
+            // Email al nuovo coach
+            if (resend && newCoach.email) {
+              await resend.emails.send({
+                from: 'CoachaMi <noreply@coachami.it>',
+                to: newCoach.email,
+                subject: `🎉 Nuovo lead assegnato: ${lead.name}`,
+                html: generateCoachNotificationEmail(newCoach, lead)
+              })
+            }
+            
+            // Email al lead
+            if (resend) {
+              await resend.emails.send({
+                from: 'CoachaMi <noreply@coachami.it>',
+                to: lead.email,
+                subject: `🔄 Ti abbiamo trovato un nuovo coach!`,
+                html: generateLeadReassignedEmail(lead, newCoach)
+              })
+            }
+            
+            // Aggiorna lead
+            await updateDoc(doc(db, 'leads', lead.id), {
+              previousCoachId: oldCoachId,
+              assignedCoachId: newCoach.id,
+              assignedAt: Timestamp.now(),
+              reassignedAt: Timestamp.now(),
+              reassignCount: (lead.reassignCount || 0) + 1,
+              updatedAt: Timestamp.now()
+            })
+            
+            results.reassigned++
+            results.details.push(`🔄 Reassigned ${lead.name} from ${oldCoach?.name || 'unknown'} to ${newCoach.name}`)
+          }
+          
+          results.processed++
+          continue
+        }
+        
+        // Giorno 3: Primo reminder (solo per lead non assegnati)
+        if (lead.status === 'new' && daysOld >= 3 && lead.reminderCount === 0) {
           if (resend) {
             await resend.emails.send({
               from: 'CoachaMi <noreply@coachami.it>',
@@ -453,8 +649,8 @@ export async function GET(request: NextRequest) {
           results.details.push(`📧 Reminder 1 sent to ${lead.name}`)
         }
         
-        // Giorno 7: Secondo reminder con proposta coach
-        else if (daysOld >= 7 && lead.reminderCount === 1) {
+        // Giorno 7: Secondo reminder con proposta coach (solo per reminded)
+        else if (lead.status === 'reminded' && daysOld >= 7 && lead.reminderCount === 1) {
           const topCoach = await findBestCoachForLead(lead)
           
           if (topCoach && resend) {
@@ -478,8 +674,8 @@ export async function GET(request: NextRequest) {
           results.details.push(`📧 Reminder 2 sent to ${lead.name} (suggested: ${topCoach?.name || 'none'})`)
         }
         
-        // Giorno 10: Assegnazione automatica
-        else if (daysOld >= 10 && lead.reminderCount === 2) {
+        // Giorno 10: Assegnazione automatica (solo per reminded)
+        else if (lead.status === 'reminded' && daysOld >= 10 && lead.reminderCount === 2) {
           const assignedCoach = await findBestCoachForLead(lead)
           
           if (assignedCoach) {

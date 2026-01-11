@@ -16,7 +16,8 @@ import {
   TrendingUp,
   ExternalLink,
   PenSquare,
-  Mail
+  Mail,
+  Target
 } from 'lucide-react'
 import Logo from '@/components/Logo'
 import AdminGuard from '@/components/AdminGuard'
@@ -28,6 +29,7 @@ interface AdminLayoutProps {
 
 const ADMIN_MENU = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/leads', label: 'Lead', icon: Target },
   { href: '/admin/users', label: 'Utenti', icon: Users },
   { href: '/admin/coaches', label: 'Coach', icon: UserCheck },
   { href: '/admin/community', label: 'Community', icon: MessageSquare },
