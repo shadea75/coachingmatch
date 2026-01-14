@@ -71,11 +71,15 @@ export default function ExternalOfferPage() {
       if (!offerId) return
       
       setIsLoading(true)
+      console.log('Caricamento offerta con ID:', offerId)
+      
       try {
         const offerDoc = await getDoc(doc(db, 'externalOffers', offerId))
+        console.log('Documento trovato:', offerDoc.exists(), offerDoc.id)
         
         if (!offerDoc.exists()) {
-          setError('Offerta non trovata')
+          console.error('Offerta non trovata nella collection externalOffers. ID:', offerId)
+          setError(`Offerta non trovata (ID: ${offerId.substring(0, 8)}...)`)
           return
         }
         
@@ -130,9 +134,11 @@ export default function ExternalOfferPage() {
         } else if (!data.allowSinglePayment && data.allowInstallments) {
           setSelectedPaymentMethod('installments')
         }
-      } catch (err) {
-        console.error('Errore:', err)
-        setError('Errore nel caricamento dell\'offerta')
+      } catch (err: any) {
+        console.error('Errore caricamento offerta:', err)
+        console.error('Codice errore:', err?.code)
+        console.error('Messaggio:', err?.message)
+        setError(`Errore: ${err?.code || err?.message || 'Errore sconosciuto'}`)
       } finally {
         setIsLoading(false)
       }
