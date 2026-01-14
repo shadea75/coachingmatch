@@ -303,9 +303,9 @@ export default function MatchingPage() {
             <p className="text-gray-500 mb-4">
               Non trovi quello che cerchi?
             </p>
-            <button className="text-primary-500 font-medium hover:underline">
+            <Link href="/coaches" className="text-primary-500 font-medium hover:underline">
               Esplora tutti i coach →
-            </button>
+            </Link>
           </motion.div>
         </div>
       </main>
