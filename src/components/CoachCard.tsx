@@ -136,15 +136,9 @@ export default function CoachCard({
           onClick={onBook}
           className="w-full bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 px-4 rounded-xl transition-colors duration-200 flex items-center justify-center gap-2"
         >
-          Prenota call gratuita
+          Contatta il coach
           <ChevronRight size={18} />
         </button>
-        
-        {coach.freeCallAvailable && (
-          <p className="text-center text-xs text-gray-400 mt-2">
-            Prima call di orientamento gratuita • 30 min
-          </p>
-        )}
       </div>
     </motion.div>
   )

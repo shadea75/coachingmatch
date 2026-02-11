@@ -182,7 +182,10 @@ export default function MatchingPage() {
   }, [user, coaches])
   
   const handleBookCall = (coachId: string) => {
-    router.push(`/booking/${coachId}`)
+    // Trova il nome del coach per passarlo alla chat
+    const match = matches.find(m => m.coach.id === coachId)
+    const coachName = match?.coach.name || 'Coach'
+    router.push(`/messages?coachId=${coachId}&coachName=${encodeURIComponent(coachName)}`)
   }
   
   if (loading) {
