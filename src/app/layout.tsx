@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { OnboardingProvider } from '@/contexts/OnboardingContext'
+import Script from 'next/script'
 
 export const metadata: Metadata = {
   title: 'CoachaMi | Trova il coach giusto per te',
@@ -20,22 +21,7 @@ export const metadata: Metadata = {
     locale: 'it_IT',
   },
 }
-import Script from 'next/script'
 
-// ... nel return del layout, subito dopo <html> o dentro <head>:
-
-<Script
-  src="https://www.googletagmanager.com/gtag/js?id=G-581C4X09C7"
-  strategy="afterInteractive"
-/>
-<Script id="google-analytics" strategy="afterInteractive">
-  {`
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-581C4X09C7');
-  `}
-</Script>
 export default function RootLayout({
   children,
 }: {
@@ -44,6 +30,18 @@ export default function RootLayout({
   return (
     <html lang="it">
       <body className="antialiased">
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-581C4X09C7"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-581C4X09C7');
+          `}
+        </Script>
         <AuthProvider>
           <OnboardingProvider>
             {children}
