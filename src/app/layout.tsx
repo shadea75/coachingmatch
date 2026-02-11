@@ -20,7 +20,22 @@ export const metadata: Metadata = {
     locale: 'it_IT',
   },
 }
+import Script from 'next/script'
 
+// ... nel return del layout, subito dopo <html> o dentro <head>:
+
+<Script
+  src="https://www.googletagmanager.com/gtag/js?id=G-581C4X09C7"
+  strategy="afterInteractive"
+/>
+<Script id="google-analytics" strategy="afterInteractive">
+  {`
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-581C4X09C7');
+  `}
+</Script>
 export default function RootLayout({
   children,
 }: {
