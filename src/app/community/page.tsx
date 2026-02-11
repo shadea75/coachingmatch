@@ -45,7 +45,9 @@ import {
   increment,
   addDoc,
   serverTimestamp,
-  deleteDoc
+  deleteDoc,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore'
 import { getCoachLeaderboard } from '@/lib/coachPoints'
 
@@ -101,6 +103,19 @@ export default function CommunityPage() {
           }
         })
         setPosts(loadedPosts)
+        
+        // Ripristina like e save dell'utente corrente
+        if (user?.id) {
+          const liked = new Set<string>()
+          const saved = new Set<string>()
+          snapshot.docs.forEach(d => {
+            const data = d.data()
+            if (data.likedBy?.includes(user.id)) liked.add(d.id)
+            if (data.savedBy?.includes(user.id)) saved.add(d.id)
+          })
+          setLikedPosts(liked)
+          setSavedPosts(saved)
+        }
       } catch (err) {
         console.error('Errore caricamento post:', err)
         setPosts([])
@@ -148,30 +163,70 @@ export default function CommunityPage() {
     return config.allowedRoles.includes(userRole as any)
   }
 
-  // Toggle like
+  // Toggle like - salva su Firestore
   const handleLike = async (postId: string) => {
+    if (!user?.id) return
     const newLiked = new Set(likedPosts)
-    if (newLiked.has(postId)) {
-      newLiked.delete(postId)
-      setPosts(posts.map(p => p.id === postId ? { ...p, likeCount: p.likeCount - 1 } : p))
-    } else {
+    const isLiking = !newLiked.has(postId)
+    
+    if (isLiking) {
       newLiked.add(postId)
       setPosts(posts.map(p => p.id === postId ? { ...p, likeCount: p.likeCount + 1 } : p))
+    } else {
+      newLiked.delete(postId)
+      setPosts(posts.map(p => p.id === postId ? { ...p, likeCount: p.likeCount - 1 } : p))
     }
     setLikedPosts(newLiked)
+    
+    try {
+      const postRef = doc(db, 'communityPosts', postId)
+      if (isLiking) {
+        await updateDoc(postRef, {
+          likeCount: increment(1),
+          likedBy: arrayUnion(user.id)
+        })
+      } else {
+        await updateDoc(postRef, {
+          likeCount: increment(-1),
+          likedBy: arrayRemove(user.id)
+        })
+      }
+    } catch (err) {
+      console.error('Errore like:', err)
+    }
   }
 
-  // Toggle save
+  // Toggle save - salva su Firestore
   const handleSave = async (postId: string) => {
+    if (!user?.id) return
     const newSaved = new Set(savedPosts)
-    if (newSaved.has(postId)) {
-      newSaved.delete(postId)
-      setPosts(posts.map(p => p.id === postId ? { ...p, saveCount: p.saveCount - 1 } : p))
-    } else {
+    const isSaving = !newSaved.has(postId)
+    
+    if (isSaving) {
       newSaved.add(postId)
       setPosts(posts.map(p => p.id === postId ? { ...p, saveCount: p.saveCount + 1 } : p))
+    } else {
+      newSaved.delete(postId)
+      setPosts(posts.map(p => p.id === postId ? { ...p, saveCount: p.saveCount - 1 } : p))
     }
     setSavedPosts(newSaved)
+    
+    try {
+      const postRef = doc(db, 'communityPosts', postId)
+      if (isSaving) {
+        await updateDoc(postRef, {
+          saveCount: increment(1),
+          savedBy: arrayUnion(user.id)
+        })
+      } else {
+        await updateDoc(postRef, {
+          saveCount: increment(-1),
+          savedBy: arrayRemove(user.id)
+        })
+      }
+    } catch (err) {
+      console.error('Errore save:', err)
+    }
   }
 
   // Elimina post (solo admin)
