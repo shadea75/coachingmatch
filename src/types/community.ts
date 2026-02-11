@@ -3,7 +3,7 @@
 // =====================
 
 // Sezioni della community
-export type CommunitySection = 'coach-corner' | 'coachee-corner' | 'news'
+export type CommunitySection = 'coach-corner' | 'coachee-corner' | 'coach-lounge' | 'news'
 
 // Post
 export interface CommunityPost {
@@ -183,7 +183,7 @@ export function getLevelProgress(points: number): { current: CoachLevel; next: C
 }
 
 // Sezioni config
-export const SECTIONS_CONFIG: Record<CommunitySection, { label: string; description: string; icon: string; color: string; allowedRoles: ('coach' | 'coachee' | 'admin')[] }> = {
+export const SECTIONS_CONFIG: Record<CommunitySection, { label: string; description: string; icon: string; color: string; allowedRoles: ('coach' | 'coachee' | 'admin')[]; visibleTo?: ('coach' | 'coachee' | 'admin')[] }> = {
   'coach-corner': {
     label: 'Coach Corner',
     description: 'Contenuti formativi e tips dai nostri coach',
@@ -197,6 +197,14 @@ export const SECTIONS_CONFIG: Record<CommunitySection, { label: string; descript
     icon: '💬',
     color: '#3B82F6',
     allowedRoles: ['coachee', 'admin']
+  },
+  'coach-lounge': {
+    label: 'Coach Lounge',
+    description: 'Spazio riservato: confronto tra coach',
+    icon: '🤝',
+    color: '#8B5CF6',
+    allowedRoles: ['coach', 'admin'],
+    visibleTo: ['coach', 'admin']
   },
   'news': {
     label: 'News & Annunci',
