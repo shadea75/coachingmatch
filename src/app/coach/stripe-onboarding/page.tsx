@@ -317,6 +317,23 @@ export default function StripeOnboardingPage() {
                 </ul>
               </div>
             </div>
+            
+            {/* Opzione salta */}
+            <div className="bg-gray-50 rounded-2xl p-6 text-center">
+              <p className="text-gray-600 text-sm mb-2">
+                <strong>Non hai la Partita IVA?</strong> Nessun problema!
+              </p>
+              <p className="text-gray-500 text-sm mb-4">
+                Puoi ricevere i pagamenti tramite bonifico manuale da parte di CoachaMi. 
+                Potrai configurare Stripe in qualsiasi momento dalle impostazioni.
+              </p>
+              <Link
+                href="/coach/dashboard"
+                className="text-primary-500 hover:text-primary-600 text-sm font-medium hover:underline"
+              >
+                Salta per ora e vai alla dashboard →
+              </Link>
+            </div>
           </motion.div>
         )}
       </main>
