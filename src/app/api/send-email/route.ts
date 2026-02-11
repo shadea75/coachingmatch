@@ -967,6 +967,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, customerEmailResult, coachEmailResult })
     }
 
+    // =====================================================
+    // EMAIL NUOVO MESSAGGIO CHAT
+    // =====================================================
+    if (type === 'new_message') {
+      const emailResult = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: data.recipientEmail,
+        subject: `💬 Nuovo messaggio da ${data.senderName} - CoachaMi`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr><td>${logoHeader}
+                <table width="100%" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                  <tr><td style="padding: 30px;">
+                    <h2 style="margin: 0 0 20px 0;">Ciao ${data.recipientName}! 💬</h2>
+                    <p>Hai ricevuto un nuovo messaggio da <strong>${data.senderName}</strong> su CoachaMi.</p>
+                    
+                    <div style="background: #f9f9f9; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #EC7711;">
+                      <p style="margin: 0; color: #555; font-style: italic;">"${data.messagePreview}${data.messagePreview.length >= 100 ? '...' : ''}"</p>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                      <a href="${data.conversationUrl}" 
+                         style="background: #EC7711; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">
+                        Rispondi al messaggio
+                      </a>
+                    </div>
+                    
+                    <p style="color: #888; font-size: 14px; text-align: center;">
+                      Puoi rispondere direttamente dalla piattaforma CoachaMi.
+                    </p>
+                  </td></tr>
+                </table>
+                ${footer}
+              </td></tr>
+            </table>
+          </body></html>`
+      })
+
+      console.log('✅ Email nuovo messaggio inviata')
+      return NextResponse.json({ success: true, emailResult })
+    }
+
     return NextResponse.json({ error: 'Tipo email non supportato' }, { status: 400 })
 
   } catch (error: any) {

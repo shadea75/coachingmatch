@@ -241,11 +241,11 @@ export default function CoachPublicProfilePage() {
           </div>
           
           <Link
-            href={user ? `/booking/${coach.id}` : '/login'}
+            href={user ? `/messages?coachId=${coach.id}&coachName=${encodeURIComponent(coach.name)}` : '/login'}
             className="btn btn-primary"
           >
-            <Calendar size={18} />
-            Prenota Call Gratuita
+            <MessageCircle size={18} />
+            Contatta
           </Link>
         </div>
       </header>
@@ -349,14 +349,14 @@ export default function CoachPublicProfilePage() {
                 {/* CTA Mobile */}
                 <div className="mt-6 space-y-3">
                   <Link
-                    href={user ? `/booking/${coach.id}` : '/login'}
+                    href={user ? `/messages?coachId=${coach.id}&coachName=${encodeURIComponent(coach.name)}` : '/login'}
                     className="w-full btn btn-primary justify-center"
                   >
-                    <Sparkles size={18} />
-                    Prenota Call Gratuita
+                    <MessageCircle size={18} />
+                    Contatta il Coach
                   </Link>
                   <p className="text-xs text-center text-gray-400">
-                    Prima call di 30 minuti gratuita
+                    Scrivi un messaggio per conoscerci
                   </p>
                 </div>
               </div>
@@ -590,14 +590,14 @@ export default function CoachPublicProfilePage() {
             >
               <h3 className="text-2xl font-bold mb-3">Inizia il tuo percorso con {coach.name.split(' ')[0]}</h3>
               <p className="text-white/80 mb-6">
-                Prenota una call gratuita di 30 minuti per conoscerci e capire se possiamo lavorare insieme
+                Scrivimi per raccontarmi i tuoi obiettivi e capire se possiamo lavorare insieme
               </p>
               <Link
-                href={user ? `/booking/${coach.id}` : '/login'}
+                href={user ? `/messages?coachId=${coach.id}&coachName=${encodeURIComponent(coach.name)}` : '/login'}
                 className="inline-flex items-center gap-2 bg-white text-primary-600 font-semibold px-8 py-4 rounded-xl hover:bg-gray-50 transition-colors"
               >
-                <Calendar size={20} />
-                Richiedi informazioni
+                <MessageCircle size={20} />
+                Scrivimi un messaggio
               </Link>
             </motion.div>
           </div>
