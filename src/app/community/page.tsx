@@ -123,6 +123,10 @@ export default function CommunityPage() {
 
   // Filtra posts per sezione
   const filteredPosts = posts.filter(post => {
+    // Nascondi post coach-lounge ai coachee
+    const sectionConfig = SECTIONS_CONFIG[post.section]
+    if (sectionConfig?.visibleTo && !sectionConfig.visibleTo.includes(userRole as any)) return false
+    
     if (activeSection !== 'all' && post.section !== activeSection) return false
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
@@ -268,7 +272,9 @@ export default function CommunityPage() {
                   <span className="font-medium">Tutti i post</span>
                 </button>
                 
-                {Object.entries(SECTIONS_CONFIG).map(([key, config]) => (
+                {Object.entries(SECTIONS_CONFIG)
+                  .filter(([_, config]) => !config.visibleTo || config.visibleTo.includes(userRole as any))
+                  .map(([key, config]) => (
                   <button
                     key={key}
                     onClick={() => setActiveSection(key as CommunitySection)}
