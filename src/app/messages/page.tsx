@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Send,
   MessageCircle,
+  MessageCircle as MessageCircleIcon,
   User,
   Search,
   Loader2,
@@ -15,7 +16,11 @@ import {
   X,
   Clock,
   Check,
-  CheckCheck
+  CheckCheck,
+  BarChart3,
+  FileText,
+  Calendar,
+  Settings
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -452,37 +457,96 @@ function MessagesContent() {
   })
 
   return (
-    <div className="h-screen flex flex-col bg-cream">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 flex-shrink-0">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            {/* Mobile: torna a lista o dashboard */}
-            {selectedConversation && !showConversationList ? (
-              <button
-                onClick={() => {
-                  setShowConversationList(true)
-                  setSelectedConversation(null)
-                }}
-                className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
-              >
-                <ArrowLeft size={20} />
-              </button>
-            ) : (
-              <Link href={backUrl} className="p-2 hover:bg-gray-100 rounded-lg">
-                <ArrowLeft size={20} />
-              </Link>
-            )}
-            <Logo size="sm" />
-            <h1 className="text-lg font-semibold text-charcoal hidden sm:block">Messaggi</h1>
+    <div className="min-h-screen bg-cream flex">
+      {/* Desktop Sidebar - Coachee */}
+      <aside className="fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-gray-100 p-6 hidden lg:flex flex-col z-10">
+        <Link href="/" className="block mb-8">
+          <Logo size="md" />
+        </Link>
+        
+        <div className="mb-6">
+          <p className="text-sm text-gray-500">Ciao,</p>
+          <p className="font-semibold text-charcoal">{user?.name}</p>
+        </div>
+        
+        <nav className="space-y-2 flex-1">
+          <Link
+            href="/dashboard"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <BarChart3 size={20} />
+            <span className="font-medium">Panoramica</span>
+          </Link>
+          <Link
+            href="/offers"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <FileText size={20} />
+            <span className="font-medium">Offerte</span>
+          </Link>
+          <Link
+            href="/messages"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary-50 text-primary-600 transition-colors"
+          >
+            <MessageCircleIcon size={20} />
+            <span className="font-medium">Messaggi</span>
             {totalUnread > 0 && (
-              <span className="bg-primary-500 text-white text-xs px-2 py-0.5 rounded-full">
+              <span className="ml-auto bg-primary-500 text-white text-xs px-2 py-0.5 rounded-full">
                 {totalUnread}
               </span>
             )}
-          </div>
+          </Link>
+          <Link
+            href="/sessions"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <Calendar size={20} />
+            <span className="font-medium">Sessioni</span>
+          </Link>
+        </nav>
+        
+        <div className="border-t border-gray-100 pt-4 space-y-2">
+          <Link
+            href="/settings"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <Settings size={20} />
+            <span className="font-medium">Impostazioni</span>
+          </Link>
         </div>
-      </header>
+      </aside>
+
+      {/* Main Content */}
+      <div className="flex-1 lg:ml-64 h-screen flex flex-col">
+        {/* Mobile Header */}
+        <header className="bg-white border-b border-gray-100 flex-shrink-0 lg:hidden">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-3">
+              {selectedConversation && !showConversationList ? (
+                <button
+                  onClick={() => {
+                    setShowConversationList(true)
+                    setSelectedConversation(null)
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+              ) : (
+                <Link href={backUrl} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <ArrowLeft size={20} />
+                </Link>
+              )}
+              <Logo size="sm" />
+              <h1 className="text-lg font-semibold text-charcoal">Messaggi</h1>
+              {totalUnread > 0 && (
+                <span className="bg-primary-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {totalUnread}
+                </span>
+              )}
+            </div>
+          </div>
+        </header>
 
       {/* Content */}
       <div className="flex-1 flex overflow-hidden">
@@ -706,6 +770,7 @@ function MessagesContent() {
               </div>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>
