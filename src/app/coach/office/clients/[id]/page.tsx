@@ -536,7 +536,6 @@ export default function ClientDetailPage() {
                       <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
                         <p className="text-sm text-blue-700">
                           <strong>Cliente:</strong> {client.name}<br />
-                          <strong>Email:</strong> {client.email}<br />
                           <span className="text-xs text-blue-500 mt-2 block">
                             I dati personali del cliente CoachaMi non possono essere modificati.
                             Puoi aggiungere solo i dati fiscali necessari per il contratto.
@@ -681,7 +680,9 @@ export default function ClientDetailPage() {
                       </div>
                       <div>
                         <h3 className="text-lg font-semibold text-charcoal">{client.name}</h3>
-                        <p className="text-gray-500">{client.email}</p>
+                        {client.source === 'external' && (
+                          <p className="text-gray-500">{client.email}</p>
+                        )}
                       </div>
                     </div>
                     

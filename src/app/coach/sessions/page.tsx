@@ -651,7 +651,9 @@ export default function CoachSessionsPage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-500">{session.coacheeEmail}</p>
+                        {session.source === 'external' && (
+                          <p className="text-sm text-gray-500">{session.coacheeEmail}</p>
+                        )}
                         {session.offerTitle && (
                           <p className="text-sm text-primary-500 mt-1">{session.offerTitle}</p>
                         )}
