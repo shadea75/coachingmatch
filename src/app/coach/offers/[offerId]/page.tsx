@@ -261,22 +261,18 @@ export default function CoachOfferDetailPage() {
             </div>
             <div>
               <p className="font-semibold text-charcoal">{offer.coacheeName}</p>
-              <p className="text-sm text-gray-500 flex items-center gap-1">
-                <Mail size={14} />
-                {offer.coacheeEmail}
-              </p>
             </div>
           </div>
           
           {/* Azioni contatto */}
           <div className="mt-4 pt-4 border-t border-gray-100 flex gap-3">
-            <a 
-              href={`mailto:${offer.coacheeEmail}`}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors"
+            <Link 
+              href={`/coach/messages?coachId=${offer.coacheeId}&coachName=${encodeURIComponent(offer.coacheeName)}`}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary-50 text-primary-600 rounded-xl hover:bg-primary-100 transition-colors"
             >
-              <Mail size={18} />
-              Invia email
-            </a>
+              <MessageCircle size={18} />
+              Scrivi in chat
+            </Link>
           </div>
         </motion.div>
         

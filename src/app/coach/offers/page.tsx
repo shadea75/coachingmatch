@@ -332,7 +332,7 @@ export default function CoachOffersPage() {
                       </div>
                       
                       <p className="text-sm text-gray-500 mt-1">
-                        {offer.coacheeName} • {offer.coacheeEmail}
+                        {offer.coacheeName}
                       </p>
                       
                       <div className="flex items-center gap-4 mt-3 text-sm">
