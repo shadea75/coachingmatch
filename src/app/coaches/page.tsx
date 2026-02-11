@@ -426,15 +426,6 @@ function CoachesContent() {
                               <MatchBadge result={result} />
                             </div>
                             
-                            {/* Free Call Badge */}
-                            {coach.freeCallAvailable && (
-                              <div className="absolute top-3 right-3">
-                                <span className="px-2 py-1 bg-green-500 text-white rounded-full text-xs font-semibold shadow-sm">
-                                  Call Gratuita
-                                </span>
-                              </div>
-                            )}
-                            
                             {/* Badge Illustrazioni Aree in basso a destra */}
                             {coach.lifeAreas && coach.lifeAreas.length > 0 && (
                               <div className="absolute bottom-3 right-3 flex gap-1">
