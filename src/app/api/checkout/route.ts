@@ -1,5 +1,5 @@
 // src/app/api/checkout/route.ts
-// MODELLO B: Stripe Connect - Split automatico 70% coach / 30% CoachaMi
+// Stripe Connect opzionale: split automatico se coach ha Stripe, altrimenti incasso diretto CoachaMi
 
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
@@ -43,33 +43,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Rata già pagata' }, { status: 400 })
     }
     
-    // Recupera account Stripe Connect del coach
-    const coachStripeDoc = await adminDb.collection('coachStripeAccounts').doc(offer.coachId).get()
-    
-    if (!coachStripeDoc.exists) {
-      return NextResponse.json({ 
-        error: 'Il coach non ha ancora configurato i pagamenti. Contatta il coach.',
-        code: 'COACH_STRIPE_NOT_CONFIGURED'
-      }, { status: 400 })
-    }
-    
-    const coachStripeData = coachStripeDoc.data() as any
-    
-    if (!coachStripeData.chargesEnabled) {
-      return NextResponse.json({ 
-        error: 'L\'account pagamenti del coach è in attesa di verifica. Riprova più tardi.',
-        code: 'COACH_STRIPE_PENDING'
-      }, { status: 400 })
-    }
-    
-    const coachStripeAccountId = coachStripeData.stripeAccountId
-    
-    // Calcola la fee della piattaforma (30% in centesimi)
     const amountInCents = Math.round(installment.amount * 100)
-    const platformFeeInCents = Math.round(amountInCents * (PLATFORM_FEE_PERCENT / 100))
     
-    // Crea sessione checkout con split automatico
-    const session = await stripe.checkout.sessions.create({
+    // Verifica se il coach ha Stripe Connect configurato
+    let coachHasStripe = false
+    let coachStripeAccountId = ''
+    
+    try {
+      const coachStripeDoc = await adminDb.collection('coachStripeAccounts').doc(offer.coachId).get()
+      
+      if (coachStripeDoc.exists) {
+        const coachStripeData = coachStripeDoc.data() as any
+        if (coachStripeData.chargesEnabled && coachStripeData.stripeAccountId) {
+          coachHasStripe = true
+          coachStripeAccountId = coachStripeData.stripeAccountId
+        }
+      }
+    } catch (e) {
+      console.log('Coach senza Stripe Connect, pagamento diretto a piattaforma')
+    }
+    
+    const coachPayoutAmount = Math.round(installment.amount * (100 - PLATFORM_FEE_PERCENT)) / 100
+    
+    // Prepara sessione checkout
+    const sessionConfig: any = {
       mode: 'payment',
       payment_method_types: ['card'],
       line_items: [{
@@ -83,9 +80,27 @@ export async function POST(request: NextRequest) {
         },
         quantity: 1,
       }],
+      metadata: {
+        type: 'coaching_session',
+        offerId,
+        installmentNumber: String(installmentNumber),
+        coachId: offer.coachId,
+        coacheeId: offer.coacheeId,
+        coachName: offer.coachName,
+        coachEmail: offer.coachEmail,
+        paymentMode: coachHasStripe ? 'stripe_connect' : 'platform_direct',
+      },
+      customer_email: offer.coacheeEmail,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/pay/success?session_id={CHECKOUT_SESSION_ID}&offerId=${offerId}&installment=${installmentNumber}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pay/cancel?offerId=${offerId}`,
+      expires_at: Math.floor(Date.now() / 1000) + 1800,
+    }
+    
+    if (coachHasStripe) {
+      // STRIPE CONNECT: Split automatico 70% coach / 30% piattaforma
+      const platformFeeInCents = Math.round(amountInCents * (PLATFORM_FEE_PERCENT / 100))
       
-      // STRIPE CONNECT: Split automatico
-      payment_intent_data: {
+      sessionConfig.payment_intent_data = {
         application_fee_amount: platformFeeInCents,
         transfer_data: {
           destination: coachStripeAccountId,
@@ -95,26 +110,43 @@ export async function POST(request: NextRequest) {
           installmentNumber: String(installmentNumber),
           coachId: offer.coachId,
           coacheeId: offer.coacheeId,
+          paymentMode: 'stripe_connect',
         }
-      },
+      }
+      sessionConfig.metadata.coachStripeAccountId = coachStripeAccountId
       
-      metadata: {
-        type: 'coaching_session',
-        offerId,
-        installmentNumber: String(installmentNumber),
-        coachId: offer.coachId,
-        coacheeId: offer.coacheeId,
-        coachName: offer.coachName,
-        coachEmail: offer.coachEmail,
-        coachStripeAccountId,
-      },
+      console.log(`💳 Checkout con Stripe Connect: ${installment.amount}€ (30% fee a piattaforma)`)
+    } else {
+      // PAGAMENTO DIRETTO: Tutto a CoachaMi, il coach verrà pagato manualmente
+      sessionConfig.payment_intent_data = {
+        metadata: {
+          offerId,
+          installmentNumber: String(installmentNumber),
+          coachId: offer.coachId,
+          coacheeId: offer.coacheeId,
+          paymentMode: 'platform_direct',
+          coachPayoutPending: 'true',
+          coachPayoutAmount: String(coachPayoutAmount),
+        }
+      }
       
-      customer_email: offer.coacheeEmail,
-      
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/pay/success?session_id={CHECKOUT_SESSION_ID}&offerId=${offerId}&installment=${installmentNumber}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pay/cancel?offerId=${offerId}`,
-      
-      expires_at: Math.floor(Date.now() / 1000) + 1800,
+      console.log(`💳 Checkout diretto piattaforma: ${installment.amount}€ (coach payout manuale: ${coachPayoutAmount}€)`)
+    }
+    
+    const session = await stripe.checkout.sessions.create(sessionConfig)
+    
+    // Salva info pagamento nell'offerta per tracciamento admin
+    const installments = [...(offer.installments || [])]
+    installments[installmentNumber - 1] = {
+      ...installments[installmentNumber - 1],
+      paymentMode: coachHasStripe ? 'stripe_connect' : 'platform_direct',
+      coachPayoutAmount,
+      coachPayoutStatus: coachHasStripe ? 'automatic' : 'pending_manual',
+    }
+    
+    await adminDb.collection('offers').doc(offerId).update({
+      installments,
+      updatedAt: new Date()
     })
     
     return NextResponse.json({ 
