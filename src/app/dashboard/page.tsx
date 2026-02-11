@@ -268,7 +268,7 @@ export default function DashboardPage() {
         }`}
       >
         <Calendar size={20} />
-        <span className="font-medium">Le mie call</span>
+        <span className="font-medium">Le mie sessioni</span>
       </button>
       
       {/* NUOVO: Link Offerte */}
@@ -313,9 +313,6 @@ export default function DashboardPage() {
       >
         <Users size={20} />
         <span className="font-medium">Community</span>
-        {user?.membershipStatus !== 'active' && (
-          <Crown size={16} className="text-amber-500 ml-auto" />
-        )}
       </button>
       
       {/* Admin Panel - solo per admin/moderatori */}
@@ -470,9 +467,9 @@ export default function DashboardPage() {
                 ) : (
                   <div className="text-center py-4">
                     <Calendar className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-                    <p className="text-gray-500 mb-4">Nessuna call in programma</p>
-                    <Link href="/matching" className="btn btn-primary text-sm">
-                      Trova un coach
+                    <p className="text-gray-500 mb-4">Nessuna sessione in programma</p>
+                    <Link href="/coaches" className="btn btn-primary text-sm">
+                      Contatta un coach
                     </Link>
                   </div>
                 )}
@@ -534,11 +531,11 @@ export default function DashboardPage() {
             className="space-y-6"
           >
             <h1 className="text-2xl font-display font-bold text-charcoal">
-              Le mie call
+              Le mie sessioni
             </h1>
             
             <div className="bg-white rounded-2xl p-6">
-              <h2 className="font-semibold text-charcoal mb-4">Prossime call</h2>
+              <h2 className="font-semibold text-charcoal mb-4">Prossime sessioni</h2>
               
               {isLoadingCalls ? (
                 <div className="text-center py-8">
@@ -644,10 +641,10 @@ export default function DashboardPage() {
                 <div className="text-center py-8">
                   <Calendar size={48} className="mx-auto text-gray-300 mb-4" />
                   <p className="text-gray-500 mb-4">
-                    Nessuna call in programma
+                    Nessuna sessione in programma
                   </p>
-                  <Link href="/matching" className="btn btn-primary">
-                    Prenota una call
+                  <Link href="/coaches" className="btn btn-primary">
+                    Contatta un coach
                   </Link>
                 </div>
               )}
@@ -666,99 +663,21 @@ export default function DashboardPage() {
               Community
             </h1>
             
-            {canAccessCommunity ? (
-              <div className="space-y-4">
-                {/* Banner periodo gratuito */}
-                {isInFreeTrial() && user?.membershipStatus !== 'active' && (
-                  <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl p-4 text-white flex items-center gap-3">
-                    <Gift size={24} />
-                    <div className="flex-1">
-                      <p className="font-semibold">Periodo di prova gratuito!</p>
-                      <p className="text-sm text-green-100">
-                        Ti restano {daysLeftInTrial()} giorni di accesso gratuito alla community
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="bg-white rounded-2xl p-6">
-                  <h2 className="font-semibold text-charcoal mb-4">Accedi alla Community</h2>
-                  <p className="text-gray-500 mb-6">
-                    Interagisci con coach e altri coachee, scopri contenuti esclusivi e partecipa agli eventi.
-                  </p>
-                  <Link 
-                    href="/community"
-                    className="btn bg-primary-500 text-white hover:bg-primary-600 w-full justify-center"
-                  >
-                    <Users size={20} />
-                    Entra nella Community
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl p-8 text-center max-w-lg mx-auto">
-                <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
-                  <Crown className="w-8 h-8 text-amber-500" />
-                </div>
-                <h2 className="text-xl font-display font-bold text-charcoal mb-2">
-                  Unisciti alla Community
-                </h2>
+            <div className="space-y-4">
+              <div className="bg-white rounded-2xl p-6">
+                <h2 className="font-semibold text-charcoal mb-4">Accedi alla Community</h2>
                 <p className="text-gray-500 mb-6">
-                  Accedi a contenuti esclusivi, eventi con i coach, 
-                  e connettiti con altri membri del percorso.
+                  Interagisci con coach e altri coachee, scopri contenuti esclusivi e partecipa agli eventi.
                 </p>
-                
-                <div className="bg-cream rounded-xl p-4 mb-6 text-left">
-                  <p className="font-medium text-charcoal mb-2">Cosa include:</p>
-                  <ul className="space-y-2 text-sm text-gray-600">
-                    <li className="flex items-center gap-2">
-                      <span className="text-green-500">✓</span>
-                      Canali per area della vita
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-green-500">✓</span>
-                      Domande guidate settimanali
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-green-500">✓</span>
-                      Eventi online con coach
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-green-500">✓</span>
-                      Priorità nel matching
-                    </li>
-                  </ul>
-                </div>
-                
-                <button 
-                  onClick={async () => {
-                    try {
-                      const res = await fetch('/api/community-subscription', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          userId: user?.id,
-                          userEmail: user?.email,
-                          userName: user?.name || user?.email?.split('@')[0]
-                        })
-                      })
-                      const data = await res.json()
-                      if (data.url) {
-                        window.location.href = data.url
-                      }
-                    } catch (err) {
-                      console.error('Errore abbonamento:', err)
-                    }
-                  }}
-                  className="btn btn-primary w-full"
+                <Link 
+                  href="/community"
+                  className="btn bg-primary-500 text-white hover:bg-primary-600 w-full justify-center"
                 >
-                  Abbonati a €29/mese
-                </button>
-                <p className="text-xs text-gray-400 mt-2">
-                  Il periodo di prova gratuito è terminato
-                </p>
+                  <Users size={20} />
+                  Entra nella Community
+                </Link>
               </div>
-            )}
+            </div>
           </motion.div>
         )}
       </main>
