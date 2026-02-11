@@ -39,7 +39,9 @@ import {
   updateDoc,
   increment,
   serverTimestamp,
-  deleteDoc
+  deleteDoc,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore'
 import { addPoints } from '@/lib/coachPoints'
 
@@ -177,16 +179,92 @@ export default function PostPage() {
   const { user } = useAuth()
   const postId = params.id as string
 
-  const [post, setPost] = useState<CommunityPost | null>(MOCK_POST)
-  const [comments, setComments] = useState<CommunityComment[]>(MOCK_COMMENTS)
+  const [post, setPost] = useState<CommunityPost | null>(null)
+  const [comments, setComments] = useState<CommunityComment[]>([])
   const [newComment, setNewComment] = useState('')
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [isLiked, setIsLiked] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set())
+  const [isLoading, setIsLoading] = useState(true)
 
   const userRole = user?.role || 'coachee'
+
+  // Carica post e commenti da Firestore
+  useEffect(() => {
+    const loadPost = async () => {
+      if (!postId) return
+      setIsLoading(true)
+      try {
+        const postDoc = await getDoc(doc(db, 'communityPosts', postId))
+        if (postDoc.exists()) {
+          const data = postDoc.data()
+          setPost({
+            id: postDoc.id,
+            authorId: data.authorId || '',
+            authorName: data.authorName || 'Utente',
+            authorPhoto: data.authorPhoto || null,
+            authorRole: data.authorRole || 'coachee',
+            section: data.section || 'coach-corner',
+            title: data.title || '',
+            content: data.content || '',
+            tags: data.tags || [],
+            likeCount: data.likeCount || 0,
+            commentCount: data.commentCount || 0,
+            saveCount: data.saveCount || 0,
+            createdAt: data.createdAt?.toDate?.() || new Date(),
+            updatedAt: data.updatedAt?.toDate?.() || new Date(),
+            isPinned: data.isPinned || false,
+            isHighlighted: data.isHighlighted || false
+          })
+          // Controlla se l'utente ha messo like o salvato
+          if (user?.id) {
+            setIsLiked(data.likedBy?.includes(user.id) || false)
+            setIsSaved(data.savedBy?.includes(user.id) || false)
+          }
+        }
+
+        // Carica commenti
+        const commentsQuery = query(
+          collection(db, 'communityComments'),
+          where('postId', '==', postId),
+          orderBy('createdAt', 'asc')
+        )
+        const commentsSnap = await getDocs(commentsQuery)
+        const loadedComments: CommunityComment[] = commentsSnap.docs.map(d => {
+          const data = d.data()
+          return {
+            id: d.id,
+            postId: data.postId,
+            authorId: data.authorId || '',
+            authorName: data.authorName || 'Utente',
+            authorPhoto: data.authorPhoto || null,
+            authorRole: data.authorRole || 'coachee',
+            content: data.content || '',
+            likeCount: data.likeCount || 0,
+            createdAt: data.createdAt?.toDate?.() || new Date(),
+            updatedAt: data.updatedAt?.toDate?.() || new Date(),
+            parentCommentId: data.parentCommentId || undefined
+          }
+        })
+        setComments(loadedComments)
+        
+        // Controlla like commenti
+        if (user?.id) {
+          const liked = new Set<string>()
+          commentsSnap.docs.forEach(d => {
+            if (d.data().likedBy?.includes(user.id)) liked.add(d.id)
+          })
+          setLikedComments(liked)
+        }
+      } catch (err) {
+        console.error('Errore caricamento post:', err)
+      }
+      setIsLoading(false)
+    }
+    loadPost()
+  }, [postId, user?.id])
 
   // Formatta data
   const formatDate = (date: Date) => {
@@ -214,74 +292,123 @@ export default function PostPage() {
       .replace(/\n/g, '<br />')
   }
 
-  // Toggle like post
-  const handleLikePost = () => {
-    if (!post) return
-    setIsLiked(!isLiked)
+  // Toggle like post - salva su Firestore
+  const handleLikePost = async () => {
+    if (!post || !user?.id) return
+    const newIsLiked = !isLiked
+    setIsLiked(newIsLiked)
     setPost({
       ...post,
-      likeCount: isLiked ? post.likeCount - 1 : post.likeCount + 1
+      likeCount: newIsLiked ? post.likeCount + 1 : post.likeCount - 1
     })
+    try {
+      const postRef = doc(db, 'communityPosts', post.id)
+      if (newIsLiked) {
+        await updateDoc(postRef, { likeCount: increment(1), likedBy: arrayUnion(user.id) })
+      } else {
+        await updateDoc(postRef, { likeCount: increment(-1), likedBy: arrayRemove(user.id) })
+      }
+    } catch (err) {
+      console.error('Errore like post:', err)
+    }
   }
 
-  // Toggle save post
-  const handleSavePost = () => {
-    if (!post) return
-    setIsSaved(!isSaved)
+  // Toggle save post - salva su Firestore
+  const handleSavePost = async () => {
+    if (!post || !user?.id) return
+    const newIsSaved = !isSaved
+    setIsSaved(newIsSaved)
     setPost({
       ...post,
-      saveCount: isSaved ? post.saveCount - 1 : post.saveCount + 1
+      saveCount: newIsSaved ? post.saveCount + 1 : post.saveCount - 1
     })
+    try {
+      const postRef = doc(db, 'communityPosts', post.id)
+      if (newIsSaved) {
+        await updateDoc(postRef, { saveCount: increment(1), savedBy: arrayUnion(user.id) })
+      } else {
+        await updateDoc(postRef, { saveCount: increment(-1), savedBy: arrayRemove(user.id) })
+      }
+    } catch (err) {
+      console.error('Errore save post:', err)
+    }
   }
 
-  // Toggle like comment
-  const handleLikeComment = (commentId: string) => {
+  // Toggle like comment - salva su Firestore
+  const handleLikeComment = async (commentId: string) => {
+    if (!user?.id) return
     const newLiked = new Set(likedComments)
-    if (newLiked.has(commentId)) {
-      newLiked.delete(commentId)
-      setComments(comments.map(c => 
-        c.id === commentId ? { ...c, likeCount: c.likeCount - 1 } : c
-      ))
-    } else {
+    const isLiking = !newLiked.has(commentId)
+    if (isLiking) {
       newLiked.add(commentId)
-      setComments(comments.map(c => 
-        c.id === commentId ? { ...c, likeCount: c.likeCount + 1 } : c
-      ))
+      setComments(comments.map(c => c.id === commentId ? { ...c, likeCount: c.likeCount + 1 } : c))
+    } else {
+      newLiked.delete(commentId)
+      setComments(comments.map(c => c.id === commentId ? { ...c, likeCount: c.likeCount - 1 } : c))
     }
     setLikedComments(newLiked)
+    try {
+      const commentRef = doc(db, 'communityComments', commentId)
+      if (isLiking) {
+        await updateDoc(commentRef, { likeCount: increment(1), likedBy: arrayUnion(user.id) })
+      } else {
+        await updateDoc(commentRef, { likeCount: increment(-1), likedBy: arrayRemove(user.id) })
+      }
+    } catch (err) {
+      console.error('Errore like commento:', err)
+    }
   }
 
-  // Invia commento
+  // Invia commento - salva su Firestore
   const handleSubmitComment = async () => {
     if (!newComment.trim() || !user || !post) return
 
     setIsSubmitting(true)
 
-    const comment: CommunityComment = {
-      id: `c${Date.now()}`,
-      postId: post.id,
-      authorId: user.id,
-      authorName: user.name || 'Utente',
-      authorPhoto: user.photo,
-      authorRole: userRole as 'coach' | 'coachee' | 'admin',
-      content: newComment.trim(),
-      likeCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      parentCommentId: replyingTo || undefined
-    }
+    try {
+      const commentData = {
+        postId: post.id,
+        authorId: user.id,
+        authorName: user.name || 'Utente',
+        authorPhoto: user.photo || null,
+        authorRole: userRole,
+        content: newComment.trim(),
+        likeCount: 0,
+        likedBy: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        parentCommentId: replyingTo || null
+      }
 
-    setComments([...comments, comment])
-    setPost({ ...post, commentCount: post.commentCount + 1 })
-    setNewComment('')
-    setReplyingTo(null)
+      const docRef = await addDoc(collection(db, 'communityComments'), commentData)
+      
+      // Aggiorna contatore commenti nel post
+      await updateDoc(doc(db, 'communityPosts', post.id), {
+        commentCount: increment(1)
+      })
+
+      const newCommentObj: CommunityComment = {
+        id: docRef.id,
+        postId: post.id,
+        authorId: user.id,
+        authorName: user.name || 'Utente',
+        authorPhoto: user.photo,
+        authorRole: userRole as 'coach' | 'coachee' | 'admin',
+        content: newComment.trim(),
+        likeCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        parentCommentId: replyingTo || undefined
+      }
+
+      setComments([...comments, newCommentObj])
+      setPost({ ...post, commentCount: post.commentCount + 1 })
+      setNewComment('')
+      setReplyingTo(null)
+    } catch (err) {
+      console.error('Errore invio commento:', err)
+    }
     setIsSubmitting(false)
-
-    // Se l'autore del post è un coach e chi commenta è un coachee, dai punti
-    if (post.authorRole === 'coach' && userRole === 'coach' && user.id !== post.authorId) {
-      // Il coach che commenta guadagna punti
-      // In produzione: await addPoints(user.id, 'COMMENT_CREATED')
-    }
   }
 
   // Share
@@ -297,10 +424,23 @@ export default function PostPage() {
     }
   }
 
-  if (!post) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
+  if (!post) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-500 text-lg mb-4">Post non trovato</p>
+          <button onClick={() => router.back()} className="btn btn-primary">
+            Torna indietro
+          </button>
+        </div>
       </div>
     )
   }
