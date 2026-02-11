@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -79,6 +79,18 @@ function formatChatDate(date: Date): string {
 }
 
 export default function MessagesPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-screen flex items-center justify-center bg-cream">
+        <Loader2 className="animate-spin text-primary-500" size={32} />
+      </div>
+    }>
+      <MessagesContent />
+    </Suspense>
+  )
+}
+
+function MessagesContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
@@ -99,6 +111,14 @@ export default function MessagesPage() {
   const targetCoachId = searchParams.get('coachId')
   const targetCoachName = searchParams.get('coachName')
   const initialMessage = searchParams.get('message')
+
+  // Se è un coach, redirect a /coach/messages
+  useEffect(() => {
+    if (!authLoading && user?.role === 'coach') {
+      const params = searchParams.toString()
+      router.replace(`/coach/messages${params ? '?' + params : ''}`)
+    }
+  }, [user, authLoading])
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {

@@ -372,7 +372,7 @@ export default function CoachLayoutWrapper({
 
   const navItems = [
     { href: '/coach/dashboard', label: 'Dashboard', icon: BarChart3 },
-    { href: '/messages', label: 'Messaggi', icon: MessageCircle },
+    { href: '/coach/messages', label: 'Messaggi', icon: MessageCircle },
     { href: '/coach/sessions', label: 'Sessioni', icon: Video, badge: coachData.pendingSessions },
     { href: '/coach/office', label: 'Ufficio Virtuale', icon: Building2 },
     { href: '/coach/invoices', label: 'Fatturazione', icon: FileText },
