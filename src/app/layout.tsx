@@ -1,3 +1,20 @@
+import Script from 'next/script'
+
+// ... nel tuo layout, dentro <html> prima o dopo <body>:
+
+<Script
+  src="https://www.googletagmanager.com/gtag/js?id=AW-TUO_ID"
+  strategy="afterInteractive"
+/>
+<Script id="google-ads" strategy="afterInteractive">
+  {`
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'AW-6296479250');
+  `}
+</Script>
+  
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
