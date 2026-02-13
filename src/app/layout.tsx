@@ -1,20 +1,3 @@
-import Script from 'next/script'
-
-// ... nel tuo layout, dentro <html> prima o dopo <body>:
-
-<Script
-  src="https://www.googletagmanager.com/gtag/js?id=AW-TUO_ID"
-  strategy="afterInteractive"
-/>
-<Script id="google-ads" strategy="afterInteractive">
-  {`
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'AW-6296479250');
-  `}
-</Script>
-  
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
@@ -47,6 +30,7 @@ export default function RootLayout({
   return (
     <html lang="it">
       <body className="antialiased">
+        {/* Google Analytics */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-581C4X09C7"
           strategy="afterInteractive"
@@ -57,6 +41,7 @@ export default function RootLayout({
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
             gtag('config', 'G-581C4X09C7');
+            gtag('config', 'AW-6296479250');
           `}
         </Script>
         <AuthProvider>
