@@ -194,7 +194,7 @@ export default function AdminPaymentsPage() {
       try {
         const settingsDoc = await getDoc(doc(db, 'settings', 'community'))
         if (settingsDoc.exists()) {
-          trialDays = settingsDoc.data().freeTrialDays ?? 90
+          trialDays = settingsDoc.data().freeTrialDays ?? 14
           defaultCoachPrice = settingsDoc.data().coachMonthlyPrice ?? 19
         }
       } catch (e) {}
