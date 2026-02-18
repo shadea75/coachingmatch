@@ -46,6 +46,12 @@ export default function HomePage() {
               Diventa Coach
             </Link>
             <Link 
+              href="/pricing" 
+              className="text-gray-600 hover:text-charcoal transition-colors"
+            >
+              Piani Coach
+            </Link>
+            <Link 
               href="/login" 
               className="text-gray-600 hover:text-charcoal transition-colors"
             >
@@ -98,6 +104,13 @@ export default function HomePage() {
                 className="block py-2 text-gray-600 hover:text-charcoal transition-colors"
               >
                 Diventa Coach
+              </Link>
+              <Link 
+                href="/pricing" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 text-gray-600 hover:text-charcoal transition-colors"
+              >
+                Piani Coach
               </Link>
               <Link 
                 href="/login" 
