@@ -298,7 +298,7 @@ export default function AdminSettingsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Durata call gratuita (minuti)
+                  Durata sessione introduttiva (minuti)
                 </label>
                 <select
                   value={settings.freeCallDuration}

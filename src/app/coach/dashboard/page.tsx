@@ -97,6 +97,7 @@ export default function CoachDashboardPage() {
   const [coachees, setCoachees] = useState<CoacheeData[]>([])
   const [pendingSessions, setPendingSessions] = useState<any[]>([])
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [coachTier, setCoachTier] = useState<string>('starter')
   const [selectedCoachee, setSelectedCoachee] = useState<CoacheeData | null>(null)
   const [showCoacheeModal, setShowCoacheeModal] = useState(false)
   const [profileAlerts, setProfileAlerts] = useState<ProfileAlert[]>([])
@@ -304,6 +305,7 @@ export default function CoachDashboardPage() {
         const coachProfileDoc = await getDoc(doc(db, 'coachApplications', user.id))
         if (coachProfileDoc.exists()) {
           const profileData = coachProfileDoc.data()
+          setCoachTier(profileData.subscriptionTier || 'starter')
           const alerts: ProfileAlert[] = []
           
           // Verifica foto
@@ -746,7 +748,7 @@ export default function CoachDashboardPage() {
                 </div>
                 
                 <p className="text-sm text-green-700 mb-4">
-                  🎉 Questi lead dal test gratuito sono stati abbinati a te! Contattali per prenotare la call gratuita.
+                  🎉 Questi lead dal test gratuito sono stati abbinati a te! Contattali via chat per conoscervi!
                 </p>
                 
                 <div className="space-y-3">
@@ -787,7 +789,7 @@ export default function CoachDashboardPage() {
                       </div>
                       <div className="mt-3 flex gap-2">
                         <a 
-                          href={`mailto:${lead.email}?subject=Ciao ${lead.name}, sono il tuo coach su CoachaMi!&body=Ciao ${lead.name},%0D%0A%0D%0ASono stato assegnato come tuo coach su CoachaMi. Ho visto che sei interessato a migliorare nell'area ${lead.priorityArea}.%0D%0A%0D%0ATi va di prenotare una call gratuita per conoscerci?%0D%0A%0D%0AA presto!`}
+                          href={`mailto:${lead.email}?subject=Ciao ${lead.name}, sono il tuo coach su CoachaMi!&body=Ciao ${lead.name},%0D%0A%0D%0ASono stato assegnato come tuo coach su CoachaMi. Ho visto che sei interessato a migliorare nell'area ${lead.priorityArea}.%0D%0A%0D%0ATi va di chattare per conoscerci meglio?%0D%0A%0D%0AA presto!`}
                           className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
                         >
                           <Mail size={16} />
@@ -905,19 +907,35 @@ export default function CoachDashboardPage() {
             
             {/* Quick Actions */}
             <div className="grid sm:grid-cols-3 gap-4">
-              <Link
-                href="/coach/office"
-                className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"
-              >
-                <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
-                  <Building2 className="text-purple-500" size={24} />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-charcoal">Ufficio Virtuale</p>
-                  <p className="text-sm text-gray-500">Gestisci clienti esterni</p>
-                </div>
-                <ChevronRight className="text-gray-400" />
-              </Link>
+              {coachTier !== 'starter' ? (
+                <Link
+                  href="/coach/office"
+                  className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                    <Building2 className="text-purple-500" size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-charcoal">Ufficio Virtuale</p>
+                    <p className="text-sm text-gray-500">Gestisci clienti esterni</p>
+                  </div>
+                  <ChevronRight className="text-gray-400" />
+                </Link>
+              ) : (
+                <Link
+                  href="/coach/subscription"
+                  className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4 opacity-60 relative"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+                    <Building2 className="text-gray-400" size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-charcoal">Ufficio Virtuale</p>
+                    <p className="text-sm text-primary-500 font-medium">🚀 Piano Professional</p>
+                  </div>
+                  <ChevronRight className="text-gray-400" />
+                </Link>
+              )}
               
               <Link
                 href="/coach/reviews"

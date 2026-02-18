@@ -171,7 +171,7 @@ export default function BookingPage() {
       if (!user?.id) return
       
       try {
-        // Controlla se ha già usato call gratuita con questo coach
+        // Controlla se ha già usato sessione introduttiva con questo coach
         // Escludiamo le sessioni cancelled e rescheduled (non contano come "usate")
         const freeCallWithCoachQuery = query(
           collection(db, 'sessions'),
@@ -281,7 +281,7 @@ export default function BookingPage() {
         status: 'pending', // In attesa conferma coach
         type: 'free_consultation',
         meetingProvider: 'google_meet',
-        notes: 'Prima call di orientamento gratuita',
+        notes: 'Sessione introduttiva',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       })
@@ -423,7 +423,7 @@ export default function BookingPage() {
     }
     
     const eventTitle = `Call di coaching con ${coach.name}`
-    const eventDescription = `Prima call di orientamento gratuita con ${coach.name} su CoachaMi`
+    const eventDescription = `Sessione introduttiva con ${coach.name} su CoachaMi`
     
     // Link Google Calendar
     const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${formatForGoogle(startDate)}/${formatForGoogle(endDate)}&details=${encodeURIComponent(eventDescription)}&location=Videochiamata`
@@ -581,7 +581,7 @@ END:VCALENDAR`
             </button>
             <div className="flex items-center gap-2">
               <Sparkles size={20} className="text-primary-500" />
-              <span className="font-semibold text-charcoal">Prenota call gratuita</span>
+              <span className="font-semibold text-charcoal">Contatta il coach</span>
             </div>
           </div>
           <Logo size="sm" />
@@ -621,7 +621,7 @@ END:VCALENDAR`
             </div>
           </motion.div>
           
-          {/* Blocco se call gratuita già usata o limite raggiunto */}
+          {/* Blocco se sessione introduttiva già usata o limite raggiunto */}
           {(hasUsedFreeCall || totalFreeCallsUsed >= MAX_FREE_CALLS) ? (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -652,10 +652,10 @@ END:VCALENDAR`
                   {hasUsedFreeCall ? (
                     <>
                       <h2 className="text-xl font-bold text-charcoal mb-2">
-                        Hai già usato la call gratuita con questo coach
+                        Hai già avuto una sessione introduttiva con questo coach
                       </h2>
                       <p className="text-gray-500 mb-6">
-                        Puoi prenotare una call gratuita solo una volta per ogni coach.
+                        Puoi avere una sessione introduttiva solo una volta per ogni coach.
                         Per continuare il percorso, chiedi a {coach.name} un'offerta personalizzata.
                       </p>
                     </>
@@ -826,7 +826,7 @@ END:VCALENDAR`
               
               <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
                 <p className="text-green-700 text-sm font-medium">
-                  ✓ Prima call di orientamento gratuita
+                  ✓ Chat diretta con il coach
                 </p>
               </div>
               

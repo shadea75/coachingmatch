@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
     <div style="background: #1f2937; padding: 30px; text-align: center; border-radius: 0 0 20px 20px;">
       <h3 style="color: white; margin: 0 0 10px 0; font-size: 20px;">Pronto a trasformare la tua ${AREA_LABELS[priorityArea]}?</h3>
       <p style="color: #9ca3af; font-size: 14px; margin: 0 0 20px 0;">
-        I nostri coach specializzati possono aiutarti.<br>La prima call conoscitiva è gratuita.
+        I nostri coach specializzati possono aiutarti.<br>Contattali via chat per conoscervi.
       </p>
       <a href="https://www.coachami.it/coaches?area=${priorityArea}" 
          style="display: inline-block; background: #D4A574; color: white; padding: 16px 40px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px;">

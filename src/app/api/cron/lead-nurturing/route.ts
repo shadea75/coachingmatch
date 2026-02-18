@@ -96,7 +96,7 @@ function generateReminder1Email(lead: any): string {
       </div>
       
       <p style="color: #4b5563; line-height: 1.6; margin: 0 0 25px 0;">
-        La prima call conoscitiva è <strong>completamente gratuita</strong> e senza impegno. 
+        Puoi <strong>chattare direttamente</strong> con il tuo coach per conoscervi. 
         È l'occasione perfetta per capire se c'è sintonia.
       </p>
       
@@ -142,7 +142,7 @@ function generateReminder2Email(lead: any, topCoach: any): string {
       <h2 style="color: #1f2937; margin: 0 0 15px 0;">${lead.name}, hai bisogno di una mano? 🤝</h2>
       
       <p style="color: #4b5563; line-height: 1.6; margin: 0 0 20px 0;">
-        Abbiamo notato che non hai ancora prenotato una call con un coach. 
+        Abbiamo notato che non hai ancora contattato un coach. 
         Sappiamo che scegliere può essere difficile, quindi ti aiutiamo noi!
       </p>
       
@@ -253,7 +253,7 @@ function generateAutoAssignEmail(lead: any, coach: any): string {
       <div style="background: #fffbeb; padding: 20px; border-radius: 12px; margin: 20px 0;">
         <p style="color: #92400e; margin: 0; font-size: 14px;">
           <strong>🎁 Il prossimo passo</strong><br>
-          ${coach.name} ti contatterà presto per organizzare la tua prima call gratuita. 
+          ${coach.name} ti contatterà presto via chat per conoscervi meglio. 
           Oppure puoi prendere l'iniziativa tu!
         </p>
       </div>
@@ -444,7 +444,7 @@ function generateLeadReassignedEmail(lead: any, newCoach: any): string {
       </div>
       
       <p style="color: #4b5563; line-height: 1.6; margin: 0 0 20px 0;">
-        ${newCoach.name} ti contatterà presto per organizzare la tua prima call gratuita!
+        ${newCoach.name} ti contatterà presto via chat per conoscervi meglio.
       </p>
       
       <div style="text-align: center;">
