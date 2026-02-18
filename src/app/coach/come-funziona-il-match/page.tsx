@@ -128,7 +128,7 @@ export default function ComeAvvieneIlMatchPage() {
                   <li>• <strong>Location</strong> - stesso luogo per sessioni in presenza (5%)</li>
                   <li>• <strong>Prezzo</strong> nel budget del coachee (5%)</li>
                   <li>• <strong>Modalità sessione</strong> preferita disponibile (3%)</li>
-                  <li>• <strong>Call gratuita</strong> disponibile (2%)</li>
+                  <li>• <strong>Chat</strong> disponibile per primo contatto (2%)</li>
                 </ul>
               </div>
             </div>
