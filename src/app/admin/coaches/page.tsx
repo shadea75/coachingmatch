@@ -219,11 +219,34 @@ export default function AdminCoachesPage() {
   // Approva coach
   const approveCoach = async (coachId: string) => {
     try {
+      const coachData = coaches.find(c => c.id === coachId)
+      
       await updateDoc(doc(db, 'coachApplications', coachId), {
         status: 'approved',
         approvedAt: new Date(),
         trialEndDate: new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000)
       })
+      
+      // Invia email di approvazione al coach
+      if (coachData?.email) {
+        try {
+          await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'coach_approved',
+              data: {
+                name: coachData.name,
+                email: coachData.email,
+                trialDays: trialDays,
+              }
+            })
+          })
+        } catch (emailErr) {
+          console.error('Errore invio email approvazione:', emailErr)
+        }
+      }
+      
       setCoaches(prev => prev.map(c => 
         c.id === coachId ? { ...c, status: 'approved', subscriptionStatus: 'trial' } : c
       ))

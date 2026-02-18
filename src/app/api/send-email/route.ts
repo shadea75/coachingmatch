@@ -89,6 +89,45 @@ export async function POST(request: NextRequest) {
     }
     
     // =====================================================
+    // EMAIL APPROVAZIONE COACH
+    // =====================================================
+    if (type === 'coach_approved') {
+      const result = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: data.email,
+        subject: '🎉 Sei stato approvato! - CoachaMi',
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr><td>${logoHeader}
+                <table width="100%" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                  <tr><td style="padding: 30px;">
+                    <h2 style="margin: 0 0 20px 0;">Congratulazioni ${data.name}! 🎉</h2>
+                    <p>La tua candidatura come coach su <strong>CoachaMi</strong> è stata <span style="color: #16a34a; font-weight: bold;">approvata!</span></p>
+                    <p>Hai a disposizione <strong>${data.trialDays || 14} giorni di prova gratuita</strong> per esplorare la piattaforma e iniziare a ricevere i tuoi primi coachee.</p>
+                    <div style="background: #f0fdf4; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #16a34a;">
+                      <h3 style="margin: 0 0 12px 0;">🚀 Cosa fare adesso:</h3>
+                      <p style="margin: 4px 0;">1. <strong>Accedi alla piattaforma</strong> con le tue credenziali</p>
+                      <p style="margin: 4px 0;">2. <strong>Completa il tuo profilo</strong> — aggiungi foto, bio e specializzazioni</p>
+                      <p style="margin: 4px 0;">3. <strong>Imposta la tua disponibilità</strong> nel calendario</p>
+                      <p style="margin: 4px 0;">4. <strong>Scegli il tuo piano</strong> prima della scadenza del trial</p>
+                    </div>
+                    <center style="margin: 25px 0;">
+                      <a href="https://www.coachami.it/login" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Accedi a CoachaMi →</a>
+                    </center>
+                    <p style="font-size: 14px; color: #666;">Se hai domande, rispondi a questa email o contattaci su <a href="mailto:coach@coachami.it">coach@coachami.it</a></p>
+                  </td></tr>
+                </table>
+                ${footer}
+              </td></tr>
+            </table>
+          </body></html>`
+      })
+      
+      return NextResponse.json({ success: true, result })
+    }
+    
+    // =====================================================
     // EMAIL PRENOTAZIONE IN ATTESA
     // =====================================================
     if (type === 'booking_pending') {
