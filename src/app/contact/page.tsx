@@ -222,7 +222,7 @@ export default function ContactPage() {
                 },
                 {
                   q: 'Quanto costa una sessione di coaching?',
-                  a: 'I prezzi variano in base al coach e alla tipologia di sessione. Offriamo una prima call gratuita di orientamento per permetterti di conoscere il coach.'
+                  a: 'I prezzi variano in base al coach e alla tipologia di sessione. Puoi contattare direttamente il coach via chat per conoscerlo prima di iniziare un percorso.'
                 },
                 {
                   q: 'Come posso diventare coach sulla piattaforma?',

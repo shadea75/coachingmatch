@@ -682,7 +682,7 @@ export default function TestGratuitoPage() {
                   onClick={() => router.push(`/coaches?area=${priorityArea}`)}
                   className="w-full btn btn-primary"
                 >
-                  Trova il tuo Coach (call gratuita)
+                  Trova il tuo Coach
                 </button>
               </div>
               
