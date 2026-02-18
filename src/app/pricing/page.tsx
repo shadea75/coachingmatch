@@ -136,7 +136,6 @@ export default function PricingPage() {
         </Link>
         <Link
           href="/coach/apply"
-          className="text-sm font-semibold text-primary-600 hover:text-primary-700 transition-colors"
         >
           Candidati come Coach →
         </Link>
@@ -250,7 +249,7 @@ export default function PricingPage() {
 
               {/* CTA */}
               <Link
-                href="/coach/apply"
+                href={`/coach/apply?plan=${plan.id}`}
                 className={`
                   block w-full py-3.5 rounded-[14px] text-center text-[15px] font-semibold transition-all duration-300 mb-7
                   ${plan.ctaStyle === 'primary'
@@ -375,7 +374,6 @@ export default function PricingPage() {
         </p>
         <Link
           href="/coach/apply"
-          className="inline-flex items-center gap-2 bg-primary-500 text-white px-9 py-4 rounded-[14px] text-base font-semibold hover:bg-primary-600 hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(236,119,17,0.4)] transition-all duration-300 relative"
         >
           Candidati come Coach
           <ArrowRight size={20} />
