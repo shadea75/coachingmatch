@@ -25,6 +25,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
+import { filterMessage, FILTER_WARNING } from '@/lib/messageFilter'
 import {
   collection,
   query,
@@ -108,6 +109,7 @@ function MessagesContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [showConversationList, setShowConversationList] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [filterWarning, setFilterWarning] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -295,11 +297,14 @@ function MessagesContent() {
   const sendFirstMessage = async (conversationId: string, text: string) => {
     if (!user?.id) return
 
+    // Filtra contatti dal messaggio iniziale
+    const { filteredText } = filterMessage(text)
+
     await addDoc(collection(db, 'messages'), {
       conversationId,
       senderId: user.id,
       senderName: user.name || user.email?.split('@')[0] || 'Utente',
-      text,
+      text: filteredText,
       createdAt: serverTimestamp(),
       read: false
     })
@@ -339,7 +344,15 @@ function MessagesContent() {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || !user?.id || isSending) return
 
-    const messageText = newMessage.trim()
+    // Filtra contatti dal messaggio
+    const { filteredText, wasFiltered } = filterMessage(newMessage.trim())
+    
+    if (wasFiltered) {
+      setFilterWarning(FILTER_WARNING)
+      setTimeout(() => setFilterWarning(null), 6000)
+    }
+
+    const messageText = filteredText
     setNewMessage('')
     setIsSending(true)
 
@@ -730,6 +743,21 @@ function MessagesContent() {
                 )}
                 <div ref={messagesEndRef} />
               </div>
+
+              {/* Filter Warning */}
+              <AnimatePresence>
+                {filterWarning && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="mx-3 mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm flex items-start gap-2"
+                  >
+                    <span className="text-lg leading-none">🔒</span>
+                    <span>{filterWarning}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Input */}
               <div className="bg-white border-t border-gray-100 p-3 flex-shrink-0">
