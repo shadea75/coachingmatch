@@ -241,8 +241,20 @@ function CoachApplicationContent() {
     setIsSubmitting(true)
     
     try {
-      const { setDoc, doc, serverTimestamp } = await import('firebase/firestore')
+      const { setDoc, doc, serverTimestamp, collection, query, where, getDocs } = await import('firebase/firestore')
       const { db } = await import('@/lib/firebase')
+      
+      // Controlla se esiste già una candidatura con questa email
+      const existingQuery = query(
+        collection(db, 'coachApplications'),
+        where('email', '==', formData.email)
+      )
+      const existingSnap = await getDocs(existingQuery)
+      if (!existingSnap.empty) {
+        setIsSubmitting(false)
+        alert('Esiste già una candidatura con questa email. Se sei già stato approvato, controlla la tua email per il link di registrazione.')
+        return
+      }
       
       // Genera un ID unico per la candidatura
       const applicationId = `apply_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
