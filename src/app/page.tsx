@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Sparkles,
   Heart,
+  MessageCircle,
   Shield,
   Menu,
   X,
@@ -176,7 +177,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-2">
               <Shield size={18} className="text-blue-500" />
-              <span>Prima call gratuita</span>
+              <span>Chat diretta con il coach</span>
             </div>
           </motion.div>
         </div>
@@ -212,7 +213,7 @@ export default function HomePage() {
                 icon: Users,
                 color: '#10B981',
                 title: 'Ricevi i match',
-                description: 'Visualizza i coach più compatibili con te e prenota una call gratuita di orientamento.'
+                description: 'Visualizza i coach più compatibili con te e contattali via chat per iniziare.'
               }
             ].map((step, index) => (
               <motion.div
@@ -273,9 +274,9 @@ export default function HomePage() {
                 description: 'Ogni coach sulla piattaforma è stato verificato e possiede certificazioni e esperienza comprovata.'
               },
               {
-                icon: Heart,
-                title: 'Prima call gratuita',
-                description: 'Conosci il coach prima di impegnarti. La prima sessione è sempre gratuita e senza impegno.'
+                icon: MessageCircle,
+                title: 'Chat diretta con il coach',
+                description: 'Scrivi direttamente al coach per conoscerlo. Chatta in tempo reale prima di iniziare un percorso.'
               },
               {
                 icon: Shield,
