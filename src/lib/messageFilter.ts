@@ -41,6 +41,9 @@ const PATTERNS = {
 
   // Link generici (http/https/www) — esclusi coachami.it
   genericLinks: /(?:https?:\/\/|www\.)[^\s]+/gi,
+
+  // Domini email pubblici/gratuiti menzionati in chat (tentativo di comunicare email a pezzi)
+  emailDomains: /\b(?:gmail|yahoo|hotmail|outlook|libero|virgilio|alice|tiscali|fastwebnet|aruba|pec|icloud|live|msn|aol|protonmail|proton|mail|email|thunderbird|zoho|yandex|gmx|tutanota|tim|vodafone|wind|tre)(?:\s*\.\s*(?:com|it|net|org|eu|co|me|mail|pec))?\b/gi,
 }
 
 // Placeholder per il testo oscurato
@@ -184,7 +187,15 @@ export function filterMessage(text: string): FilterResult {
   })
   PATTERNS.genericLinks.lastIndex = 0
 
-  // 8. Numeri di telefono completi (controlla che siano reali)
+  // 8. Domini email menzionati (gmail, libero, yahoo, ecc.)
+  if (PATTERNS.emailDomains.test(filteredText)) {
+    PATTERNS.emailDomains.lastIndex = 0
+    filteredText = filteredText.replace(PATTERNS.emailDomains, REPLACEMENT)
+    if (detectedTypes.indexOf('email') === -1) detectedTypes.push('email')
+  }
+  PATTERNS.emailDomains.lastIndex = 0
+
+  // 9. Numeri di telefono completi (controlla che siano reali)
   filteredText = filteredText.replace(PATTERNS.phoneIT, function(match) {
     if (isLikelyPhoneNumber(match)) {
       if (detectedTypes.indexOf('telefono') === -1) detectedTypes.push('telefono')
@@ -194,7 +205,7 @@ export function filterMessage(text: string): FilterResult {
   })
   PATTERNS.phoneIT.lastIndex = 0
 
-  // 9. Numeri spaziati tipo "3 3 8 1 2 3 4 5 6 7"
+  // 10. Numeri spaziati tipo "3 3 8 1 2 3 4 5 6 7"
   if (PATTERNS.phoneSpaced.test(filteredText)) {
     PATTERNS.phoneSpaced.lastIndex = 0
     filteredText = filteredText.replace(PATTERNS.phoneSpaced, REPLACEMENT)
@@ -202,7 +213,7 @@ export function filterMessage(text: string): FilterResult {
   }
   PATTERNS.phoneSpaced.lastIndex = 0
 
-  // 10. Numeri scritti a parole: "tre tre otto uno due..."
+  // 11. Numeri scritti a parole: "tre tre otto uno due..."
   if (PATTERNS.phoneWords.test(filteredText)) {
     PATTERNS.phoneWords.lastIndex = 0
     filteredText = filteredText.replace(PATTERNS.phoneWords, REPLACEMENT)
