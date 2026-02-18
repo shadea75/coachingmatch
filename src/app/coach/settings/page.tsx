@@ -825,21 +825,6 @@ export default function CoachSettingsPage() {
                         className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
                       />
                     </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-3">
-                        Call gratuita disponibile
-                      </label>
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={profile.freeCallAvailable}
-                          onChange={(e) => setProfile({ ...profile, freeCallAvailable: e.target.checked })}
-                          className="w-5 h-5 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
-                        />
-                        <span className="text-gray-600">Offro una prima call gratuita di 30 minuti</span>
-                      </label>
-                    </div>
                   </div>
                 </div>
                 
