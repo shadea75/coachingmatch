@@ -107,15 +107,15 @@ export async function POST(request: NextRequest) {
                     <p>Hai a disposizione <strong>${data.trialDays || 14} giorni di prova gratuita</strong> per esplorare la piattaforma e iniziare a ricevere i tuoi primi coachee.</p>
                     <div style="background: #f0fdf4; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #16a34a;">
                       <h3 style="margin: 0 0 12px 0;">🚀 Cosa fare adesso:</h3>
-                      <p style="margin: 4px 0;">1. <strong>Accedi alla piattaforma</strong> con le tue credenziali</p>
+                      <p style="margin: 4px 0;">1. <strong>Registrati sulla piattaforma</strong> con la stessa email usata per la candidatura</p>
                       <p style="margin: 4px 0;">2. <strong>Completa il tuo profilo</strong> — aggiungi foto, bio e specializzazioni</p>
                       <p style="margin: 4px 0;">3. <strong>Imposta la tua disponibilità</strong> nel calendario</p>
                       <p style="margin: 4px 0;">4. <strong>Scegli il tuo piano</strong> prima della scadenza del trial</p>
                     </div>
                     <center style="margin: 25px 0;">
-                      <a href="https://www.coachami.it/login" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Accedi a CoachaMi →</a>
+                      <a href="https://www.coachami.it/coach/register?email=${encodeURIComponent(data.email)}" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Registrati su CoachaMi →</a>
                     </center>
-                    <p style="font-size: 14px; color: #666;">Se hai domande, rispondi a questa email o contattaci su <a href="mailto:coach@coachami.it">coach@coachami.it</a></p>
+                    <p style="font-size: 14px; color: #666;">⚠️ Usa la stessa email <strong>${data.email}</strong> per la registrazione, altrimenti il tuo profilo non verrà collegato.</p>
                   </td></tr>
                 </table>
                 ${footer}
