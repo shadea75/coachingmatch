@@ -236,15 +236,95 @@ export default function CoachApplicationPage() {
     setIsSubmitting(true)
     
     try {
-      // Here you would send to Firebase/API
-      console.log('Submitting application:', formData)
+      const { setDoc, doc, serverTimestamp } = await import('firebase/firestore')
+      const { db } = await import('@/lib/firebase')
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Genera un ID unico per la candidatura
+      const applicationId = `apply_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       
-      // Redirect to success page
+      const fullName = `${formData.firstName} ${formData.lastName}`.trim()
+      
+      // Prepara i dati della candidatura
+      const applicationData = {
+        // ID e tipo
+        applicationId,
+        applicationType: 'apply', // Distingue da 'register'
+        
+        // Dati personali
+        name: fullName,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        city: formData.city,
+        onlineAvailable: formData.onlineAvailable,
+        inPersonAvailable: formData.inPersonAvailable,
+        linkedinUrl: formData.linkedinUrl,
+        websiteUrl: formData.websiteUrl,
+        
+        // Esperienza
+        yearsAsCoach: formData.yearsAsCoach,
+        yearsOfExperience: formData.yearsAsCoach,
+        coachingSchool: formData.coachingSchool,
+        mainCertification: formData.mainCertification,
+        certificationLevel: formData.certificationLevel,
+        otherCertifications: formData.otherCertifications,
+        totalClientCount: formData.totalClientCount,
+        languages: formData.languages,
+        
+        // Specializzazioni
+        lifeAreas: formData.selectedAreas,
+        lifeArea: formData.selectedAreas[0] || null,
+        focusTopics: formData.focusTopics,
+        targetClients: formData.targetClients,
+        coachingApproach: formData.coachingApproach,
+        
+        // Servizio
+        sessionPrice: formData.sessionPrice,
+        averagePrice: parseInt(formData.sessionPrice) || 0,
+        typicalSessionCount: formData.typicalSessionCount,
+        freeCallOffered: formData.freeCallOffered,
+        freeCallDuration: formData.freeCallDuration,
+        bio: formData.bio,
+        
+        // Modalità sessione
+        sessionMode: formData.onlineAvailable && formData.inPersonAvailable 
+          ? 'both' 
+          : formData.onlineAvailable ? 'online' : 'in-person',
+        location: formData.city,
+        
+        // Status
+        status: 'pending',
+        submittedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      }
+      
+      // Salva in Firebase
+      await setDoc(doc(db, 'coachApplications', applicationId), applicationData)
+      
+      // Invia email di conferma al coach e notifica all'admin
+      try {
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'coach_registration',
+            data: {
+              name: fullName,
+              email: formData.email,
+              lifeAreas: formData.selectedAreas,
+              yearsOfExperience: formData.yearsAsCoach,
+            }
+          })
+        })
+      } catch (emailError) {
+        console.error('Errore invio email:', emailError)
+        // Non blocchiamo il flusso se l'email fallisce
+      }
+      
+      // Redirect alla pagina di successo
       router.push('/coach/application-success')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting application:', error)
       setErrors({ submit: 'Errore durante l\'invio. Riprova.' })
     } finally {
