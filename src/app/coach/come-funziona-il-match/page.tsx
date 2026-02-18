@@ -74,7 +74,7 @@ export default function ComeAvvieneIlMatchPage() {
             
             <p className="text-white/80 text-sm">
               Questo significa che la <strong>compatibilità</strong> con il coachee è sempre il fattore principale, 
-              ma l'<strong>impegno attivo</strong> sulla piattaforma viene premiato, e la <strong>rotazione</strong> 
+              ma l'<strong>impegno attivo</strong> sulla piattaforma viene premiato, e la <strong>rotazione</strong>{' '}
               garantisce che tutti i coach abbiano visibilità.
             </p>
           </div>
