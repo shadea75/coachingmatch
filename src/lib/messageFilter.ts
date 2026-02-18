@@ -141,6 +141,6 @@ export function filterMessage(text: string): FilterResult {
   return {
     filteredText: filteredText.trim(),
     wasFiltered: detectedTypes.length > 0,
-    detectedTypes: [...new Set(detectedTypes)]
+    detectedTypes: Array.from(new Set(detectedTypes))
   }
 }
