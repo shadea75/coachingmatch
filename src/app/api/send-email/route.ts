@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       
       const adminEmailResult = await resend.emails.send({
         from: 'CoachaMi <noreply@coachami.it>',
-        to: 'coach@coachami.it',
+        to: 'debora.carofiglio@gmail.com',
         subject: '🆕 Nuova registrazione coach - ' + data.name,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
           <body style="font-family: sans-serif; padding: 20px;">
@@ -774,7 +774,7 @@ export async function POST(request: NextRequest) {
     // EMAIL ALERT TENTATIVO SOSPETTO (per Admin)
     // =====================================================
     if (type === 'suspicious_attempt_alert') {
-      const adminEmail = 'coach@coachami.it' // Email admin
+      const adminEmail = 'debora.carofiglio@gmail.com' // Email admin
       
       const attemptTypeLabels: Record<string, string> = {
         'email_duplicata': '📧 Email già registrata su CoachaMi',
