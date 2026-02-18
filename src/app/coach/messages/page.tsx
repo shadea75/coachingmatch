@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   Send,
   MessageCircle,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { db } from '@/lib/firebase'
+import { filterMessage, FILTER_WARNING } from '@/lib/messageFilter'
 import {
   collection,
   query,
@@ -93,6 +95,7 @@ function MessagesContent() {
   const [isSending, setIsSending] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [filterWarning, setFilterWarning] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -182,7 +185,15 @@ function MessagesContent() {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || !user?.id || isSending) return
 
-    const messageText = newMessage.trim()
+    // Filtra contatti dal messaggio
+    const { filteredText, wasFiltered } = filterMessage(newMessage.trim())
+    
+    if (wasFiltered) {
+      setFilterWarning(FILTER_WARNING)
+      setTimeout(() => setFilterWarning(null), 6000)
+    }
+
+    const messageText = filteredText
     setNewMessage('')
     setIsSending(true)
 
@@ -413,6 +424,21 @@ function MessagesContent() {
                   )}
                   <div ref={messagesEndRef} />
                 </div>
+
+                {/* Filter Warning */}
+                <AnimatePresence>
+                  {filterWarning && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="mx-3 mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm flex items-start gap-2"
+                    >
+                      <span className="text-lg leading-none">🔒</span>
+                      <span>{filterWarning}</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Input */}
                 <div className="border-t border-gray-100 p-3 flex-shrink-0">
