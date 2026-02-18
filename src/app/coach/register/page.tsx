@@ -601,18 +601,6 @@ export default function CoachRegisterPage() {
                   </div>
                 )}
                 
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="freeCall"
-                    checked={formData.freeCallAvailable}
-                    onChange={(e) => updateForm('freeCallAvailable', e.target.checked)}
-                    className="w-5 h-5 rounded border-gray-300 text-primary-500"
-                  />
-                  <label htmlFor="freeCall" className="text-charcoal">
-                    Offro una prima call gratuita di orientamento
-                  </label>
-                </div>
               </div>
             )}
             
