@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
@@ -45,7 +45,7 @@ const YEARS_OPTIONS = ['1-2', '3-5', '6-10', '10+']
 const CLIENT_COUNT_OPTIONS = ['1-10', '11-50', '51-100', '100+']
 const SESSION_COUNT_OPTIONS = ['1-3 sessioni', '4-6 sessioni', '6-8 sessioni', '8-12 sessioni', '12+ sessioni']
 
-export default function CoachApplicationPage() {
+function CoachApplicationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const selectedPlan = searchParams.get('plan') || 'starter'
@@ -1087,5 +1087,17 @@ export default function CoachApplicationPage() {
         </div>
       </footer>
     </div>
+  )
+}
+
+export default function CoachApplicationPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-cream">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
+      </div>
+    }>
+      <CoachApplicationContent />
+    </Suspense>
   )
 }
