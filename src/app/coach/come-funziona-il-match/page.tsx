@@ -206,7 +206,7 @@ export default function ComeAvvieneIlMatchPage() {
                 </div>
                 <p className="text-sm text-gray-600">15% dell'engagement score</p>
                 <div className="mt-2 text-xs text-gray-500">
-                  % di call gratuite che diventano clienti paganti
+                  % di contatti chat che diventano clienti paganti
                 </div>
               </div>
             </div>
