@@ -25,7 +25,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
-import { filterMessage, FILTER_WARNING } from '@/lib/messageFilter'
+import { filterMessage } from '@/lib/messageFilter'
 import {
   collection,
   query,
@@ -345,10 +345,17 @@ function MessagesContent() {
     if (!newMessage.trim() || !selectedConversation || !user?.id || isSending) return
 
     // Filtra contatti dal messaggio
-    const { filteredText, wasFiltered } = filterMessage(newMessage.trim())
+    const { filteredText, wasFiltered, blocked, warningMessage } = filterMessage(newMessage.trim())
     
+    if (blocked) {
+      setFilterWarning(warningMessage)
+      setTimeout(() => setFilterWarning(null), 6000)
+      setNewMessage('')
+      return
+    }
+
     if (wasFiltered) {
-      setFilterWarning(FILTER_WARNING)
+      setFilterWarning(warningMessage)
       setTimeout(() => setFilterWarning(null), 6000)
     }
 
