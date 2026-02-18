@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ArrowLeft, 
@@ -47,6 +47,11 @@ const SESSION_COUNT_OPTIONS = ['1-3 sessioni', '4-6 sessioni', '6-8 sessioni', '
 
 export default function CoachApplicationPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const selectedPlan = searchParams.get('plan') || 'starter'
+  
+  const planPrices: Record<string, number> = { starter: 9, professional: 29, business: 49, elite: 79 }
+  const selectedPrice = planPrices[selectedPlan] || 9
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -295,6 +300,8 @@ export default function CoachApplicationPage() {
         
         // Status
         status: 'pending',
+        subscriptionTier: selectedPlan,
+        subscriptionPrice: selectedPrice,
         submittedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
       }
