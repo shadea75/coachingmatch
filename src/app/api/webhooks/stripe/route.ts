@@ -37,6 +37,8 @@ export async function POST(request: NextRequest) {
           await handleCoachingPayment(session)
         } else if (session.metadata?.type === 'community_subscription') {
           await handleCommunitySubscriptionCreated(session)
+        } else if (session.metadata?.type === 'coach_subscription') {
+          await handleCoachSubscriptionCreated(session)
         }
         break
       }
@@ -46,6 +48,8 @@ export async function POST(request: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription
         if (subscription.metadata?.type === 'community_subscription') {
           await handleSubscriptionUpdated(subscription)
+        } else if (subscription.metadata?.type === 'coach_subscription') {
+          await handleCoachSubscriptionUpdated(subscription)
         }
         break
       }
@@ -54,6 +58,8 @@ export async function POST(request: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription
         if (subscription.metadata?.type === 'community_subscription') {
           await handleSubscriptionCancelled(subscription)
+        } else if (subscription.metadata?.type === 'coach_subscription') {
+          await handleCoachSubscriptionCancelled(subscription)
         }
         break
       }
@@ -232,5 +238,83 @@ async function handleSubscriptionCancelled(subscription: Stripe.Subscription) {
     membershipStatus: 'cancelled',
     membershipEndDate: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp()
+  })
+}
+
+// ===== COACH SUBSCRIPTION HANDLERS =====
+
+async function handleCoachSubscriptionCreated(session: Stripe.Checkout.Session) {
+  const coachId = session.metadata?.coachId
+  const tier = session.metadata?.tier || 'professional'
+  const billingCycle = session.metadata?.billingCycle || 'monthly'
+  
+  if (!coachId) {
+    console.error('No coachId in coach_subscription session metadata')
+    return
+  }
+  
+  console.log(`✅ Coach subscription created: ${coachId} - ${tier} (${billingCycle})`)
+  
+  // Update coachApplications with subscription info
+  await adminDb.collection('coachApplications').doc(coachId).update({
+    subscriptionStatus: 'active',
+    subscriptionTier: tier,
+    subscriptionBillingCycle: billingCycle,
+    stripeCustomerId: session.customer,
+    stripeSubscriptionId: session.subscription,
+    subscriptionStartDate: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+  
+  // Also update the user document
+  await adminDb.collection('users').doc(coachId).update({
+    subscriptionStatus: 'active',
+    subscriptionTier: tier,
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+}
+
+async function handleCoachSubscriptionUpdated(subscription: Stripe.Subscription) {
+  const coachId = subscription.metadata?.coachId
+  if (!coachId) return
+  
+  const status = subscription.status === 'active' || subscription.status === 'trialing' ? 'active' : 'expired'
+  const tier = subscription.metadata?.tier || 'professional'
+  
+  // Calculate subscription end date
+  const currentPeriodEnd = new Date(subscription.current_period_end * 1000)
+  
+  console.log(`📋 Coach subscription updated: ${coachId} - ${status} - ${tier}`)
+  
+  await adminDb.collection('coachApplications').doc(coachId).update({
+    subscriptionStatus: status,
+    subscriptionTier: tier,
+    stripeSubscriptionStatus: subscription.status,
+    subscriptionEndDate: currentPeriodEnd,
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+  
+  await adminDb.collection('users').doc(coachId).update({
+    subscriptionStatus: status,
+    subscriptionTier: tier,
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+}
+
+async function handleCoachSubscriptionCancelled(subscription: Stripe.Subscription) {
+  const coachId = subscription.metadata?.coachId
+  if (!coachId) return
+  
+  console.log(`❌ Coach subscription cancelled: ${coachId}`)
+  
+  await adminDb.collection('coachApplications').doc(coachId).update({
+    subscriptionStatus: 'expired',
+    subscriptionEndDate: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+  
+  await adminDb.collection('users').doc(coachId).update({
+    subscriptionStatus: 'expired',
+    updatedAt: FieldValue.serverTimestamp(),
   })
 }
