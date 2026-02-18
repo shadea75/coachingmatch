@@ -137,7 +137,8 @@ export default function MatchingPage() {
             rating: data.rating || 0,
             reviewCount: data.reviewCount || 0,
             createdAt: data.createdAt?.toDate?.() || new Date(),
-            updatedAt: data.updatedAt?.toDate?.() || new Date()
+            updatedAt: data.updatedAt?.toDate?.() || new Date(),
+            subscriptionTier: data.subscriptionTier || 'starter',
           } as Coach
         })
         
