@@ -900,54 +900,6 @@ export default function CoachApplicationPage() {
                 </div>
                 
                 <div>
-                  <label className="label">Offri una prima call gratuita?</label>
-                  <div className="flex gap-4 mt-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="freeCall"
-                        checked={formData.freeCallOffered}
-                        onChange={() => updateForm('freeCallOffered', true)}
-                        className="w-4 h-4 text-primary-500"
-                      />
-                      <span className="text-sm">Sì</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="freeCall"
-                        checked={!formData.freeCallOffered}
-                        onChange={() => updateForm('freeCallOffered', false)}
-                        className="w-4 h-4 text-primary-500"
-                      />
-                      <span className="text-sm">No</span>
-                    </label>
-                  </div>
-                </div>
-                
-                {formData.freeCallOffered && (
-                  <div>
-                    <label className="label">Durata call gratuita (minuti)</label>
-                    <div className="flex gap-2 mt-2">
-                      {[15, 20, 30, 45].map((duration) => (
-                        <button
-                          key={duration}
-                          type="button"
-                          onClick={() => updateForm('freeCallDuration', duration)}
-                          className={`py-2 px-4 rounded-lg border-2 text-sm font-medium transition-colors ${
-                            formData.freeCallDuration === duration
-                              ? 'border-primary-500 bg-primary-50 text-primary-700'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          {duration} min
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                <div>
                   <div className="flex items-center justify-between">
                     <label className="label mb-0">Bio per il profilo *</label>
                     <span className={`text-xs ${formData.bio.length > 500 ? 'text-red-500' : 'text-gray-400'}`}>
