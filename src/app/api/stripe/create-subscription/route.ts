@@ -10,7 +10,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.coachami.it'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { coachId, coachEmail, priceAmount } = body
+    const { coachId, coachEmail, priceAmount, planId, planName, billingCycle } = body
 
     if (!coachId || !coachEmail || !priceAmount) {
       return NextResponse.json(
@@ -18,6 +18,15 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    const tier = planId || 'professional'
+    const cycle = billingCycle || 'monthly'
+    const interval = cycle === 'annual' ? 'year' : 'month'
+    
+    // Per l'annuale, il prezzo passato è mensile — calcoliamo il totale annuale
+    const unitAmount = cycle === 'annual' 
+      ? priceAmount * 12 * 100  // prezzo mensile × 12 in centesimi
+      : priceAmount * 100       // prezzo mensile in centesimi
 
     // Cerca o crea il cliente Stripe
     let customerId: string | undefined
@@ -40,11 +49,7 @@ export async function POST(request: NextRequest) {
       customerId = newCustomer.id
     }
 
-    // Cerca o crea il prezzo per l'abbonamento
-    // Usiamo un prezzo dinamico basato sull'importo personalizzato del coach
-    const priceInCents = priceAmount * 100
-
-    // Cerca un prezzo esistente con questo importo
+    // Cerca un prezzo esistente con lo stesso importo, intervallo e tier
     const existingPrices = await stripe.prices.list({
       active: true,
       type: 'recurring',
@@ -53,18 +58,17 @@ export async function POST(request: NextRequest) {
 
     let priceId: string | undefined
 
-    // Cerca un prezzo con lo stesso importo
     const matchingPrice = existingPrices.data.find(
-      (p) => p.unit_amount === priceInCents && 
-             p.recurring?.interval === 'month' &&
-             p.metadata?.type === 'coach_subscription'
+      (p) => p.unit_amount === unitAmount && 
+             p.recurring?.interval === interval &&
+             p.metadata?.type === 'coach_subscription' &&
+             p.metadata?.tier === tier
     )
 
     if (matchingPrice) {
       priceId = matchingPrice.id
     } else {
-      // Crea un nuovo prezzo
-      // Prima dobbiamo avere un prodotto
+      // Cerca o crea il prodotto
       let productId: string
 
       const existingProducts = await stripe.products.list({
@@ -81,7 +85,7 @@ export async function POST(request: NextRequest) {
       } else {
         const newProduct = await stripe.products.create({
           name: 'Abbonamento Coach CoachaMi',
-          description: 'Accesso completo alla piattaforma CoachaMi per coach',
+          description: 'Accesso alla piattaforma CoachaMi per coach professionisti',
           metadata: {
             type: 'coach_subscription',
           },
@@ -89,17 +93,27 @@ export async function POST(request: NextRequest) {
         productId = newProduct.id
       }
 
-      // Crea il prezzo
+      // Crea il prezzo con metadata del tier
+      const tierLabels: Record<string, string> = {
+        starter: 'Starter',
+        professional: 'Professional',
+        business: 'Business',
+        elite: 'Elite',
+      }
+      
       const newPrice = await stripe.prices.create({
         product: productId,
-        unit_amount: priceInCents,
+        unit_amount: unitAmount,
         currency: 'eur',
         recurring: {
-          interval: 'month',
+          interval: interval as 'month' | 'year',
         },
         metadata: {
           type: 'coach_subscription',
-          amount: priceAmount.toString(),
+          tier,
+          tierLabel: tierLabels[tier] || tier,
+          billingCycle: cycle,
+          monthlyAmount: priceAmount.toString(),
         },
       })
       priceId = newPrice.id
@@ -119,11 +133,16 @@ export async function POST(request: NextRequest) {
       metadata: {
         coachId,
         type: 'coach_subscription',
+        tier,
+        billingCycle: cycle,
       },
       subscription_data: {
+        trial_period_days: 14,
         metadata: {
           coachId,
           type: 'coach_subscription',
+          tier,
+          billingCycle: cycle,
         },
       },
       success_url: `${BASE_URL}/coach/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
