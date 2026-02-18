@@ -38,7 +38,8 @@ interface Coach {
   approvedAt?: any
   // Abbonamento
   subscriptionStatus: 'trial' | 'active' | 'expired' | 'free'
-  subscriptionPrice: number // Prezzo personalizzato (null = usa default)
+  subscriptionTier: 'starter' | 'professional' | 'business' | 'elite' | null
+  subscriptionPrice: number
   subscriptionStartDate?: any
   subscriptionEndDate?: any
   trialEndDate?: any
@@ -65,12 +66,13 @@ export default function AdminCoachesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [subscriptionFilter, setSubscriptionFilter] = useState<string>('all')
-  const [defaultPrice, setDefaultPrice] = useState(19)
-  const [trialDays, setTrialDays] = useState(90)
+  const [defaultPrice, setDefaultPrice] = useState(9)
+  const [trialDays, setTrialDays] = useState(14)
   
   // Modal per modifica abbonamento
   const [editingCoach, setEditingCoach] = useState<Coach | null>(null)
   const [editPrice, setEditPrice] = useState<number>(0)
+  const [editTier, setEditTier] = useState<'starter' | 'professional' | 'business' | 'elite' | 'free'>('starter')
   const [editStatus, setEditStatus] = useState<'trial' | 'active' | 'expired' | 'free'>('trial')
   const [saving, setSaving] = useState(false)
 
@@ -81,8 +83,8 @@ export default function AdminCoachesPage() {
         const communityDoc = await getDoc(doc(db, 'settings', 'community'))
         if (communityDoc.exists()) {
           const data = communityDoc.data()
-          setDefaultPrice(data.coachMonthlyPrice ?? 19)
-          setTrialDays(data.freeTrialDays ?? 90)
+          setDefaultPrice(data.coachMonthlyPrice ?? 9)
+          setTrialDays(data.freeTrialDays ?? 14)
         }
       } catch (err) {
         console.error('Errore caricamento settings:', err)
@@ -131,6 +133,7 @@ export default function AdminCoachesPage() {
             createdAt: data.createdAt,
             approvedAt: data.approvedAt,
             subscriptionStatus: data.subscriptionStatus || subscriptionStatus,
+            subscriptionTier: data.subscriptionTier || null,
             subscriptionPrice: data.subscriptionPrice ?? defaultPrice,
             subscriptionStartDate: data.subscriptionStartDate,
             subscriptionEndDate: data.subscriptionEndDate,
@@ -165,6 +168,7 @@ export default function AdminCoachesPage() {
   const openEditModal = (coach: Coach) => {
     setEditingCoach(coach)
     setEditPrice(coach.subscriptionPrice)
+    setEditTier(coach.subscriptionPrice === 0 ? 'free' : (coach.subscriptionTier || 'starter'))
     setEditStatus(coach.subscriptionStatus)
   }
 
@@ -176,6 +180,7 @@ export default function AdminCoachesPage() {
     try {
       const updateData: any = {
         subscriptionPrice: editPrice,
+        subscriptionTier: editPrice === 0 ? null : editTier,
         subscriptionStatus: editPrice === 0 ? 'free' : editStatus,
         updatedAt: new Date()
       }
@@ -184,7 +189,13 @@ export default function AdminCoachesPage() {
       if (editStatus === 'active' && editPrice > 0) {
         const now = new Date()
         updateData.subscriptionStartDate = now
-        updateData.subscriptionEndDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // +30 giorni
+        updateData.subscriptionEndDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // +30 giorni (1 mese)
+      }
+      
+      // Se viene messo in trial, imposta data fine trial
+      if (editStatus === 'trial' && editPrice > 0) {
+        const now = new Date()
+        updateData.trialEndDate = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000)
       }
       
       await updateDoc(doc(db, 'coachApplications', editingCoach.id), updateData)
@@ -192,7 +203,7 @@ export default function AdminCoachesPage() {
       // Aggiorna stato locale
       setCoaches(prev => prev.map(c => 
         c.id === editingCoach.id 
-          ? { ...c, subscriptionPrice: editPrice, subscriptionStatus: editPrice === 0 ? 'free' : editStatus }
+          ? { ...c, subscriptionPrice: editPrice, subscriptionTier: editPrice === 0 ? null : editTier as any, subscriptionStatus: editPrice === 0 ? 'free' : editStatus }
           : c
       ))
       
@@ -436,7 +447,10 @@ export default function AdminCoachesPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={`font-medium ${coach.subscriptionPrice === 0 ? 'text-purple-600' : 'text-charcoal'}`}>
-                        €{coach.subscriptionPrice}/mese
+                        {coach.subscriptionTier 
+                          ? `${coach.subscriptionTier.charAt(0).toUpperCase() + coach.subscriptionTier.slice(1)} €${coach.subscriptionPrice}`
+                          : coach.subscriptionPrice === 0 ? 'Gratuito' : `€${coach.subscriptionPrice}/mese`
+                        }
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -538,21 +552,27 @@ export default function AdminCoachesPage() {
             </div>
             
             <div className="space-y-4">
-              {/* Prezzo personalizzato */}
+              {/* Selezione Piano */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Prezzo abbonamento (€/mese)
+                  Piano
                 </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={editPrice}
-                  onChange={(e) => setEditPrice(parseInt(e.target.value) || 0)}
+                <select
+                  value={editTier}
+                  onChange={(e) => {
+                    const tier = e.target.value as any
+                    setEditTier(tier)
+                    const prices: Record<string, number> = { free: 0, starter: 9, professional: 29, business: 49, elite: 79 }
+                    setEditPrice(prices[tier] || 0)
+                  }}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Imposta 0 per abbonamento gratuito. Default: €{defaultPrice}/mese
-                </p>
+                >
+                  <option value="free">🎁 Gratuito (€0)</option>
+                  <option value="starter">🌱 Starter (€9/mese)</option>
+                  <option value="professional">🚀 Professional (€29/mese)</option>
+                  <option value="business">💼 Business (€49/mese)</option>
+                  <option value="elite">👑 Elite (€79/mese)</option>
+                </select>
               </div>
               
               {/* Stato abbonamento */}
@@ -582,7 +602,11 @@ export default function AdminCoachesPage() {
                     </>
                   ) : (
                     <>
-                      <strong>Abbonamento €{editPrice}/mese:</strong> Il coach pagherà questo importo mensile per accedere alla piattaforma.
+                      <strong>Piano {editTier.charAt(0).toUpperCase() + editTier.slice(1)} — €{editPrice}/mese:</strong>{' '}
+                      {editStatus === 'trial' 
+                        ? `Il coach ha ${trialDays} giorni di prova gratuita, poi pagherà €${editPrice}/mese.`
+                        : `Il coach pagherà €${editPrice}/mese per accedere alla piattaforma.`
+                      }
                     </>
                   )}
                 </p>

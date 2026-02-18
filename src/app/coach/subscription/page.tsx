@@ -105,10 +105,10 @@ export default function CoachSubscriptionPage() {
             setSubscriptionStatus('active')
             setSubscriptionEndDate(data.subscriptionEndDate.toDate())
           } else {
-            let trialDays = 90
+            let trialDays = 14
             try {
               const s = await getDoc(doc(db, 'settings', 'community'))
-              if (s.exists()) trialDays = s.data().freeTrialDays ?? 90
+              if (s.exists()) trialDays = s.data().freeTrialDays ?? 14
             } catch (e) {}
             const createdAt = data.createdAt?.toDate?.() || data.approvedAt?.toDate?.() || new Date()
             const trialEnd = data.trialEndDate?.toDate?.() || new Date(createdAt.getTime() + trialDays * 86400000)
