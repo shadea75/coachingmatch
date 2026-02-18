@@ -91,6 +91,8 @@ export default function ComeAvvieneIlMatchPage() {
               </div>
             </div>
             
+            <p className="text-xs text-gray-400 mb-4 italic">Le percentuali sotto indicano il peso di ogni fattore all'interno del Match Score.</p>
+            
             <div className="space-y-4">
               <div className="border-l-4 border-blue-500 pl-4 py-2">
                 <h4 className="font-semibold text-charcoal">Area e Specializzazione (40%)</h4>
