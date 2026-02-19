@@ -275,7 +275,7 @@ export default function RegisterPage() {
         {/* Link coach */}
         <p className="mt-3 text-center text-sm text-gray-500">
           Sei un coach?{' '}
-          <Link href="/coach/register" className="text-primary-500 hover:text-primary-600">
+          <Link href="/coach/apply" className="text-primary-500 hover:text-primary-600">
             Registrati come Coach
           </Link>
         </p>

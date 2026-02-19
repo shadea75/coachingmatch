@@ -41,7 +41,7 @@ export default function HomePage() {
               Come Funziona
             </Link>
             <Link 
-              href="/coach/register" 
+              href="/coach/apply" 
               className="text-gray-600 hover:text-charcoal transition-colors"
             >
               Diventa Coach
@@ -100,7 +100,7 @@ export default function HomePage() {
                 Come Funziona
               </Link>
               <Link 
-                href="/coach/register" 
+                href="/coach/apply" 
                 onClick={() => setMobileMenuOpen(false)}
                 className="block py-2 text-gray-600 hover:text-charcoal transition-colors"
               >
@@ -355,7 +355,7 @@ export default function HomePage() {
               <Link href="/terms" className="hover:text-charcoal transition-colors">
                 Termini di Servizio
               </Link>
-              <Link href="/coach/register" className="hover:text-charcoal transition-colors">
+              <Link href="/coach/apply" className="hover:text-charcoal transition-colors">
                 Diventa Coach
               </Link>
               <Link href="/contact" className="hover:text-charcoal transition-colors">

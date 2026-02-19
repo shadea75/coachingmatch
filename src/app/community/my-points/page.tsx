@@ -177,7 +177,7 @@ export default function MyPointsPage() {
           <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-charcoal mb-2">Area riservata ai Coach</h1>
           <p className="text-gray-500 mb-6">Il sistema punti è disponibile solo per i coach.</p>
-          <Link href="/coach/register" className="btn bg-primary-500 text-white">
+          <Link href="/coach/apply" className="btn bg-primary-500 text-white">
             Diventa Coach
           </Link>
         </main>

@@ -85,7 +85,7 @@ export default function ContactPage() {
                   Unisciti alla nostra community di coach professionisti
                 </p>
                 <Link 
-                  href="/coach/register"
+                  href="/coach/apply"
                   className="inline-block bg-white text-primary-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-primary-50 transition-colors"
                 >
                   Registrati come Coach
