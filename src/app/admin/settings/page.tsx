@@ -2,9 +2,37 @@
 
 import { useState, useEffect } from 'react'
 import AdminLayout from '@/components/AdminLayout'
-import { Save, AlertCircle, Users, Gift } from 'lucide-react'
+import { Save, AlertCircle, Users, Gift, Crown, Star, Briefcase, Rocket } from 'lucide-react'
 import { db } from '@/lib/firebase'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
+
+const TIER_ICONS: Record<string, any> = {
+  starter: Rocket,
+  professional: Briefcase,
+  business: Star,
+  elite: Crown,
+}
+
+const TIER_COLORS: Record<string, string> = {
+  starter: 'border-gray-300 bg-gray-50',
+  professional: 'border-blue-300 bg-blue-50',
+  business: 'border-purple-300 bg-purple-50',
+  elite: 'border-amber-300 bg-amber-50',
+}
+
+const TIER_LABEL_COLORS: Record<string, string> = {
+  starter: 'text-gray-700',
+  professional: 'text-blue-700',
+  business: 'text-purple-700',
+  elite: 'text-amber-700',
+}
+
+interface TierPricing {
+  starter: number
+  professional: number
+  business: number
+  elite: number
+}
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState({
@@ -12,16 +40,24 @@ export default function AdminSettingsPage() {
     supportEmail: 'supporto@coachami.it',
     coachEmail: 'coach@coachami.it',
     platformFeePercentage: 30,
-    officeCommissionPercentage: 3.5, // Commissione per percorsi venduti da ufficio virtuale
+    officeCommissionPercentage: 3.5,
     freeCallDuration: 15,
     maxAreasPerCoach: 1,
     autoApproveCoaches: false,
     // Community settings
-    communityFreeTrialDays: 30,
-    communityMonthlyPrice: 29,
-    coachMonthlyPrice: 29,
+    communityFreeTrialDays: 14,
+    communityMonthlyPrice: 0,
     minPostsPerMonth: 4,
   })
+  
+  // Prezzi tier separati
+  const [tierPricing, setTierPricing] = useState<TierPricing>({
+    starter: 9,
+    professional: 29,
+    business: 49,
+    elite: 79,
+  })
+  
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -39,9 +75,21 @@ export default function AdminSettingsPage() {
           const data = communityDoc.data()
           setSettings(prev => ({ 
             ...prev, 
-            communityFreeTrialDays: data.freeTrialDays ?? 30,
-            communityMonthlyPrice: data.monthlyPrice ?? 29,
+            communityFreeTrialDays: data.freeTrialDays ?? 14,
+            communityMonthlyPrice: data.monthlyPrice ?? 0,
           }))
+        }
+        
+        // Carica prezzi tier
+        const tierDoc = await getDoc(doc(db, 'settings', 'tierPricing'))
+        if (tierDoc.exists()) {
+          const data = tierDoc.data()
+          setTierPricing({
+            starter: data.starter ?? 9,
+            professional: data.professional ?? 29,
+            business: data.business ?? 49,
+            elite: data.elite ?? 79,
+          })
         }
       } catch (err) {
         console.error('Errore caricamento settings:', err)
@@ -72,7 +120,15 @@ export default function AdminSettingsPage() {
       await setDoc(doc(db, 'settings', 'community'), {
         freeTrialDays: settings.communityFreeTrialDays,
         monthlyPrice: settings.communityMonthlyPrice,
-        coachMonthlyPrice: settings.coachMonthlyPrice,
+        updatedAt: new Date()
+      })
+      
+      // Salva prezzi tier
+      await setDoc(doc(db, 'settings', 'tierPricing'), {
+        starter: tierPricing.starter,
+        professional: tierPricing.professional,
+        business: tierPricing.business,
+        elite: tierPricing.elite,
         updatedAt: new Date()
       })
       
@@ -145,16 +201,18 @@ export default function AdminSettingsPage() {
             </div>
           </div>
 
-          {/* Abbonamenti Piattaforma */}
+          {/* Abbonamenti Coach - 4 Tier */}
           <div className="p-6">
             <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
               <Gift size={20} className="text-green-500" />
-              Abbonamenti Piattaforma
+              Abbonamenti Coach
             </h2>
+            
             <div className="space-y-4">
+              {/* Periodo di prova */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Periodo di prova gratuito Coach (giorni)
+                  Periodo di prova gratuito (giorni)
                 </label>
                 <select
                   value={settings.communityFreeTrialDays}
@@ -172,37 +230,75 @@ export default function AdminSettingsPage() {
                   I nuovi coach avranno accesso gratuito alla piattaforma per questo periodo
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Abbonamento Coachee (€/mese)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={settings.communityMonthlyPrice}
-                    onChange={(e) => setSettings({ ...settings, communityMonthlyPrice: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Per accesso alla Community
-                  </p>
+
+              {/* 4 Tier Cards */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Prezzi mensili per piano
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {(['starter', 'professional', 'business', 'elite'] as const).map((tier) => {
+                    const Icon = TIER_ICONS[tier]
+                    return (
+                      <div 
+                        key={tier} 
+                        className={`rounded-xl border-2 p-4 ${TIER_COLORS[tier]}`}
+                      >
+                        <div className="flex items-center gap-2 mb-3">
+                          <Icon size={18} className={TIER_LABEL_COLORS[tier]} />
+                          <span className={`font-semibold text-sm ${TIER_LABEL_COLORS[tier]}`}>
+                            {tier.charAt(0).toUpperCase() + tier.slice(1)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-lg font-bold text-charcoal">€</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={tierPricing[tier]}
+                            onChange={(e) => setTierPricing({ ...tierPricing, [tier]: parseInt(e.target.value) || 0 })}
+                            className="w-20 px-2 py-1 border border-gray-300 rounded-lg text-lg font-bold text-charcoal focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                          />
+                          <span className="text-sm text-gray-500">/mese</span>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Abbonamento Coach default (€/mese)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={settings.coachMonthlyPrice}
-                    onChange={(e) => setSettings({ ...settings, coachMonthlyPrice: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Prezzo base, personalizzabile per ogni coach
-                  </p>
-                </div>
+              </div>
+              
+              {/* Info sui tier */}
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  <strong>ℹ️ Piani Coach:</strong> Ogni piano include funzionalità progressive. 
+                  Starter è il piano base, Elite include tutto + commissione ridotta al 20%. 
+                  Il piano di ogni coach si gestisce dalla sezione "Coach".
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Abbonamento Coachee */}
+          <div className="p-6">
+            <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+              <Users size={20} className="text-green-500" />
+              Abbonamento Coachee
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Abbonamento Coachee (€/mese)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={settings.communityMonthlyPrice}
+                  onChange={(e) => setSettings({ ...settings, communityMonthlyPrice: parseInt(e.target.value) })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Per accesso alla Community (0 = gratuito)
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -221,20 +317,6 @@ export default function AdminSettingsPage() {
                 <p className="text-xs text-gray-500 mt-1">
                   I coach che non raggiungono questo obiettivo perdono visibilità
                 </p>
-              </div>
-              
-              {/* Info abbonamenti */}
-              <div className="pt-4 border-t border-gray-100 space-y-3">
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-700">
-                    <strong>ℹ️ Abbonamento Coach:</strong> Include accesso completo a: Ufficio Virtuale, Dashboard, Gestione Clienti, Community, Visibilità nella Vetrina. Il prezzo può essere personalizzato per ogni coach dalla sezione "Coach".
-                  </p>
-                </div>
-                <div className="p-3 bg-amber-50 rounded-lg">
-                  <p className="text-sm text-amber-700">
-                    <strong>💡 Prezzi personalizzati:</strong> Vai nella sezione "Coach" per impostare abbonamenti personalizzati (es. 0€ per partner, prezzi speciali per early adopters).
-                  </p>
-                </div>
               </div>
             </div>
           </div>
@@ -265,7 +347,7 @@ export default function AdminSettingsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Commissione piattaforma (%)
+                  Commissione piattaforma default (%)
                 </label>
                 <input
                   type="number"
@@ -276,7 +358,8 @@ export default function AdminSettingsPage() {
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Il coach riceve {100 - settings.platformFeePercentage}% di ogni sessione venduta tramite matching CoachaMi
+                  Il coach riceve {100 - settings.platformFeePercentage}% di ogni sessione venduta tramite matching CoachaMi. 
+                  Il piano Elite ha commissione ridotta (20%).
                 </p>
               </div>
               <div>
