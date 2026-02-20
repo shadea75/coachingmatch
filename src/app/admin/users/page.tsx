@@ -20,7 +20,8 @@ import {
   ChevronDown,
   Trash2,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react'
 
 const ROLE_CONFIG: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
@@ -41,21 +42,69 @@ export default function AdminUsersPage() {
   const [showRoleMenu, setShowRoleMenu] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState<User | null>(null)
+  const [coachOnlyCount, setCoachOnlyCount] = useState(0)
 
   useEffect(() => {
     fetchUsers()
   }, [])
 
   async function fetchUsers() {
+    setLoading(true)
     try {
+      // 1. Carica tutti gli utenti dalla collection "users"
       const usersSnap = await getDocs(collection(db, 'users'))
       const usersData = usersSnap.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate?.() || new Date(doc.data().createdAt),
-        updatedAt: doc.data().updatedAt?.toDate?.() || new Date(doc.data().updatedAt),
+        createdAt: doc.data().createdAt?.toDate?.() || new Date(doc.data().createdAt || Date.now()),
+        updatedAt: doc.data().updatedAt?.toDate?.() || new Date(doc.data().updatedAt || Date.now()),
       })) as User[]
       
+      // 2. Carica coach dalla collection "coachApplications" 
+      // per trovare quelli che NON hanno un documento in "users"
+      const coachAppsSnap = await getDocs(collection(db, 'coachApplications'))
+      const existingEmails = new Set(usersData.map(u => u.email?.toLowerCase()))
+      const existingUserIds = new Set(usersData.map(u => u.id))
+      
+      let coachOnly = 0
+      
+      coachAppsSnap.docs.forEach(docSnap => {
+        const data = docSnap.data()
+        const coachEmail = data.email?.toLowerCase()
+        const coachUserId = data.userId
+        
+        // Se il coach ha un userId collegato, controlla per ID
+        // Se non ha userId, controlla per email
+        const alreadyInUsers = coachUserId 
+          ? existingUserIds.has(coachUserId)
+          : existingEmails.has(coachEmail)
+        
+        if (!alreadyInUsers && coachEmail) {
+          coachOnly++
+          // Aggiungi come utente "virtuale" dalla candidatura
+          usersData.push({
+            id: docSnap.id, // usa l'ID della candidatura
+            name: data.name || 'Nome non impostato',
+            email: data.email,
+            photo: data.photo || '',
+            role: data.status === 'approved' ? 'coach' as UserRole : 'pending_coach' as UserRole,
+            createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt || Date.now()),
+            updatedAt: data.updatedAt?.toDate?.() || new Date(data.updatedAt || Date.now()),
+            // Flag per distinguerli
+            _fromCoachApplications: true,
+            _applicationStatus: data.status,
+          } as any)
+        }
+      })
+      
+      // 3. Ordina per data creazione (più recenti prima)
+      usersData.sort((a, b) => {
+        const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt || 0)
+        const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt || 0)
+        return dateB.getTime() - dateA.getTime()
+      })
+      
+      setCoachOnlyCount(coachOnly)
       setUsers(usersData)
     } catch (error) {
       console.error('Error fetching users:', error)
@@ -71,7 +120,6 @@ export default function AdminUsersPage() {
         updatedAt: new Date()
       })
       
-      // Aggiorna stato locale
       setUsers(prev => prev.map(u => 
         u.id === userId ? { ...u, role: newRole as UserRole } : u
       ))
@@ -104,7 +152,6 @@ export default function AdminUsersPage() {
     
     setDeletingId(user.id)
     try {
-      // Chiama API per eliminare da Firebase Auth
       const response = await fetch('/api/admin/delete-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -120,7 +167,6 @@ export default function AdminUsersPage() {
         throw new Error(result.error || 'Errore eliminazione')
       }
       
-      // Rimuovi dalla lista locale
       setUsers(prev => prev.filter(u => u.id !== user.id))
       setShowDeleteModal(null)
       
@@ -137,7 +183,7 @@ export default function AdminUsersPage() {
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
       user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesRole = filterRole === 'all' || user.role === filterRole
     return matchesSearch && matchesRole
   })
@@ -151,8 +197,23 @@ export default function AdminUsersPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-charcoal">Gestione Utenti</h1>
-            <p className="text-gray-500">{users.length} utenti registrati</p>
+            <p className="text-gray-500">
+              {users.length} utenti totali
+              {coachOnlyCount > 0 && (
+                <span className="text-amber-600 ml-2">
+                  (di cui {coachOnlyCount} coach solo da candidatura, non ancora registrati)
+                </span>
+              )}
+            </p>
           </div>
+          <button
+            onClick={fetchUsers}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            Aggiorna
+          </button>
         </div>
 
         {/* Filters */}
@@ -177,6 +238,7 @@ export default function AdminUsersPage() {
             <option value="admin">Admin</option>
             <option value="moderator">Moderatore</option>
             <option value="coach">Coach</option>
+            <option value="pending_coach">Coach (attesa)</option>
             <option value="coachee">Coachee</option>
           </select>
         </div>
@@ -204,11 +266,12 @@ export default function AdminUsersPage() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    Caricamento...
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                    Caricamento utenti...
                   </td>
                 </tr>
               ) : filteredUsers.length === 0 ? (
@@ -222,9 +285,10 @@ export default function AdminUsersPage() {
                   const roleConfig = ROLE_CONFIG[user.role] || ROLE_CONFIG.coachee
                   const RoleIcon = roleConfig.icon
                   const isCurrentUser = user.id === currentUser?.id
+                  const isFromApplications = (user as any)._fromCoachApplications
                   
                   return (
-                    <tr key={user.id} className="hover:bg-gray-50">
+                    <tr key={user.id} className={`hover:bg-gray-50 ${isFromApplications ? 'bg-amber-50/30' : ''}`}>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           {user.photo ? (
@@ -236,7 +300,7 @@ export default function AdminUsersPage() {
                           ) : (
                             <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
                               <span className="text-sm font-medium text-gray-500">
-                                {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                                {user.name?.charAt(0) || user.email?.charAt(0)?.toUpperCase() || '?'}
                               </span>
                             </div>
                           )}
@@ -246,6 +310,11 @@ export default function AdminUsersPage() {
                               {isCurrentUser && (
                                 <span className="ml-2 text-xs text-primary-500">(Tu)</span>
                               )}
+                              {isFromApplications && (
+                                <span className="ml-2 text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">
+                                  Solo candidatura
+                                </span>
+                              )}
                             </p>
                             <p className="text-sm text-gray-500">{user.email}</p>
                           </div>
@@ -254,19 +323,19 @@ export default function AdminUsersPage() {
                       <td className="px-6 py-4">
                         <div className="relative">
                           <button
-                            onClick={() => setShowRoleMenu(showRoleMenu === user.id ? null : user.id)}
-                            disabled={!isAdmin || isCurrentUser}
+                            onClick={() => !isFromApplications && setShowRoleMenu(showRoleMenu === user.id ? null : user.id)}
+                            disabled={!isAdmin || isCurrentUser || isFromApplications}
                             className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${roleConfig.bgColor} ${roleConfig.color} ${
-                              isAdmin && !isCurrentUser ? 'cursor-pointer hover:opacity-80' : 'cursor-default'
+                              isAdmin && !isCurrentUser && !isFromApplications ? 'cursor-pointer hover:opacity-80' : 'cursor-default'
                             }`}
                           >
                             <RoleIcon size={14} />
                             {roleConfig.label}
-                            {isAdmin && !isCurrentUser && <ChevronDown size={14} />}
+                            {isAdmin && !isCurrentUser && !isFromApplications && <ChevronDown size={14} />}
                           </button>
                           
                           {/* Role dropdown */}
-                          {showRoleMenu === user.id && isAdmin && !isCurrentUser && (
+                          {showRoleMenu === user.id && isAdmin && !isCurrentUser && !isFromApplications && (
                             <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 min-w-[150px]">
                               {roleOptions.map((role) => {
                                 const config = ROLE_CONFIG[role]
@@ -289,7 +358,11 @@ export default function AdminUsersPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        {user.isSuspended ? (
+                        {isFromApplications ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                            Non registrato
+                          </span>
+                        ) : (user as any).isSuspended ? (
                           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
                             <ShieldX size={12} />
                             Sospeso
@@ -310,9 +383,9 @@ export default function AdminUsersPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        {!isCurrentUser && isAdmin && (
+                        {!isCurrentUser && isAdmin && !isFromApplications && (
                           <div className="flex items-center justify-end gap-2">
-                            {user.isSuspended ? (
+                            {(user as any).isSuspended ? (
                               <button
                                 onClick={() => toggleSuspendUser(user.id, false)}
                                 className="text-sm text-green-600 hover:text-green-700 font-medium"
@@ -336,6 +409,11 @@ export default function AdminUsersPage() {
                               Elimina
                             </button>
                           </div>
+                        )}
+                        {isFromApplications && (
+                          <span className="text-xs text-gray-400">
+                            Gestisci in Coach →
+                          </span>
                         )}
                       </td>
                     </tr>
