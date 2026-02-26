@@ -336,6 +336,91 @@ export async function POST(request: NextRequest) {
       console.error('❌ Errore salvataggio lead:', dbError?.message || dbError)
     }
     
+    // Notifica admin nuovo lead
+    if (resend) {
+      try {
+        const sortedScores = Object.entries(scores as Record<string, number>)
+          .sort(([,a], [,b]) => b - a)
+        
+        const scoresHtml = sortedScores.map(([area, score]) => {
+          const pct = ((score as number) / 10) * 100
+          const color = (score as number) >= 7 ? '#10B981' : (score as number) >= 5 ? '#F59E0B' : '#EF4444'
+          return `
+            <tr>
+              <td style="padding: 6px 0; color: #374151; font-size: 14px;">${AREA_LABELS[area] || area}</td>
+              <td style="padding: 6px 0; width: 60%;">
+                <div style="background: #f3f4f6; border-radius: 8px; height: 20px; overflow: hidden;">
+                  <div style="background: ${color}; height: 100%; width: ${pct}%; border-radius: 8px; min-width: 20px;"></div>
+                </div>
+              </td>
+              <td style="padding: 6px 8px; color: #374151; font-size: 14px; font-weight: 600; text-align: right;">${score}/10</td>
+            </tr>`
+        }).join('')
+
+        const adminEmailHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f8f5f0;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    
+    <div style="text-align: center; padding: 25px 20px; background: linear-gradient(135deg, #10B981 0%, #059669 100%); border-radius: 20px 20px 0 0;">
+      <h1 style="color: white; margin: 0; font-size: 24px;">🎉 Nuovo Lead!</h1>
+      <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Qualcuno ha completato il test gratuito</p>
+    </div>
+    
+    <div style="background: white; padding: 30px;">
+      
+      <div style="background: #f8f5f0; padding: 20px; border-radius: 12px; margin: 0 0 20px 0;">
+        <h3 style="color: #1f2937; margin: 0 0 8px 0; font-size: 20px;">${name}</h3>
+        <p style="color: #6b7280; margin: 0 0 4px 0; font-size: 14px;">📧 ${email}</p>
+        <p style="color: #6b7280; margin: 0 0 4px 0; font-size: 14px;">🎯 Area prioritaria: <strong style="color: #D4A574;">${AREA_LABELS[priorityArea]}</strong></p>
+        <p style="color: #6b7280; margin: 0 0 4px 0; font-size: 14px;">📊 Life Score: <strong>${typeof lifeScore === 'number' ? lifeScore.toFixed(1) : lifeScore}/10</strong></p>
+        <p style="color: #6b7280; margin: 0; font-size: 14px;">🧭 Archetipo: <strong>${archetype.emoji} ${archetype.name}</strong></p>
+      </div>
+      
+      <h4 style="color: #1f2937; margin: 0 0 12px 0; font-size: 15px;">Punteggi per area:</h4>
+      <table style="width: 100%; border-collapse: collapse;">
+        ${scoresHtml}
+      </table>
+      
+      <div style="margin: 25px 0 0 0; padding: 15px; background: #eff6ff; border-radius: 10px;">
+        <p style="color: #1e40af; margin: 0; font-size: 13px;">
+          <strong>⏰ Prossimi step automatici:</strong><br>
+          • Giorno 3 → Reminder 1 al lead<br>
+          • Giorno 7 → Reminder 2 con proposta coach<br>
+          • Giorno 10 → Assegnazione automatica coach
+        </p>
+      </div>
+      
+      <div style="text-align: center; margin: 25px 0 0 0;">
+        <a href="https://www.coachami.it/admin/leads" 
+           style="display: inline-block; background: #D4A574; color: white; padding: 14px 35px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px;">
+          Vai alla Lead Management →
+        </a>
+      </div>
+    </div>
+    
+    <div style="background: #1f2937; padding: 15px; border-radius: 0 0 20px 20px; text-align: center;">
+      <p style="color: #9ca3af; font-size: 12px; margin: 0;">Lead ID: ${leadId}</p>
+    </div>
+    
+  </div>
+</body>
+</html>`
+
+        await resend.emails.send({
+          from: 'CoachaMi <noreply@coachami.it>',
+          to: 'debora.carofiglio@gmail.com',
+          subject: `🎉 Nuovo lead: ${name} — ${AREA_LABELS[priorityArea]} (${typeof lifeScore === 'number' ? lifeScore.toFixed(1) : lifeScore}/10)`,
+          html: adminEmailHtml
+        })
+        console.log('✅ Email notifica admin inviata')
+      } catch (adminEmailError: any) {
+        console.error('❌ Errore invio email admin:', adminEmailError?.message || adminEmailError)
+      }
+    }
+    
     console.log('✅ API completata')
     return NextResponse.json({ success: true, leadId })
     
