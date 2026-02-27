@@ -25,7 +25,7 @@ import {
 import Logo from '@/components/Logo'
 import { useAuth } from '@/contexts/AuthContext'
 import { db } from '@/lib/firebase'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore'
 
 interface Product {
   id: string
@@ -210,6 +210,93 @@ export default function ProductDetailPage() {
     e.preventDefault()
     if (validateBuyerForm()) {
       handlePurchase(buyerData.email, `${buyerData.firstName} ${buyerData.lastName}`)
+    }
+  }
+
+  // Download gratuito senza Stripe
+  const handleFreeDownload = async (email: string, name: string) => {
+    if (!product) return
+    
+    setIsProcessing(true)
+    setError('')
+    
+    try {
+      const downloadId = `free_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+      
+      // Registra il download in Firebase
+      await setDoc(doc(db, 'productPurchases', downloadId), {
+        productId: product.id,
+        productTitle: product.title,
+        coachId: product.coachId,
+        coachName: product.coachName,
+        userId: user?.id || 'guest',
+        userEmail: email,
+        userName: name,
+        price: 0,
+        commissionRate: 0,
+        commissionAmount: 0,
+        coachEarnings: 0,
+        fileUrl: product.fileUrl || null,
+        fileName: product.fileName || null,
+        stripeSessionId: null,
+        isFreeDownload: true,
+        purchasedAt: serverTimestamp()
+      })
+      
+      // Aggiorna contatore vendite/download
+      await updateDoc(doc(db, 'digitalProducts', product.id), {
+        salesCount: increment(1)
+      })
+      
+      // Se utente loggato, salva nel suo profilo
+      if (user?.id) {
+        await setDoc(doc(db, 'productPurchases', `${user.id}_${product.id}`), {
+          productId: product.id,
+          productTitle: product.title,
+          coachId: product.coachId,
+          price: 0,
+          fileUrl: product.fileUrl || null,
+          fileName: product.fileName || null,
+          isFreeDownload: true,
+          purchasedAt: serverTimestamp()
+        })
+      }
+      
+      // Invia email di conferma
+      try {
+        if (email && email !== 'guest@example.com') {
+          await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'product_purchase',
+              data: {
+                customerEmail: email,
+                customerName: name || 'Cliente',
+                coachEmail: product.coachEmail,
+                productTitle: product.title,
+                coachName: product.coachName,
+                price: 0,
+                commissionAmount: 0,
+                coachEarnings: 0,
+                downloadUrl: product.fileUrl || window.location.href,
+                isFree: true
+              }
+            })
+          })
+        }
+      } catch (emailErr) {
+        console.error('Errore invio email:', emailErr)
+      }
+      
+      // Redirect alla pagina success
+      window.location.href = `/shop/success?productId=${product.id}&free=true`
+      
+    } catch (err: any) {
+      console.error('Errore download gratuito:', err)
+      setError(err.message || 'Errore durante il download')
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -416,17 +503,19 @@ export default function ProductDetailPage() {
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-gray-600">Prezzo</span>
                   <span className="text-3xl font-bold text-primary-600">
-                    {formatCurrency(product.price)}
+                    {product.price === 0 ? 'Gratis' : formatCurrency(product.price)}
                   </span>
                 </div>
 
-                {/* Already Purchased */}
+                {/* Already Purchased/Downloaded */}
                 {alreadyPurchased ? (
                   <div className="p-4 bg-green-50 border border-green-200 rounded-xl mb-4">
                     <div className="flex items-center gap-3">
                       <CheckCircle className="text-green-500" size={24} />
                       <div>
-                        <p className="font-medium text-green-800">Hai già acquistato questo prodotto</p>
+                        <p className="font-medium text-green-800">
+                          {product.price === 0 ? 'Hai già scaricato questo prodotto' : 'Hai già acquistato questo prodotto'}
+                        </p>
                         <Link 
                           href="/dashboard/purchases"
                           className="text-sm text-green-600 hover:underline"
@@ -436,6 +525,107 @@ export default function ProductDetailPage() {
                       </div>
                     </div>
                   </div>
+                ) : product.price === 0 ? (
+                  /* Prodotto gratuito - download diretto */
+                  showBuyerForm ? (
+                    <div className="space-y-4">
+                      <div className="text-center mb-4">
+                        <h3 className="font-semibold text-charcoal">Inserisci i tuoi dati</h3>
+                        <p className="text-sm text-gray-500">Per ricevere il prodotto</p>
+                      </div>
+                      
+                      <form onSubmit={(e) => { e.preventDefault(); if (validateBuyerForm()) handleFreeDownload(buyerData.email, `${buyerData.firstName} ${buyerData.lastName}`) }} className="space-y-3">
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="Nome *"
+                            value={buyerData.firstName}
+                            onChange={(e) => setBuyerData(prev => ({ ...prev, firstName: e.target.value }))}
+                            className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                              buyerErrors.firstName ? 'border-red-300' : 'border-gray-200'
+                            }`}
+                          />
+                          {buyerErrors.firstName && (
+                            <p className="text-xs text-red-500 mt-1">{buyerErrors.firstName}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="Cognome *"
+                            value={buyerData.lastName}
+                            onChange={(e) => setBuyerData(prev => ({ ...prev, lastName: e.target.value }))}
+                            className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                              buyerErrors.lastName ? 'border-red-300' : 'border-gray-200'
+                            }`}
+                          />
+                          {buyerErrors.lastName && (
+                            <p className="text-xs text-red-500 mt-1">{buyerErrors.lastName}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <input
+                            type="email"
+                            placeholder="Email *"
+                            value={buyerData.email}
+                            onChange={(e) => setBuyerData(prev => ({ ...prev, email: e.target.value }))}
+                            className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                              buyerErrors.email ? 'border-red-300' : 'border-gray-200'
+                            }`}
+                          />
+                          {buyerErrors.email && (
+                            <p className="text-xs text-red-500 mt-1">{buyerErrors.email}</p>
+                          )}
+                        </div>
+                        
+                        <button
+                          type="submit"
+                          disabled={isProcessing}
+                          className="w-full py-4 bg-green-500 text-white rounded-xl font-semibold hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {isProcessing ? (
+                            <Loader2 size={20} className="animate-spin" />
+                          ) : (
+                            <>
+                              <Download size={20} />
+                              Scarica gratis
+                            </>
+                          )}
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={() => setShowBuyerForm(false)}
+                          className="w-full py-2 text-gray-500 hover:text-gray-700 text-sm"
+                        >
+                          Annulla
+                        </button>
+                      </form>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (user) {
+                          handleFreeDownload(user.email || '', user.name || '')
+                        } else {
+                          setShowBuyerForm(true)
+                        }
+                      }}
+                      disabled={isProcessing}
+                      className="w-full py-4 bg-green-500 text-white rounded-xl font-semibold hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isProcessing ? (
+                        <Loader2 size={20} className="animate-spin" />
+                      ) : (
+                        <>
+                          <Download size={20} />
+                          Scarica gratis
+                        </>
+                      )}
+                    </button>
+                  )
                 ) : showBuyerForm ? (
                   /* Form dati acquirente */
                   <div className="space-y-4">
@@ -554,12 +744,12 @@ export default function ProductDetailPage() {
               <div className="bg-white rounded-xl p-4 text-center shadow-sm">
                 <Download className="mx-auto mb-2 text-primary-500" size={24} />
                 <p className="text-sm font-medium text-charcoal">Download immediato</p>
-                <p className="text-xs text-gray-500">Dopo il pagamento</p>
+                <p className="text-xs text-gray-500">{product.price === 0 ? 'Gratis, senza carta' : 'Dopo il pagamento'}</p>
               </div>
               <div className="bg-white rounded-xl p-4 text-center shadow-sm">
                 <Shield className="mx-auto mb-2 text-green-500" size={24} />
-                <p className="text-sm font-medium text-charcoal">Pagamento sicuro</p>
-                <p className="text-xs text-gray-500">Con Stripe</p>
+                <p className="text-sm font-medium text-charcoal">{product.price === 0 ? 'Nessun costo' : 'Pagamento sicuro'}</p>
+                <p className="text-xs text-gray-500">{product.price === 0 ? '100% gratuito' : 'Con Stripe'}</p>
               </div>
             </motion.div>
           </div>

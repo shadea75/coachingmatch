@@ -329,13 +329,13 @@ function ShopContent() {
                           
                           {/* Price & Sales */}
                           <div className="flex items-center justify-between">
-                            <span className="text-xl font-bold text-primary-600">
-                              {formatCurrency(product.price)}
+                            <span className={`text-xl font-bold ${product.price === 0 ? 'text-green-600' : 'text-primary-600'}`}>
+                              {product.price === 0 ? 'Gratis' : formatCurrency(product.price)}
                             </span>
                             {product.salesCount > 0 && (
                               <span className="text-xs text-gray-400 flex items-center gap-1">
                                 <ShoppingBag size={12} />
-                                {product.salesCount} venduti
+                                {product.salesCount} {product.price === 0 ? 'download' : 'venduti'}
                               </span>
                             )}
                           </div>

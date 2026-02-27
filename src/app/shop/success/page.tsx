@@ -24,6 +24,7 @@ function SuccessContent() {
   
   const productId = searchParams.get('productId')
   const sessionId = searchParams.get('session_id')
+  const isFree = searchParams.get('free') === 'true'
   
   const [isLoading, setIsLoading] = useState(true)
   const [product, setProduct] = useState<any>(null)
@@ -41,11 +42,11 @@ function SuccessContent() {
       }
       
       try {
-        // Recupera dati cliente dalla sessione Stripe
+        // Recupera dati cliente dalla sessione Stripe (solo per acquisti a pagamento)
         let fetchedEmail = user?.email || null
         let fetchedName = user?.name || null
         
-        if (sessionId) {
+        if (sessionId && !isFree) {
           try {
             const sessionRes = await fetch(`/api/payments/get-session?session_id=${sessionId}`)
             if (sessionRes.ok) {
@@ -74,8 +75,8 @@ function SuccessContent() {
           ...productData
         })
         
-        // Registra acquisto (solo una volta)
-        if (!purchaseRecorded && sessionId) {
+        // Registra acquisto (solo una volta, solo per acquisti a pagamento)
+        if (!purchaseRecorded && sessionId && !isFree) {
           // Verifica se acquisto già registrato
           const purchaseRef = doc(db, 'productPurchases', sessionId)
           const existingPurchase = await getDoc(purchaseRef)
@@ -170,7 +171,7 @@ function SuccessContent() {
       <div className="min-h-screen bg-cream flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="animate-spin text-primary-500 mx-auto mb-4" size={40} />
-          <p className="text-gray-500">Elaborazione acquisto...</p>
+          <p className="text-gray-500">Preparazione download...</p>
         </div>
       </div>
     )
@@ -212,10 +213,12 @@ function SuccessContent() {
           </div>
 
           <h1 className="text-2xl font-bold text-charcoal mb-2">
-            Acquisto completato! 🎉
+            {isFree ? 'Download pronto! 🎉' : 'Acquisto completato! 🎉'}
           </h1>
           <p className="text-gray-500 mb-8">
-            Grazie per il tuo acquisto. Il tuo contenuto è pronto per il download.
+            {isFree 
+              ? 'Il tuo contenuto gratuito è pronto per il download.' 
+              : 'Grazie per il tuo acquisto. Il tuo contenuto è pronto per il download.'}
           </p>
 
           {/* Product Info */}
