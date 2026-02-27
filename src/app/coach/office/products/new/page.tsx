@@ -17,7 +17,8 @@ import {
   CheckCircle,
   Info,
   Image as ImageIcon,
-  X
+  X,
+  Download
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { db, storage } from '@/lib/firebase'
