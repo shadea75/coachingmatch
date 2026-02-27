@@ -184,8 +184,8 @@ export default function EditProductPage() {
       setError('Inserisci un titolo')
       return
     }
-    if (!formData.price || parseFloat(formData.price) <= 0) {
-      setError('Inserisci un prezzo valido')
+    if (formData.price === '' || parseFloat(formData.price) < 0) {
+      setError('Inserisci un prezzo valido (0 per gratuito)')
       return
     }
     
@@ -366,7 +366,7 @@ export default function EditProductPage() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Prezzo *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Prezzo (€0 = gratuito)</label>
               <div className="relative">
                 <Euro className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                 <input
@@ -496,7 +496,7 @@ export default function EditProductPage() {
         </motion.div>
 
         {/* Riepilogo */}
-        {price > 0 && (
+        {price > 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -519,7 +519,24 @@ export default function EditProductPage() {
               </div>
             </div>
           </motion.div>
-        )}
+        ) : formData.price === '0' || formData.price === '0.00' ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-200"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                <CheckCircle size={20} className="text-green-600" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-charcoal">Prodotto gratuito</h2>
+                <p className="text-sm text-gray-600">Gli utenti potranno scaricarlo senza pagamento.</p>
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
 
         {/* Error */}
         {error && (
