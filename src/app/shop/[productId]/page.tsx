@@ -38,6 +38,7 @@ interface Product {
   category: string
   coverImage?: string
   fileName?: string
+  fileUrl?: string
   fileSize?: number
   salesCount: number
   createdAt: Date
@@ -129,6 +130,7 @@ export default function ProductDetailPage() {
           category: data.category || 'ebook',
           coverImage: data.coverImage,
           fileName: data.fileName,
+          fileUrl: data.fileUrl,
           fileSize: data.fileSize,
           salesCount: data.salesCount || 0,
           createdAt: data.createdAt?.toDate() || new Date(),
