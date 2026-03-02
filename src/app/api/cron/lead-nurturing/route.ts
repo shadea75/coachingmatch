@@ -1,17 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { db } from '@/lib/firebase'
-import { 
-  collection, 
-  getDocs, 
-  query, 
-  where, 
-  doc, 
-  updateDoc, 
-  Timestamp,
-  orderBy,
-  limit
-} from 'firebase/firestore'
+import { adminDb } from '@/lib/firebase-admin'
+import { FieldValue, Timestamp as AdminTimestamp } from 'firebase-admin/firestore'
 import { LifeAreaId } from '@/types'
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
@@ -474,11 +464,9 @@ function generateLeadReassignedEmail(lead: any, newCoach: any): string {
 async function findBestCoachForLead(lead: any, excludeCoachId?: string): Promise<any | null> {
   try {
     // Cerca coach approvati specializzati nell'area prioritaria
-    const coachesQuery = query(
-      collection(db, 'coachApplications'),
-      where('status', '==', 'approved')
-    )
-    const snapshot = await getDocs(coachesQuery)
+    const snapshot = await adminDb.collection('coachApplications')
+      .where('status', '==', 'approved')
+      .get()
     
     if (snapshot.empty) return null
     
@@ -518,12 +506,9 @@ async function findBestCoachForLead(lead: any, excludeCoachId?: string): Promise
 
 async function getCoachById(coachId: string): Promise<any | null> {
   try {
-    const coachDoc = await getDocs(query(
-      collection(db, 'coachApplications'),
-      where('__name__', '==', coachId)
-    ))
-    if (coachDoc.empty) return null
-    return { id: coachDoc.docs[0].id, ...coachDoc.docs[0].data() }
+    const coachDoc = await adminDb.collection('coachApplications').doc(coachId).get()
+    if (!coachDoc.exists) return null
+    return { id: coachDoc.id, ...coachDoc.data() }
   } catch (err) {
     return null
   }
@@ -540,7 +525,7 @@ function daysSince(timestamp: any): number {
 // =====================
 
 export async function GET(request: NextRequest) {
-  // Verifica autorizzazione
+  // Verifica autorizzazione - supporta sia Vercel Cron che chiamate manuali
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -550,11 +535,9 @@ export async function GET(request: NextRequest) {
   
   try {
     // Carica tutti i lead non ancora convertiti
-    const leadsQuery = query(
-      collection(db, 'leads'),
-      where('status', 'in', ['new', 'reminded', 'assigned'])
-    )
-    const leadsSnapshot = await getDocs(leadsQuery)
+    const leadsSnapshot = await adminDb.collection('leads')
+      .where('status', 'in', ['new', 'reminded', 'assigned'])
+      .get()
     
     const results = {
       processed: 0,
@@ -610,13 +593,13 @@ export async function GET(request: NextRequest) {
             }
             
             // Aggiorna lead
-            await updateDoc(doc(db, 'leads', lead.id), {
+            await adminDb.collection('leads').doc(lead.id).update({
               previousCoachId: oldCoachId,
               assignedCoachId: newCoach.id,
-              assignedAt: Timestamp.now(),
-              reassignedAt: Timestamp.now(),
+              assignedAt: AdminTimestamp.now(),
+              reassignedAt: AdminTimestamp.now(),
               reassignCount: (lead.reassignCount || 0) + 1,
-              updatedAt: Timestamp.now()
+              updatedAt: AdminTimestamp.now()
             })
             
             results.reassigned++
@@ -638,11 +621,11 @@ export async function GET(request: NextRequest) {
             })
           }
           
-          await updateDoc(doc(db, 'leads', lead.id), {
+          await adminDb.collection('leads').doc(lead.id).update({
             status: 'reminded',
             reminderCount: 1,
-            lastReminderAt: Timestamp.now(),
-            updatedAt: Timestamp.now()
+            lastReminderAt: AdminTimestamp.now(),
+            updatedAt: AdminTimestamp.now()
           })
           
           results.reminder1Sent++
@@ -662,12 +645,12 @@ export async function GET(request: NextRequest) {
             })
           }
           
-          await updateDoc(doc(db, 'leads', lead.id), {
+          await adminDb.collection('leads').doc(lead.id).update({
             status: 'reminded',
             reminderCount: 2,
             suggestedCoachId: topCoach?.id || null,
-            lastReminderAt: Timestamp.now(),
-            updatedAt: Timestamp.now()
+            lastReminderAt: AdminTimestamp.now(),
+            updatedAt: AdminTimestamp.now()
           })
           
           results.reminder2Sent++
@@ -699,11 +682,11 @@ export async function GET(request: NextRequest) {
               }
             }
             
-            await updateDoc(doc(db, 'leads', lead.id), {
+            await adminDb.collection('leads').doc(lead.id).update({
               status: 'assigned',
               assignedCoachId: assignedCoach.id,
-              assignedAt: Timestamp.now(),
-              updatedAt: Timestamp.now()
+              assignedAt: AdminTimestamp.now(),
+              updatedAt: AdminTimestamp.now()
             })
             
             results.autoAssigned++
