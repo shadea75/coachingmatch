@@ -1,0 +1,144 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && (
+        request.auth.uid == userId || 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+      allow delete: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /leads/{leadId} {
+      allow create: if true;
+      allow read: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null &&
+        request.auth.token.email == 'debora.carofiglio@gmail.com';
+    }
+
+    match /communityComments/{commentId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /coachContracts/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /digitalProducts/{productId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null;
+    }
+
+    match /invoices/{invoiceId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /purchases/{purchaseId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if request.auth != null;
+    }
+
+    match /sessions/{sessionId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /externalSessions/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /offers/{offerId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /coachApplications/{appId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if request.auth != null;
+    }
+
+    match /coachAvailability/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /coachBlockedDates/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /coachEvents/{eventId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /coachCalendarTokens/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /coachClients/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /communityPosts/{postId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /coachPoints/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /pointsHistory/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /coachStripeAccounts/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /externalClients/{clientId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /externalOffers/{offerId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /conversations/{conversationId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /messages/{messageId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /coacheeContractData/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /suspiciousAttempts/{docId} {
+      allow read: if request.auth != null &&
+        request.auth.token.email == 'debora.carofiglio@gmail.com';
+      allow create: if request.auth != null;
+    }
+  }
+}
