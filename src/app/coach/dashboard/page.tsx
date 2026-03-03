@@ -818,7 +818,7 @@ export default function CoachDashboardPage() {
                               if (!uSnap2.empty) {
                                 const cId2 = uSnap2.docs[0].id
                                 const cName2 = uSnap2.docs[0].data().name || lead.name
-                                router.push("/coach/offers/new?coacheeId=" + cId2 + "&coacheeName=" + encodeURIComponent(cName2))
+                                router.push("/coach/office/clients/" + cId2 + "/new-offer?source=coachami&coacheeId=" + cId2)
                               } else {
                                 alert("Il lead deve registrarsi prima di ricevere un offerta.")
                               }
