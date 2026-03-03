@@ -51,7 +51,7 @@ interface Client {
   name: string
   email: string
   phone?: string
-  source: 'coachami' | 'external'
+  source: 'coachami' | 'external' | 'lead'
   coacheeId?: string
   notes?: string
   createdAt: Date
@@ -239,8 +239,39 @@ export default function CoachOfficePage() {
         
         const coachamiClients = Array.from(coacheeMap.values())
         
+        // Carica lead assegnati al coach dalla collection 'leads'
+        const leadsQuery = query(
+          collection(db, 'leads'),
+          where('assignedCoachId', '==', user.id)
+        )
+        const leadsSnap = await getDocs(leadsQuery)
+        
+        const leadClients: Client[] = leadsSnap.docs
+          .filter(leadDoc => {
+            const leadData = leadDoc.data()
+            // Escludi lead che sono già nei coachee CoachaMi (hanno già offerte)
+            const leadEmail = leadData.email?.toLowerCase()
+            return !coachamiClients.some(c => c.email?.toLowerCase() === leadEmail) &&
+                   !externalClients.some(c => c.email?.toLowerCase() === leadEmail)
+          })
+          .map(leadDoc => {
+            const data = leadDoc.data()
+            return {
+              id: leadDoc.id,
+              name: data.name || data.email?.split('@')[0] || 'Lead',
+              email: data.email || '',
+              source: 'lead' as const,
+              leadId: leadDoc.id,
+              notes: data.priorityArea ? `Area prioritaria: ${data.priorityArea}` : undefined,
+              createdAt: data.createdAt?.toDate() || new Date(),
+              totalSessions: 0,
+              completedSessions: 0,
+              totalRevenue: 0
+            }
+          })
+        
         // Combina tutti i clienti
-        const allClients = [...coachamiClients, ...externalClients].sort(
+        const allClients = [...coachamiClients, ...leadClients, ...externalClients].sort(
           (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
         )
         
@@ -362,7 +393,7 @@ export default function CoachOfficePage() {
         
         setStats({
           totalClients: allClients.length,
-          coachamiClients: coachamiClients.length,
+          coachamiClients: coachamiClients.length + leadClients.length,
           externalClients: externalClients.length,
           totalRevenue,
           confirmedSessions,
@@ -493,7 +524,7 @@ export default function CoachOfficePage() {
   const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           client.email.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesFilter = filterSource === 'all' || client.source === filterSource
+    const matchesFilter = filterSource === 'all' || client.source === filterSource || (filterSource === 'coachami' && client.source === 'lead')
     return matchesSearch && matchesFilter
   })
 
@@ -827,11 +858,11 @@ export default function CoachOfficePage() {
                     transition={{ delay: index * 0.05 }}
                   >
                     <Link
-                      href={`/coach/office/clients/${client.id}`}
+                      href={`/coach/office/clients/${client.id}?source=${client.source}${client.source === 'coachami' && client.coacheeId ? '&coacheeId=' + client.coacheeId : ''}`}
                       className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
                     >
                       <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold ${
-                        client.source === 'coachami' ? 'bg-primary-500' : 'bg-purple-500'
+                        client.source === 'lead' ? 'bg-green-500' : client.source === 'coachami' ? 'bg-primary-500' : 'bg-purple-500'
                       }`}>
                         {client.name.charAt(0).toUpperCase()}
                       </div>
@@ -840,11 +871,13 @@ export default function CoachOfficePage() {
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-charcoal truncate">{client.name}</h3>
                           <span className={`px-2 py-0.5 rounded-full text-xs ${
-                            client.source === 'coachami' 
+                            client.source === 'lead'
+                              ? 'bg-green-100 text-green-700'
+                              : client.source === 'coachami' 
                               ? 'bg-primary-100 text-primary-700' 
                               : 'bg-purple-100 text-purple-700'
                           }`}>
-                            {client.source === 'coachami' ? 'CoachaMi' : 'Esterno'}
+                            {client.source === 'lead' ? 'Lead' : client.source === 'coachami' ? 'CoachaMi' : 'Esterno'}
                           </span>
                         </div>
                         <p className="text-sm text-gray-500 truncate">{client.email}</p>
