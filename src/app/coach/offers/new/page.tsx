@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { 
@@ -84,8 +84,21 @@ interface Coachee {
 }
 
 export default function NewOfferPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div></div>}>
+      <NewOfferPageContent />
+    </Suspense>
+  )
+}
+
+function NewOfferPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useAuth()
+  
+  // Pre-selezione coachee da URL (es. dalla chat)
+  const preselectedCoacheeId = searchParams.get('coacheeId')
+  const preselectedCoacheeName = searchParams.get('coacheeName')
   
   const [step, setStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
@@ -141,6 +154,25 @@ export default function NewOfferPage() {
     
     loadCoachees()
   }, [user?.id])
+  
+  // Pre-seleziona coachee da URL params (es. dalla chat)
+  useEffect(() => {
+    if (preselectedCoacheeId && coachees.length > 0 && !selectedCoachee) {
+      const found = coachees.find(c => c.id === preselectedCoacheeId)
+      if (found) {
+        setSelectedCoachee(found)
+        setStep(2)
+      }
+    }
+    if (preselectedCoacheeId && preselectedCoacheeName && coachees.length === 0 && !selectedCoachee && !isLoading) {
+      setSelectedCoachee({
+        id: preselectedCoacheeId,
+        name: decodeURIComponent(preselectedCoacheeName),
+        email: ''
+      })
+      setStep(2)
+    }
+  }, [preselectedCoacheeId, preselectedCoacheeName, coachees.length, isLoading])
   
   // Filtra coachee per ricerca
   const filteredCoachees = coachees.filter(c => 
