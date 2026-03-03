@@ -234,6 +234,32 @@ function MessagesContent() {
           setSelectedConversation(convRef.id)
           setShowConversationList(false)
 
+          // Auto-assegna lead al coach se non ancora assegnato
+          if (user.email) {
+            try {
+              const leadsQ = query(
+                collection(db, 'leads'),
+                where('email', '==', user.email.toLowerCase())
+              )
+              const leadsSnap = await getDocs(leadsQ)
+              for (const ld of leadsSnap.docs) {
+                const ldData = ld.data()
+                if (!ldData.assignedCoachId) {
+                  await updateDoc(doc(db, 'leads', ld.id), {
+                    assignedCoachId: targetCoachId,
+                    assignedCoachName: coachName,
+                    status: 'assigned',
+                    assignedAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                  })
+                  console.log('Lead auto-assegnato al coach:', targetCoachId)
+                }
+              }
+            } catch (leadErr) {
+              console.error('Errore auto-assegnazione lead:', leadErr)
+            }
+          }
+
           // Invia il messaggio iniziale se presente
           if (initialMessage) {
             await sendFirstMessage(convRef.id, initialMessage)
