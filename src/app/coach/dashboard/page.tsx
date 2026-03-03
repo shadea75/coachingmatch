@@ -788,13 +788,27 @@ export default function CoachDashboardPage() {
                         </div>
                       </div>
                       <div className="mt-3 flex gap-2">
-                        <a 
-                          href={`mailto:${lead.email}?subject=Ciao ${lead.name}, sono il tuo coach su CoachaMi!&body=Ciao ${lead.name},%0D%0A%0D%0ASono stato assegnato come tuo coach su CoachaMi. Ho visto che sei interessato a migliorare nell'area ${lead.priorityArea}.%0D%0A%0D%0ATi va di chattare per conoscerci meglio?%0D%0A%0D%0AA presto!`}
+                        <button
+                          onClick={async () => {
+                            try {
+                              const uQ = query(collection(db, "users"), where("email", "==", lead.email))
+                              const uSnap = await getDocs(uQ)
+                              if (!uSnap.empty) {
+                                const cId = uSnap.docs[0].id
+                                const cName = uSnap.docs[0].data().name || lead.name
+                                router.push("/coach/messages?coachId=" + cId + "&coachName=" + encodeURIComponent(cName))
+                              } else {
+                                window.location.href = "mailto:" + lead.email
+                              }
+                            } catch (e) {
+                              window.location.href = "mailto:" + lead.email
+                            }
+                          }}
                           className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
                         >
                           <Mail size={16} />
                           Contatta
-                        </a>
+                        </button>
                       </div>
                     </div>
                   ))}
