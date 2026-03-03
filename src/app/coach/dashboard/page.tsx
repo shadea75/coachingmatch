@@ -27,7 +27,8 @@ import {
   AlertCircle,
   Building2,
   Camera,
-  AlertTriangle
+  AlertTriangle,
+  FileText
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
@@ -798,16 +799,37 @@ export default function CoachDashboardPage() {
                                 const cName = uSnap.docs[0].data().name || lead.name
                                 router.push("/coach/messages?coachId=" + cId + "&coachName=" + encodeURIComponent(cName))
                               } else {
-                                window.location.href = "mailto:" + lead.email
+                                alert("Questo lead non si e ancora registrato su CoachaMi.")
                               }
                             } catch (e) {
-                              window.location.href = "mailto:" + lead.email
+                              console.error("Errore:", e)
                             }
                           }}
                           className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
                         >
                           <Mail size={16} />
                           Contatta
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const uQ2 = query(collection(db, "users"), where("email", "==", lead.email))
+                              const uSnap2 = await getDocs(uQ2)
+                              if (!uSnap2.empty) {
+                                const cId2 = uSnap2.docs[0].id
+                                const cName2 = uSnap2.docs[0].data().name || lead.name
+                                router.push("/coach/offers/new?coacheeId=" + cId2 + "&coacheeName=" + encodeURIComponent(cName2))
+                              } else {
+                                alert("Il lead deve registrarsi prima di ricevere un offerta.")
+                              }
+                            } catch (e) {
+                              console.error("Errore:", e)
+                            }
+                          }}
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors"
+                        >
+                          <FileText size={16} />
+                          Crea Offerta
                         </button>
                       </div>
                     </div>
