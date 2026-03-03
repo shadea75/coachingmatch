@@ -54,8 +54,8 @@ function NewOfferContent() {
   const isCoachaMiClient = searchParams.get('source') === 'coachami'
   const coacheeId = searchParams.get('coacheeId')
   
-  // Commissione caricata da settings (default 3.5%)
-  const [officeCommission, setOfficeCommission] = useState(0.035)
+  // Commissione (30% per CoachaMi, variabile per esterni)
+  const [officeCommission, setOfficeCommission] = useState(0.30)
   
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -160,13 +160,13 @@ function NewOfferContent() {
           setIncludeContract(contractData.enabled || false)
         }
         
-        // Carica commissione ufficio virtuale da settings
+        // Carica commissione da settings admin
         if (isCoachaMiClient) {
           const settingsDoc = await getDoc(doc(db, 'settings', 'platform'))
           if (settingsDoc.exists()) {
             const settingsData = settingsDoc.data()
-            // Commissione in percentuale (es. 3.5) -> convertita in decimale (0.035)
-            const commissionPercent = settingsData.officeCommissionPercentage ?? 3.5
+            // Per clienti CoachaMi: usa platformFeePercentage (es. 30%)
+            const commissionPercent = settingsData.platformFeePercentage ?? 30
             setOfficeCommission(commissionPercent / 100)
           }
           
