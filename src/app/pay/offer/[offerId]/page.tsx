@@ -37,8 +37,14 @@ interface Offer {
   status: string
   installments: Array<{ sessionNumber: number; amount: number; status: string }>
   coachStripeAccountId?: string
-  commissionRate?: number // Commissione (es. 0.30 per 30%, 0.035 per 3.5%)
-  source?: string // 'office' per offerte dall'ufficio virtuale
+  commissionRate?: number
+  source?: string
+  priceTotal?: number
+  allowSinglePayment?: boolean
+  allowInstallments?: boolean
+  priceTotalWithFee?: number
+  installmentFeePercent?: number
+  paymentMethod?: 'single' | 'installments' | null
 }
 
 function PayOfferContent() {
@@ -53,6 +59,7 @@ function PayOfferContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<'single' | 'installments' | null>(null)
   
   useEffect(() => {
     const loadOffer = async () => {
@@ -91,8 +98,14 @@ function PayOfferContent() {
           status: data.status || 'pending',
           installments: data.installments || [],
           coachStripeAccountId,
-          commissionRate: data.commissionRate, // Commissione salvata nell'offerta
-          source: data.source // 'office' se creata dall'ufficio virtuale
+          commissionRate: data.commissionRate,
+          source: data.source,
+          priceTotal: data.priceTotal || (data.totalSessions * data.pricePerSession),
+          allowSinglePayment: data.allowSinglePayment !== false, // default true
+          allowInstallments: data.allowInstallments !== false, // default true
+          priceTotalWithFee: data.priceTotalWithFee,
+          installmentFeePercent: data.installmentFeePercent || 0,
+          paymentMethod: data.paymentMethod || null
         })
       } catch (err) {
         console.error('Errore:', err)
@@ -229,7 +242,71 @@ function PayOfferContent() {
           </div>
         )}
         
-        {offer && (
+        {offer && (() => {
+          const showChoice = offer.paidInstallments === 0 && 
+            offer.allowSinglePayment && offer.allowInstallments && 
+            !paymentMethod && !offer.paymentMethod
+          
+          const effectiveMethod = paymentMethod || 
+            (offer.allowSinglePayment && !offer.allowInstallments ? 'single' : 
+             !offer.allowSinglePayment && offer.allowInstallments ? 'installments' : 
+             offer.paymentMethod || null)
+          
+          if (showChoice) {
+            return (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <div className="bg-white rounded-2xl p-6 shadow-sm">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-14 h-14 rounded-full bg-primary-100 flex items-center justify-center">
+                      <User className="text-primary-600" size={28} />
+                    </div>
+                    <div>
+                      <h1 className="text-lg font-semibold text-charcoal">{offer.title}</h1>
+                      <p className="text-gray-500">con {offer.coachName}</p>
+                    </div>
+                  </div>
+                  
+                  <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+                    <CreditCard className="text-primary-500" size={20} />
+                    Come vuoi pagare?
+                  </h2>
+                  
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => setPaymentMethod('single')}
+                      className="w-full p-4 rounded-xl border-2 border-green-200 bg-green-50 hover:border-green-400 transition-colors text-left"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-semibold text-green-800">Pagamento unico</p>
+                          <p className="text-sm text-green-600 mt-1">Paga tutto subito e risparmia</p>
+                        </div>
+                        <span className="text-xl font-bold text-green-700">{formatCurrency(offer.priceTotal || 0)}</span>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={() => setPaymentMethod('installments')}
+                      className="w-full p-4 rounded-xl border-2 border-primary-200 bg-primary-50 hover:border-primary-400 transition-colors text-left"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-semibold text-primary-800">Pagamento a rate</p>
+                          <p className="text-sm text-primary-600 mt-1">
+                            {offer.totalSessions} rate da {formatCurrency(offer.installments[0]?.amount || offer.pricePerSession)}
+                            {offer.installmentFeePercent ? ` (+${offer.installmentFeePercent}%)` : ''}
+                          </p>
+                        </div>
+                        <span className="text-xl font-bold text-primary-700">{formatCurrency(offer.priceTotalWithFee || offer.priceTotal || 0)}</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )
+          }
+          
+          return (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <div className="bg-white rounded-2xl p-6 shadow-sm">
               <div className="flex items-center gap-4 mb-4">
@@ -269,7 +346,52 @@ function PayOfferContent() {
               </div>
             </div>
             
-            {nextInstallment && (
+            {/* Pagamento unico */}
+            {effectiveMethod === 'single' && offer.paidInstallments === 0 && (
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
+                <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+                  <CreditCard className="text-primary-500" size={20} />
+                  Pagamento unico
+                </h2>
+                
+                <div className="space-y-3 mb-6">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Sessioni</span>
+                    <span>{offer.totalSessions} x {offer.sessionDuration} min</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Coach</span>
+                    <span>{offer.coachName}</span>
+                  </div>
+                  <div className="border-t pt-3 flex justify-between">
+                    <span className="font-medium">Totale</span>
+                    <span className="text-xl font-bold text-green-600">{formatCurrency(offer.priceTotal || 0)}</span>
+                  </div>
+                </div>
+                
+                {error && (
+                  <div className="bg-red-50 rounded-xl p-4 mb-4 flex items-center gap-3 text-red-600">
+                    <AlertCircle size={20} /><span className="text-sm">{error}</span>
+                  </div>
+                )}
+                
+                <button onClick={handlePayment} disabled={isProcessing}
+                  className="w-full py-4 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 font-medium">
+                  {isProcessing ? <><Loader2 size={20} className="animate-spin" />Elaborazione...</> : <><Lock size={18} />Paga {formatCurrency(offer.priceTotal || 0)}</>}
+                </button>
+                
+                <button onClick={() => setPaymentMethod(null)} className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 mt-2">
+                  Cambia metodo di pagamento
+                </button>
+                
+                <p className="text-xs text-gray-400 text-center mt-3 flex items-center justify-center gap-1">
+                  <Lock size={12} />Pagamento sicuro con Stripe
+                </p>
+              </div>
+            )}
+            
+            {/* Pagamento a rate */}
+            {(effectiveMethod === 'installments' || effectiveMethod === null || offer.paidInstallments > 0) && nextInstallment && (
               <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
                   <CreditCard className="text-primary-500" size={20} />
@@ -302,7 +424,13 @@ function PayOfferContent() {
                   {isProcessing ? <><Loader2 size={20} className="animate-spin" />Elaborazione...</> : <><Lock size={18} />Paga {formatCurrency(nextInstallment.amount)}</>}
                 </button>
                 
-                <p className="text-xs text-gray-400 text-center mt-4 flex items-center justify-center gap-1">
+                {offer.paidInstallments === 0 && offer.allowSinglePayment && (
+                  <button onClick={() => setPaymentMethod(null)} className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 mt-2">
+                    Cambia metodo di pagamento
+                  </button>
+                )}
+                
+                <p className="text-xs text-gray-400 text-center mt-3 flex items-center justify-center gap-1">
                   <Lock size={12} />Pagamento sicuro con Stripe
                 </p>
               </div>
@@ -317,7 +445,8 @@ function PayOfferContent() {
               </ul>
             </div>
           </motion.div>
-        )}
+          )
+        })()}
       </main>
     </div>
   )
