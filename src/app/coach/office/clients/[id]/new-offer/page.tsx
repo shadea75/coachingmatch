@@ -367,8 +367,8 @@ function NewOfferContent() {
       
       setOfferLink(generatedLink)
       
-      // Invia email se richiesto
-      if (sendEmail) {
+      // Invia email per clienti esterni (CoachaMi usa new_offer sopra)
+      if (sendEmail && !isCoachaMiClient) {
         try {
           await fetch('/api/emails/external-offer-created', {
             method: 'POST',
