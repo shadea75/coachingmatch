@@ -1,959 +1,243 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { 
-  ArrowLeft,
-  User,
-  Mail,
-  Phone,
-  FileText,
-  Euro,
-  Calendar,
-  Clock,
-  Edit,
-  Trash2,
-  Plus,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-  ChevronRight,
-  MoreVertical,
-  Save,
-  X,
-  MessageSquare,
-  TrendingUp,
-  Target,
-  MapPin,
-  Building
-} from 'lucide-react'
+import { Mail, Lock, ArrowRight } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
-import { db } from '@/lib/firebase'
-import { 
-  doc, 
-  getDoc, 
-  updateDoc, 
-  deleteDoc, 
-  collection, 
-  query, 
-  where, 
-  getDocs,
-  addDoc,
-  serverTimestamp,
-  orderBy
-} from 'firebase/firestore'
-import { format } from 'date-fns'
-import { it } from 'date-fns/locale'
 
-interface ClientData {
-  id: string
-  name: string
-  email: string
-  phone?: string
-  notes?: string
-  source: 'coachami' | 'external' | 'lead'
-  leadId?: string
-  coacheeId?: string
-  createdAt: Date
-  // Dati per contratto
-  address?: string
-  city?: string
-  postalCode?: string
-  province?: string
-  fiscalCode?: string
-  vatNumber?: string
-}
+// Email admin hardcoded
+const ADMIN_EMAILS = ['debora.carofiglio@gmail.com']
 
-interface Offer {
-  id: string
-  title: string
-  totalSessions: number
-  completedSessions: number
-  paidInstallments: number
-  pricePerSession: number
-  priceTotal: number
-  sessionDuration: number
-  status: string
-  createdAt: Date
-  source: 'coachami' | 'external' | 'lead'
-}
-
-interface Session {
-  id: string
-  scheduledAt: Date
-  duration: number
-  status: string
-  type: string
-  offerId?: string
-  offerTitle?: string
-}
-
-export default function ClientDetailPage() {
+function LoginPageContent() {
   const router = useRouter()
-  const params = useParams()
+  const { signIn, signInWithGoogle, user, loading } = useAuth()
   const searchParams = useSearchParams()
-  const { user, loading: authLoading } = useAuth()
+  const redirectUrl = searchParams.get('redirect')
   
-  const clientId = params.id as string
-  const source = searchParams.get('source') || 'external'
-  const isLead = source === 'lead'
-  
-  const [isLoading, setIsLoading] = useState(true)
-  const [client, setClient] = useState<ClientData | null>(null)
-  const [offers, setOffers] = useState<Offer[]>([])
-  const [sessions, setSessions] = useState<Session[]>([])
-  const [isEditing, setIsEditing] = useState(false)
-  const [editData, setEditData] = useState({ 
-    name: '', 
-    email: '', 
-    phone: '', 
-    notes: '',
-    address: '',
-    city: '',
-    postalCode: '',
-    province: '',
-    fiscalCode: '',
-    vatNumber: ''
-  })
-  const [isSaving, setIsSaving] = useState(false)
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [activeTab, setActiveTab] = useState<'info' | 'offers' | 'sessions'>('info')
-  const [stats, setStats] = useState({
-    totalSessions: 0,
-    completedSessions: 0,
-    totalRevenue: 0,
-    activeOffers: 0
-  })
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
+  // Se già loggato, redirect in base al ruolo
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace('/login')
+    if (!loading && user) {
+      redirectByRole(user.role, user.email)
     }
-  }, [user, authLoading, router])
+  }, [user, loading])
 
-  useEffect(() => {
-    const loadClientData = async () => {
-      if (!clientId || !user?.id) return
-      
-      setIsLoading(true)
-      try {
-        let clientData: ClientData | null = null
-        let clientOffers: Offer[] = []
-        let clientSessions: Session[] = []
-        
-        if (source === 'lead') {
-          // Lead da test gratuito
-          const leadDoc = await getDoc(doc(db, 'leads', clientId))
-          if (leadDoc.exists()) {
-            const data = leadDoc.data()
-            clientData = {
-              id: leadDoc.id,
-              name: data.name || data.email?.split('@')[0] || 'Lead',
-              email: data.email || '',
-              source: 'lead',
-              leadId: leadDoc.id,
-              notes: data.priorityArea ? 'Area prioritaria: ' + data.priorityArea + (data.lifeScore ? ' | Life Score: ' + data.lifeScore + '/10' : '') : '',
-              createdAt: data.createdAt?.toDate() || new Date()
-            }
-          }
-          // Lead non hanno offerte o sessioni esistenti
-        } else if (source === 'external') {
-          // Cliente esterno
-          const clientDoc = await getDoc(doc(db, 'coachClients', clientId))
-          if (clientDoc.exists()) {
-            const data = clientDoc.data()
-            clientData = {
-              id: clientDoc.id,
-              name: data.name,
-              email: data.email,
-              phone: data.phone,
-              notes: data.notes,
-              source: 'external',
-              createdAt: data.createdAt?.toDate() || new Date()
-            }
-            
-            // Carica offerte esterne
-            const externalOffersQuery = query(
-              collection(db, 'externalOffers'),
-              where('clientId', '==', clientId),
-              where('coachId', '==', user.id)
-            )
-            const externalOffersSnap = await getDocs(externalOffersQuery)
-            clientOffers = externalOffersSnap.docs.map(doc => {
-              const d = doc.data()
-              return {
-                id: doc.id,
-                title: d.title,
-                totalSessions: d.totalSessions,
-                completedSessions: d.completedSessions || 0,
-                paidInstallments: d.paidInstallments || 0,
-                pricePerSession: d.pricePerSession,
-                priceTotal: d.priceTotal,
-                sessionDuration: d.sessionDuration,
-                status: d.status,
-                createdAt: d.createdAt?.toDate() || new Date(),
-                source: 'external'
-              }
-            })
-            
-            // Carica sessioni esterne
-            const externalSessionsQuery = query(
-              collection(db, 'externalSessions'),
-              where('clientId', '==', clientId),
-              where('coachId', '==', user.id)
-            )
-            const externalSessionsSnap = await getDocs(externalSessionsQuery)
-            clientSessions = externalSessionsSnap.docs.map(doc => {
-              const d = doc.data()
-              return {
-                id: doc.id,
-                scheduledAt: d.scheduledAt?.toDate() || new Date(),
-                duration: d.duration,
-                status: d.status,
-                type: 'external',
-                offerId: d.offerId,
-                offerTitle: d.offerTitle
-              }
-            })
-          }
-        } else {
-          // Cliente CoachaMi (coacheeId)
-          // Prima carica i dati base dal documento users
-          const userDoc = await getDoc(doc(db, 'users', clientId))
-          let userData: any = null
-          if (userDoc.exists()) {
-            userData = userDoc.data()
-          }
-          
-          // Carica i dati fiscali salvati dal coach per questo coachee
-          const contractDataDoc = await getDoc(doc(db, 'coacheeContractData', `${user.id}_${clientId}`))
-          let contractData: any = null
-          if (contractDataDoc.exists()) {
-            contractData = contractDataDoc.data()
-          }
-          
-          const offersQuery = query(
-            collection(db, 'offers'),
-            where('coacheeId', '==', clientId),
-            where('coachId', '==', user.id)
-          )
-          const offersSnap = await getDocs(offersQuery)
-          
-          // Costruisci i dati del cliente anche se non ci sono offerte
-          clientData = {
-            id: clientId,
-            name: userData?.name || userData?.displayName || (offersSnap.docs.length > 0 ? offersSnap.docs[0].data().coacheeName : 'Cliente'),
-            email: userData?.email || (offersSnap.docs.length > 0 ? offersSnap.docs[0].data().coacheeEmail : ''),
-            phone: userData?.phone || contractData?.phone || '',
-            source: 'coachami',
-            coacheeId: clientId,
-            createdAt: userData?.createdAt?.toDate() || new Date(),
-            // Dati fiscali salvati dal coach
-            address: contractData?.address || '',
-            city: contractData?.city || '',
-            postalCode: contractData?.postalCode || '',
-            province: contractData?.province || '',
-            fiscalCode: contractData?.fiscalCode || '',
-            vatNumber: contractData?.vatNumber || ''
-          }
-          
-          if (offersSnap.docs.length > 0) {
-            clientOffers = offersSnap.docs.map(doc => {
-              const d = doc.data()
-              return {
-                id: doc.id,
-                title: d.title,
-                totalSessions: d.totalSessions,
-                completedSessions: d.completedSessions || 0,
-                paidInstallments: d.paidInstallments || 0,
-                pricePerSession: d.pricePerSession,
-                priceTotal: d.priceTotal || d.totalSessions * d.pricePerSession,
-                sessionDuration: d.sessionDuration,
-                status: d.status,
-                createdAt: d.createdAt?.toDate() || new Date(),
-                source: 'coachami'
-              }
-            })
-          }
-            
-          // Carica sessioni CoachaMi (sempre, anche senza offerte)
-          const sessionsQuery = query(
-            collection(db, 'sessions'),
-            where('coacheeId', '==', clientId),
-            where('coachId', '==', user.id)
-          )
-          const sessionsSnap = await getDocs(sessionsQuery)
-          clientSessions = sessionsSnap.docs.map(doc => {
-            const d = doc.data()
-            return {
-              id: doc.id,
-              scheduledAt: d.scheduledAt?.toDate() || new Date(),
-              duration: d.duration,
-              status: d.status,
-              type: d.type,
-              offerId: d.offerId,
-              offerTitle: d.offerTitle
-            }
-          })
-        }
-        
-        setClient(clientData)
-        setOffers(clientOffers)
-        setSessions(clientSessions)
-        
-        if (clientData) {
-          setEditData({
-            name: clientData.name,
-            email: clientData.email,
-            phone: clientData.phone || '',
-            notes: clientData.notes || '',
-            address: clientData.address || '',
-            city: clientData.city || '',
-            postalCode: clientData.postalCode || '',
-            province: clientData.province || '',
-            fiscalCode: clientData.fiscalCode || '',
-            vatNumber: clientData.vatNumber || ''
-          })
-        }
-        
-        // Calcola statistiche
-        const totalSessions = clientOffers.reduce((sum, o) => sum + o.totalSessions, 0)
-        const completedSessions = clientOffers.reduce((sum, o) => sum + o.completedSessions, 0)
-        const totalRevenue = clientOffers.reduce((sum, o) => sum + (o.paidInstallments * o.pricePerSession), 0)
-        const activeOffers = clientOffers.filter(o => o.status === 'active' || o.status === 'accepted').length
-        
-        setStats({ totalSessions, completedSessions, totalRevenue, activeOffers })
-        
-      } catch (err) {
-        console.error('Errore caricamento:', err)
-      } finally {
-        setIsLoading(false)
-      }
+  // Funzione per redirect in base al ruolo
+  const redirectByRole = (userRole: string | undefined, userEmail: string | undefined) => {
+    // Check admin per ruolo O per email
+    const isAdmin = userRole === 'admin' || 
+      (userEmail && ADMIN_EMAILS.includes(userEmail.toLowerCase()))
+    
+    // Se c'e' un redirect URL (es. da pagina coach), usa quello (solo per coachee)
+    if (redirectUrl && !isAdmin && userRole !== 'coach') {
+      window.location.href = redirectUrl
+      return
     }
     
-    if (user) {
-      loadClientData()
+    if (isAdmin) {
+      window.location.href = '/admin'
+    } else if (userRole === 'coach') {
+      window.location.href = '/coach/dashboard'
+    } else {
+      window.location.href = '/dashboard'
     }
-  }, [clientId, source, user])
+  }
 
-  const handleSave = async () => {
-    if (!client || !user?.id) return
-    
-    setIsSaving(true)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setIsLoading(true)
+
     try {
-      if (source === 'coachami') {
-        // Per clienti CoachaMi, salva i dati fiscali in una collection separata
-        // che il coach gestisce per i suoi coachee
-        const { setDoc } = await import('firebase/firestore')
-        await setDoc(doc(db, 'coacheeContractData', `${user.id}_${clientId}`), {
-          coachId: user.id,
-          coacheeId: clientId,
-          phone: editData.phone || null,
-          address: editData.address || null,
-          city: editData.city || null,
-          postalCode: editData.postalCode || null,
-          province: editData.province || null,
-          fiscalCode: editData.fiscalCode?.toUpperCase() || null,
-          vatNumber: editData.vatNumber || null,
-          updatedAt: serverTimestamp()
-        })
-      } else {
-        // Per clienti esterni, aggiorna direttamente in coachClients
-        await updateDoc(doc(db, 'coachClients', clientId), {
-          name: editData.name,
-          email: editData.email,
-          phone: editData.phone || null,
-          notes: editData.notes || null,
-          address: editData.address || null,
-          city: editData.city || null,
-          postalCode: editData.postalCode || null,
-          province: editData.province || null,
-          fiscalCode: editData.fiscalCode?.toUpperCase() || null,
-          vatNumber: editData.vatNumber || null,
-          updatedAt: serverTimestamp()
-        })
-      }
-      
-      setClient({ ...client, ...editData })
-      setIsEditing(false)
-    } catch (err) {
-      console.error('Errore salvataggio:', err)
+      const userCredential = await signIn(email, password)
+      // Dopo login, redirect basato su ruolo
+      // Il ruolo viene dal AuthContext dopo il fetch da Firebase
+      setTimeout(() => {
+        // Controlla prima se è admin per email
+        if (ADMIN_EMAILS.includes(email.toLowerCase())) {
+          window.location.href = '/admin'
+        }
+      }, 500)
+    } catch (err: any) {
+      setError(err.message || 'Errore durante il login')
     } finally {
-      setIsSaving(false)
+      setIsLoading(false)
     }
   }
 
-  const handleDelete = async () => {
-    if (!client || source === 'coachami' || source === 'lead') return
-    
+  const handleGoogleSignIn = async () => {
+    setError('')
+    setIsLoading(true)
+
     try {
-      await deleteDoc(doc(db, 'coachClients', clientId))
-      router.push('/coach/office')
-    } catch (err) {
-      console.error('Errore eliminazione:', err)
+      await signInWithGoogle()
+      // Redirect gestito da useEffect dopo che user viene aggiornato
+    } catch (err: any) {
+      setError(err.message || 'Errore durante il login con Google')
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  if (authLoading || isLoading) {
+  // Se sta caricando auth, mostra loading
+  if (loading) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
-        <Loader2 className="animate-spin text-primary-500" size={32} />
-      </div>
-    )
-  }
-
-  if (!client) {
-    return (
-      <div className="min-h-screen bg-cream flex items-center justify-center p-4">
-        <div className="text-center">
-          <AlertCircle className="mx-auto mb-4 text-gray-300" size={48} />
-          <h2 className="text-xl font-semibold text-charcoal mb-2">Cliente non trovato</h2>
-          <Link href="/coach/office" className="text-primary-500 hover:underline">
-            Torna all'Ufficio Virtuale
-          </Link>
-        </div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-cream">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/coach/office" className="p-2 hover:bg-gray-100 rounded-lg">
-              <ArrowLeft size={20} />
-            </Link>
+    <div className="min-h-screen bg-cream flex flex-col items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md"
+      >
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <Link href="/" className="inline-block">
+            <Logo size="lg" />
+          </Link>
+          <h1 className="mt-6 text-2xl font-semibold text-gray-900">
+            Bentornato!
+          </h1>
+          <p className="mt-2 text-gray-600">
+            Accedi al tuo account
+          </p>
+        </div>
+
+        {/* Form */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <h1 className="text-xl font-bold text-charcoal">{client.name}</h1>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                client.source === 'lead'
-                  ? 'bg-green-100 text-green-700'
-                  : client.source === 'coachami' 
-                  ? 'bg-primary-100 text-primary-700' 
-                  : 'bg-purple-100 text-purple-700'
-              }`}>
-                {client.source === 'lead' ? 'Lead' : client.source === 'coachami' ? 'CoachaMi' : 'Esterno'}
-              </span>
-            </div>
-          </div>
-          <Logo size="sm" />
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
-              <Calendar size={16} />
-              <span>Sessioni</span>
-            </div>
-            <p className="text-xl font-bold text-charcoal">
-              {stats.completedSessions}/{stats.totalSessions}
-            </p>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
-              <Euro size={16} />
-              <span>Fatturato</span>
-            </div>
-            <p className="text-xl font-bold text-green-600">
-              €{stats.totalRevenue.toLocaleString('it-IT')}
-            </p>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
-              <Target size={16} />
-              <span>Percorsi Attivi</span>
-            </div>
-            <p className="text-xl font-bold text-charcoal">{stats.activeOffers}</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
-              <Clock size={16} />
-              <span>Cliente dal</span>
-            </div>
-            <p className="text-lg font-semibold text-charcoal">
-              {format(client.createdAt, 'MMM yyyy', { locale: it })}
-            </p>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="flex border-b border-gray-100">
-            <button
-              onClick={() => setActiveTab('info')}
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                activeTab === 'info'
-                  ? 'text-primary-600 border-b-2 border-primary-500'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Informazioni
-            </button>
-            <button
-              onClick={() => setActiveTab('offers')}
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                activeTab === 'offers'
-                  ? 'text-primary-600 border-b-2 border-primary-500'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Percorsi ({offers.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('sessions')}
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                activeTab === 'sessions'
-                  ? 'text-primary-600 border-b-2 border-primary-500'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Sessioni ({sessions.length})
-            </button>
-          </div>
-
-          {/* Tab Content */}
-          <div className="p-6">
-            {/* Info Tab */}
-            {activeTab === 'info' && (
-              <div className="space-y-6">
-                {isEditing ? (
-                  // Edit Mode
-                  <div className="space-y-4">
-                    {/* Campi nome/email/telefono solo per clienti esterni */}
-                    {source === 'external' && (
-                      <>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-                          <input
-                            type="text"
-                            value={editData.name}
-                            onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                          <input
-                            type="email"
-                            value={editData.email}
-                            onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl"
-                          />
-                        </div>
-                      </>
-                    )}
-                    
-                    {/* Per clienti CoachaMi, mostra info non modificabili */}
-                    {source === 'coachami' && (
-                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                        <p className="text-sm text-blue-700">
-                          <strong>Cliente:</strong> {client.name}<br />
-                          <span className="text-xs text-blue-500 mt-2 block">
-                            I dati personali del cliente CoachaMi non possono essere modificati.
-                            Puoi aggiungere solo i dati fiscali necessari per il contratto.
-                          </span>
-                        </p>
-                      </div>
-                    )}
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
-                      <input
-                        type="tel"
-                        value={editData.phone}
-                        onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl"
-                      />
-                    </div>
-                    
-                    {/* Sezione Residenza */}
-                    <div className="pt-4 border-t border-gray-200">
-                      <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                        <MapPin size={16} />
-                        Residenza (per contratto)
-                      </h4>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-sm text-gray-500 mb-1">Indirizzo</label>
-                          <input
-                            type="text"
-                            value={editData.address}
-                            onChange={(e) => setEditData({ ...editData, address: e.target.value })}
-                            placeholder="Via Roma 1"
-                            className="w-full px-4 py-2 border border-gray-200 rounded-xl"
-                          />
-                        </div>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div>
-                            <label className="block text-sm text-gray-500 mb-1">CAP</label>
-                            <input
-                              type="text"
-                              value={editData.postalCode}
-                              onChange={(e) => setEditData({ ...editData, postalCode: e.target.value })}
-                              placeholder="00100"
-                              maxLength={5}
-                              className="w-full px-4 py-2 border border-gray-200 rounded-xl"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm text-gray-500 mb-1">Città</label>
-                            <input
-                              type="text"
-                              value={editData.city}
-                              onChange={(e) => setEditData({ ...editData, city: e.target.value })}
-                              placeholder="Roma"
-                              className="w-full px-4 py-2 border border-gray-200 rounded-xl"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm text-gray-500 mb-1">Prov.</label>
-                            <input
-                              type="text"
-                              value={editData.province}
-                              onChange={(e) => setEditData({ ...editData, province: e.target.value.toUpperCase() })}
-                              placeholder="RM"
-                              maxLength={2}
-                              className="w-full px-4 py-2 border border-gray-200 rounded-xl uppercase"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Sezione Dati Fiscali */}
-                    <div className="pt-4 border-t border-gray-200">
-                      <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                        <Building size={16} />
-                        Dati Fiscali (per contratto)
-                      </h4>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm text-gray-500 mb-1">Codice Fiscale</label>
-                          <input
-                            type="text"
-                            value={editData.fiscalCode}
-                            onChange={(e) => setEditData({ ...editData, fiscalCode: e.target.value.toUpperCase() })}
-                            placeholder="RSSMRA80A01H501Z"
-                            maxLength={16}
-                            className="w-full px-4 py-2 border border-gray-200 rounded-xl uppercase font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm text-gray-500 mb-1">P.IVA (opzionale)</label>
-                          <input
-                            type="text"
-                            value={editData.vatNumber}
-                            onChange={(e) => setEditData({ ...editData, vatNumber: e.target.value })}
-                            placeholder="IT12345678901"
-                            maxLength={13}
-                            className="w-full px-4 py-2 border border-gray-200 rounded-xl"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Note solo per clienti esterni */}
-                    {source === 'external' && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
-                        <textarea
-                          value={editData.notes}
-                          onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
-                          rows={4}
-                          className="w-full px-4 py-3 border border-gray-200 rounded-xl resize-none"
-                        />
-                      </div>
-                    )}
-                    <div className="flex gap-3">
-                      <button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="flex-1 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                        {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                        Salva
-                      </button>
-                      <button
-                        onClick={() => setIsEditing(false)}
-                        className="px-6 py-3 border border-gray-200 rounded-xl hover:bg-gray-50"
-                      >
-                        Annulla
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  // View Mode
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
-                      <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold ${
-                        client.source === 'lead' ? 'bg-green-500' : client.source === 'coachami' ? 'bg-primary-500' : 'bg-purple-500'
-                      }`}>
-                        {client.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-charcoal">{client.name}</h3>
-                        {client.source === 'external' && (
-                          <p className="text-gray-500">{client.email}</p>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {client.phone && (
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                        <Phone className="text-gray-400" size={18} />
-                        <span>{client.phone}</span>
-                      </div>
-                    )}
-                    
-                    {/* Dati Residenza */}
-                    {(client.address || client.city) && (
-                      <div className="p-4 bg-blue-50 rounded-xl">
-                        <div className="flex items-center gap-2 text-blue-600 text-sm mb-2">
-                          <MapPin size={16} />
-                          <span>Residenza</span>
-                        </div>
-                        <p className="text-charcoal">
-                          {client.address && <>{client.address}<br /></>}
-                          {client.postalCode} {client.city} {client.province && `(${client.province})`}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {/* Dati Fiscali */}
-                    {(client.fiscalCode || client.vatNumber) && (
-                      <div className="p-4 bg-green-50 rounded-xl">
-                        <div className="flex items-center gap-2 text-green-600 text-sm mb-2">
-                          <Building size={16} />
-                          <span>Dati Fiscali</span>
-                        </div>
-                        <div className="space-y-1 text-charcoal">
-                          {client.fiscalCode && (
-                            <p><span className="text-gray-500 text-sm">C.F.:</span> <span className="font-mono">{client.fiscalCode}</span></p>
-                          )}
-                          {client.vatNumber && (
-                            <p><span className="text-gray-500 text-sm">P.IVA:</span> <span className="font-mono">{client.vatNumber}</span></p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {client.notes && (
-                      <div className="p-4 bg-gray-50 rounded-xl">
-                        <div className="flex items-center gap-2 text-gray-500 text-sm mb-2">
-                          <FileText size={16} />
-                          <span>Note</span>
-                        </div>
-                        <p className="text-charcoal whitespace-pre-wrap">{client.notes}</p>
-                      </div>
-                    )}
-                    
-                    {source === 'external' && (
-                      <div className="flex gap-3 pt-4">
-                        <button
-                          onClick={() => setIsEditing(true)}
-                          className="flex-1 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2"
-                        >
-                          <Edit size={18} />
-                          Modifica
-                        </button>
-                        <button
-                          onClick={() => setShowDeleteModal(true)}
-                          className="px-6 py-3 border border-red-200 text-red-600 rounded-xl hover:bg-red-50 flex items-center justify-center gap-2"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    )}
-                    
-                    {/* Per clienti CoachaMi, pulsante per modificare dati fiscali */}
-                    {source === 'coachami' && (
-                      <div className="pt-4">
-                        <button
-                          onClick={() => setIsEditing(true)}
-                          className="w-full py-3 border border-gray-200 rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2"
-                        >
-                          <Edit size={18} />
-                          {client.fiscalCode ? 'Modifica dati fiscali' : 'Aggiungi dati fiscali per contratto'}
-                        </button>
-                        {!client.fiscalCode && (
-                          <p className="text-xs text-orange-600 text-center mt-2">
-                            ⚠️ Completa i dati fiscali per poter inviare offerte con contratto
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder="nome@email.com"
+                  required
+                />
               </div>
-            )}
+            </div>
 
-            {/* Offers Tab */}
-            {activeTab === 'offers' && (
-              <div className="space-y-4">
-                {/* Pulsante nuovo percorso - per tutti i clienti */}
-                <Link
-                  href={source === 'external' 
-                    ? `/coach/office/clients/${clientId}/new-offer`
-                    : source === 'lead'
-                    ? `/coach/office/clients/${clientId}/new-offer?source=lead&leadId=${clientId}`
-                    : `/coach/office/clients/${clientId}/new-offer?source=coachami&coacheeId=${client?.coacheeId}`
-                  }
-                  className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl text-gray-500 hover:border-primary-300 hover:text-primary-500 transition-colors"
-                >
-                  <Plus size={20} />
-                  Nuovo Percorso
-                  {(source === 'coachami' || source === 'lead') && (
-                    <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full ml-2">
-                      con commissione
-                    </span>
-                  )}
-                </Link>
-                
-                {offers.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Target className="mx-auto mb-4 text-gray-300" size={40} />
-                    <p className="text-gray-500">Nessun percorso ancora</p>
-                  </div>
-                ) : (
-                  offers.map((offer) => (
-                    <div
-                      key={offer.id}
-                      className="p-4 border border-gray-100 rounded-xl hover:border-gray-200 transition-colors"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h4 className="font-medium text-charcoal">{offer.title}</h4>
-                          <p className="text-sm text-gray-500">
-                            {offer.sessionDuration} min • €{offer.pricePerSession}/sessione
-                          </p>
-                        </div>
-                        <span className={`text-xs px-2 py-1 rounded-full ${
-                          offer.status === 'active' || offer.status === 'accepted'
-                            ? 'bg-green-100 text-green-700'
-                            : offer.status === 'completed'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {offer.status === 'active' || offer.status === 'accepted' ? 'Attivo' : 
-                           offer.status === 'completed' ? 'Completato' : offer.status}
-                        </span>
-                      </div>
-                      
-                      {/* Progress bar */}
-                      <div className="mb-2">
-                        <div className="flex justify-between text-xs text-gray-500 mb-1">
-                          <span>Sessioni: {offer.completedSessions}/{offer.totalSessions}</span>
-                          <span>Pagato: €{(offer.paidInstallments * offer.pricePerSession).toFixed(2)}</span>
-                        </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-primary-500 rounded-full"
-                            style={{ width: `${(offer.completedSessions / offer.totalSessions) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder="••••••••"
+                  required
+                />
               </div>
-            )}
+            </div>
 
-            {/* Sessions Tab */}
-            {activeTab === 'sessions' && (
-              <div className="space-y-3">
-                {sessions.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Calendar className="mx-auto mb-4 text-gray-300" size={40} />
-                    <p className="text-gray-500">Nessuna sessione ancora</p>
-                  </div>
-                ) : (
-                  sessions.map((session) => (
-                    <div
-                      key={session.id}
-                      className="flex items-center gap-4 p-4 border border-gray-100 rounded-xl"
-                    >
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        session.status === 'completed' ? 'bg-green-100' :
-                        session.status === 'confirmed' ? 'bg-blue-100' :
-                        session.status === 'pending' ? 'bg-yellow-100' :
-                        'bg-gray-100'
-                      }`}>
-                        {session.status === 'completed' ? (
-                          <CheckCircle className="text-green-600" size={20} />
-                        ) : (
-                          <Clock className={`${
-                            session.status === 'confirmed' ? 'text-blue-600' :
-                            session.status === 'pending' ? 'text-yellow-600' :
-                            'text-gray-600'
-                          }`} size={20} />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-charcoal">
-                          {format(session.scheduledAt, "EEEE d MMMM", { locale: it })}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {format(session.scheduledAt, "HH:mm")} • {session.duration} min
-                          {session.offerTitle && ` • ${session.offerTitle}`}
-                        </p>
-                      </div>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        session.status === 'completed' ? 'bg-green-100 text-green-700' :
-                        session.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
-                        session.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        {session.status === 'completed' ? 'Completata' :
-                         session.status === 'confirmed' ? 'Confermata' :
-                         session.status === 'pending' ? 'In attesa' :
-                         session.status}
-                      </span>
-                    </div>
-                  ))
-                )}
+            <div className="flex items-center justify-between text-sm">
+              <label className="flex items-center">
+                <input type="checkbox" className="rounded border-gray-300 text-primary-500 focus:ring-primary-500" />
+                <span className="ml-2 text-gray-600">Ricordami</span>
+              </label>
+              <Link href="/forgot-password" className="text-primary-500 hover:text-primary-600">
+                Password dimenticata?
+              </Link>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                <>
+                  Accedi
+                  <ArrowRight className="h-5 w-5" />
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
               </div>
-            )}
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Oppure</span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={isLoading}
+              className="mt-4 w-full py-3 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
+              </svg>
+              Continua con Google
+            </button>
           </div>
         </div>
-      </main>
 
-      {/* Delete Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl p-6 max-w-sm w-full"
-          >
-            <h3 className="text-lg font-semibold text-charcoal mb-2">Elimina Cliente</h3>
-            <p className="text-gray-500 mb-6">
-              Sei sicuro di voler eliminare {client.name}? Questa azione non può essere annullata.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="flex-1 py-3 border border-gray-200 rounded-xl hover:bg-gray-50"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={handleDelete}
-                className="flex-1 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600"
-              >
-                Elimina
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+        {/* Link registrazione */}
+        <p className="mt-6 text-center text-gray-600">
+          Non hai un account?{' '}
+          <Link href={redirectUrl ? `/register?redirect=${encodeURIComponent(redirectUrl)}` : "/register"} className="text-primary-500 hover:text-primary-600 font-medium">
+            Registrati
+          </Link>
+        </p>
+      </motion.div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div></div>}>
+      <LoginPageContent />
+    </Suspense>
   )
 }
