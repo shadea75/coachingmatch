@@ -44,7 +44,9 @@ export default function NewOfferPage() {
   
   const clientId = params.id as string
   const isCoachaMiClient = searchParams.get('source') === 'coachami'
+  const isLead = searchParams.get('source') === 'lead'
   const coacheeId = searchParams.get('coacheeId')
+  const leadId = searchParams.get('leadId')
   
   // Commissione caricata da settings (default 3.5%)
   const [officeCommission, setOfficeCommission] = useState(0.035)
@@ -56,7 +58,7 @@ export default function NewOfferPage() {
   const [offerLink, setOfferLink] = useState('')
   const [linkCopied, setLinkCopied] = useState(false)
   const [sendEmail, setSendEmail] = useState(true)
-  const [client, setClient] = useState<{ name: string; email: string; coacheeId?: string } | null>(null)
+  const [client, setClient] = useState<{ name: string; email: string; coacheeId?: string; leadId?: string } | null>(null)
   
   // Stato contratto
   const [contractEnabled, setContractEnabled] = useState(false)
@@ -99,7 +101,18 @@ export default function NewOfferPage() {
       try {
         let clientData = null
         
-        if (isCoachaMiClient && coacheeId) {
+        if (isLead && leadId) {
+          // Lead da test gratuito - cerca nella collection 'leads'
+          const leadDoc = await getDoc(doc(db, 'leads', leadId))
+          if (leadDoc.exists()) {
+            const data = leadDoc.data()
+            clientData = {
+              name: data.name || data.email?.split('@')[0] || 'Lead',
+              email: data.email,
+              leadId: leadId
+            }
+          }
+        } else if (isCoachaMiClient && coacheeId) {
           // Cliente CoachaMi - cerca nella collection 'users' usando coacheeId
           const userDoc = await getDoc(doc(db, 'users', coacheeId))
           if (userDoc.exists()) {
@@ -138,7 +151,7 @@ export default function NewOfferPage() {
         }
         
         // Carica commissione ufficio virtuale da settings
-        if (isCoachaMiClient) {
+        if (isCoachaMiClient || isLead) {
           const settingsDoc = await getDoc(doc(db, 'settings', 'platform'))
           if (settingsDoc.exists()) {
             const settingsData = settingsDoc.data()
@@ -219,7 +232,89 @@ export default function NewOfferPage() {
       let offerRef
       let generatedLink = ''
       
-      if (isCoachaMiClient && coacheeId) {
+      if (isLead && leadId) {
+        // Lead da test gratuito - salva in collection 'offers' con riferimento lead
+        offerRef = await addDoc(collection(db, 'offers'), {
+          coachId: user.id,
+          coachName: user.name || 'Coach',
+          coachEmail: user.email,
+          // Per i lead, usiamo leadId come identificatore
+          coacheeId: leadId, // Riferimento al lead
+          coacheeName: client.name,
+          coacheeEmail: client.email,
+          isLead: true, // Flag per distinguere dai coachee registrati
+          leadId: leadId,
+          title: offerData.title,
+          description: offerData.description || null,
+          totalSessions: offerData.totalSessions,
+          sessionDuration: offerData.sessionDuration,
+          pricePerSession: offerData.pricePerSession,
+          priceTotal,
+          // Opzioni pagamento
+          allowSinglePayment: offerData.allowSinglePayment,
+          allowInstallments: offerData.allowInstallments,
+          installmentFeePercent: offerData.installmentFeePercent,
+          priceTotalWithFee,
+          pricePerSessionWithFee: Math.round(pricePerSessionWithFee * 100) / 100,
+          installments,
+          paidInstallments: 0,
+          completedSessions: 0,
+          paymentMethod: null,
+          // Commissione CoachaMi
+          commissionRate: officeCommission,
+          commissionAmount: priceTotal * officeCommission,
+          coachEarnings: priceTotal * (1 - officeCommission),
+          // Contratto
+          requireContract: includeContract && contractEnabled,
+          contractAccepted: false,
+          // Validità
+          status: 'pending',
+          validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          source: 'office',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        })
+        
+        generatedLink = `${window.location.origin}/external-offer/${offerRef.id}`
+        
+        // Aggiorna lo status del lead
+        try {
+          await updateDoc(doc(db, 'leads', leadId), {
+            status: 'booked',
+            updatedAt: serverTimestamp()
+          })
+        } catch (err) {
+          console.error('Errore aggiornamento lead status:', err)
+        }
+        
+        // Invia email al lead
+        if (sendEmail) {
+          try {
+            await fetch('/api/send-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'new_offer',
+                data: {
+                  coacheeEmail: client.email,
+                  coacheeName: client.name,
+                  coachName: user.name || 'Coach',
+                  offerTitle: offerData.title,
+                  totalSessions: offerData.totalSessions,
+                  priceTotal: priceTotal,
+                  pricePerSession: offerData.pricePerSession,
+                  validDays: 7,
+                  offerId: offerRef.id,
+                  offerLink: generatedLink
+                }
+              })
+            })
+          } catch (emailErr) {
+            console.error('Errore invio email:', emailErr)
+          }
+        }
+        
+      } else if (isCoachaMiClient && coacheeId) {
         // Cliente CoachaMi - salva in collection 'offers'
         offerRef = await addDoc(collection(db, 'offers'), {
           coachId: user.id,
