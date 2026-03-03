@@ -399,7 +399,7 @@ function MessagesContent() {
                   </div>
                   {currentOther.role === 'coachee' && (
                     <Link
-                      href={`/coach/offers/new?coacheeId=${currentOther.id}&coacheeName=${encodeURIComponent(currentOther.name)}`}
+                      href={`/coach/office/clients/${currentOther.id}/new-offer?source=coachami&coacheeId=${currentOther.id}`}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors"
                     >
                       <FileText size={14} />
