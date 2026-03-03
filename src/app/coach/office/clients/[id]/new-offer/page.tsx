@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -37,6 +37,14 @@ interface Installment {
 }
 
 export default function NewOfferPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div></div>}>
+      <NewOfferContent />
+    </Suspense>
+  )
+}
+
+function NewOfferContent() {
   const router = useRouter()
   const params = useParams()
   const searchParams = useSearchParams()
