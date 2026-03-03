@@ -10,7 +10,8 @@ import {
   Search,
   Loader2,
   CheckCheck,
-  ArrowLeft
+  ArrowLeft,
+  FileText
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { db } from '@/lib/firebase'
@@ -392,10 +393,19 @@ function MessagesContent() {
                       <span className="text-primary-600 font-semibold">{currentOther.name.charAt(0).toUpperCase()}</span>
                     </div>
                   )}
-                  <div>
+                  <div className="flex-1">
                     <p className="font-semibold text-charcoal">{currentOther.name}</p>
                     <p className="text-xs text-primary-500 capitalize">{currentOther.role}</p>
                   </div>
+                  {currentOther.role === 'coachee' && (
+                    <Link
+                      href={`/coach/offers/new?coacheeId=${currentOther.id}&coacheeName=${encodeURIComponent(currentOther.name)}`}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors"
+                    >
+                      <FileText size={14} />
+                      Crea Offerta
+                    </Link>
+                  )}
                 </div>
 
                 {/* Messages */}
