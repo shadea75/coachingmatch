@@ -54,7 +54,8 @@ interface ClientData {
   email: string
   phone?: string
   notes?: string
-  source: 'coachami' | 'external'
+  source: 'coachami' | 'external' | 'lead'
+  leadId?: string
   coacheeId?: string
   createdAt: Date
   // Dati per contratto
@@ -77,7 +78,7 @@ interface Offer {
   sessionDuration: number
   status: string
   createdAt: Date
-  source: 'coachami' | 'external'
+  source: 'coachami' | 'external' | 'lead'
 }
 
 interface Session {
@@ -98,6 +99,7 @@ export default function ClientDetailPage() {
   
   const clientId = params.id as string
   const source = searchParams.get('source') || 'external'
+  const isLead = source === 'lead'
   
   const [isLoading, setIsLoading] = useState(true)
   const [client, setClient] = useState<ClientData | null>(null)
@@ -142,7 +144,23 @@ export default function ClientDetailPage() {
         let clientOffers: Offer[] = []
         let clientSessions: Session[] = []
         
-        if (source === 'external') {
+        if (source === 'lead') {
+          // Lead da test gratuito
+          const leadDoc = await getDoc(doc(db, 'leads', clientId))
+          if (leadDoc.exists()) {
+            const data = leadDoc.data()
+            clientData = {
+              id: leadDoc.id,
+              name: data.name || data.email?.split('@')[0] || 'Lead',
+              email: data.email || '',
+              source: 'lead',
+              leadId: leadDoc.id,
+              notes: data.priorityArea ? 'Area prioritaria: ' + data.priorityArea + (data.lifeScore ? ' | Life Score: ' + data.lifeScore + '/10' : '') : '',
+              createdAt: data.createdAt?.toDate() || new Date()
+            }
+          }
+          // Lead non hanno offerte o sessioni esistenti
+        } else if (source === 'external') {
           // Cliente esterno
           const clientDoc = await getDoc(doc(db, 'coachClients', clientId))
           if (clientDoc.exists()) {
@@ -369,7 +387,7 @@ export default function ClientDetailPage() {
   }
 
   const handleDelete = async () => {
-    if (!client || source === 'coachami') return
+    if (!client || source === 'coachami' || source === 'lead') return
     
     try {
       await deleteDoc(doc(db, 'coachClients', clientId))
@@ -413,11 +431,13 @@ export default function ClientDetailPage() {
             <div>
               <h1 className="text-xl font-bold text-charcoal">{client.name}</h1>
               <span className={`text-xs px-2 py-0.5 rounded-full ${
-                client.source === 'coachami' 
+                client.source === 'lead'
+                  ? 'bg-green-100 text-green-700'
+                  : client.source === 'coachami' 
                   ? 'bg-primary-100 text-primary-700' 
                   : 'bg-purple-100 text-purple-700'
               }`}>
-                {client.source === 'coachami' ? 'CoachaMi' : 'Esterno'}
+                {client.source === 'lead' ? 'Lead' : client.source === 'coachami' ? 'CoachaMi' : 'Esterno'}
               </span>
             </div>
           </div>
@@ -674,7 +694,7 @@ export default function ClientDetailPage() {
                   <div className="space-y-4">
                     <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
                       <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold ${
-                        client.source === 'coachami' ? 'bg-primary-500' : 'bg-purple-500'
+                        client.source === 'lead' ? 'bg-green-500' : client.source === 'coachami' ? 'bg-primary-500' : 'bg-purple-500'
                       }`}>
                         {client.name.charAt(0).toUpperCase()}
                       </div>
@@ -782,13 +802,15 @@ export default function ClientDetailPage() {
                 <Link
                   href={source === 'external' 
                     ? `/coach/office/clients/${clientId}/new-offer`
+                    : source === 'lead'
+                    ? `/coach/office/clients/${clientId}/new-offer?source=lead&leadId=${clientId}`
                     : `/coach/office/clients/${clientId}/new-offer?source=coachami&coacheeId=${client?.coacheeId}`
                   }
                   className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl text-gray-500 hover:border-primary-300 hover:text-primary-500 transition-colors"
                 >
                   <Plus size={20} />
                   Nuovo Percorso
-                  {source === 'coachami' && (
+                  {(source === 'coachami' || source === 'lead') && (
                     <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full ml-2">
                       con commissione
                     </span>
