@@ -1,287 +1,716 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Mail, Lock, User, ArrowRight } from 'lucide-react'
+import { 
+  ArrowLeft, 
+  Send, 
+  Loader2,
+  Euro,
+  Users,
+  Package,
+  FileText,
+  User,
+  Calculator,
+  Info,
+  AlertCircle,
+  Check,
+  Clock,
+  Calendar
+} from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
+import { db } from '@/lib/firebase'
+import { 
+  collection, 
+  addDoc, 
+  serverTimestamp,
+  query,
+  where,
+  getDocs,
+  orderBy
+} from 'firebase/firestore'
 
-export default function RegisterPage() {
-  const router = useRouter()
-  const { signUp, signInWithGoogle, user, loading } = useAuth()
-  const searchParams = useSearchParams()
-  const redirectUrl = searchParams.get('redirect')
+// Configurazione piattaforma
+const PLATFORM_CONFIG = {
+  coachPercent: 70, // Coach riceve il 70%
+  platformPercent: 30, // CoachaMi trattiene il 30%
+  vatPercent: 22, // IVA sulla commissione CoachaMi
+  minPricePerSession: 30,
+  maxSessions: 20,
+  offerValidDays: 7,
+}
+
+// Calcola pricing CORRETTO
+// Il coachee paga €100 → Coach riceve €70, CoachaMi tiene €30 (di cui €24,59 netti + €5,41 IVA)
+function calculatePricing(priceTotal: number, totalSessions: number) {
+  const pricePerSession = priceTotal / totalSessions
   
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [acceptTerms, setAcceptTerms] = useState(false)
-  const [error, setError] = useState('')
+  // Split 70/30 sul LORDO pagato dal coachee
+  const coachPayoutTotal = priceTotal * (PLATFORM_CONFIG.coachPercent / 100) // 70%
+  const platformFeeTotal = priceTotal * (PLATFORM_CONFIG.platformPercent / 100) // 30%
+  
+  // L'IVA si calcola solo sulla commissione CoachaMi (è il nostro ricavo)
+  const platformFeeNet = platformFeeTotal / (1 + PLATFORM_CONFIG.vatPercent / 100) // Netto
+  const platformVatAmount = platformFeeTotal - platformFeeNet // IVA su commissione
+  
+  return {
+    priceTotal, // €400 - pagato dal coachee
+    pricePerSession: Math.round(pricePerSession * 100) / 100, // €100
+    coachPayoutTotal: Math.round(coachPayoutTotal * 100) / 100, // €280 - al coach
+    platformFeeTotal: Math.round(platformFeeTotal * 100) / 100, // €120 - a CoachaMi (lordo)
+    platformFeeNet: Math.round(platformFeeNet * 100) / 100, // €98,36 - guadagno netto CoachaMi
+    platformVatAmount: Math.round(platformVatAmount * 100) / 100, // €21,64 - IVA da versare
+    perSessionCoachPayout: Math.round((coachPayoutTotal / totalSessions) * 100) / 100, // €70
+    perSessionPlatformFee: Math.round((platformFeeTotal / totalSessions) * 100) / 100, // €30
+  }
+}
+
+// Formatta valuta
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('it-IT', {
+    style: 'currency',
+    currency: 'EUR'
+  }).format(amount)
+}
+
+interface Coachee {
+  id: string
+  name: string
+  email: string
+  photoURL?: string
+}
+
+export default function NewOfferPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div></div>}>
+      <NewOfferPageContent />
+    </Suspense>
+  )
+}
+
+function NewOfferPageContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { user } = useAuth()
+  
+  // Pre-selezione coachee da URL (es. dalla chat)
+  const preselectedCoacheeId = searchParams.get('coacheeId')
+  const preselectedCoacheeName = searchParams.get('coacheeName')
+  
+  const [step, setStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
-
-  // Se già loggato, redirect alla dashboard
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+  
+  // Lista coachee
+  const [coachees, setCoachees] = useState<Coachee[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCoachee, setSelectedCoachee] = useState<Coachee | null>(null)
+  
+  // Form data
+  const [formData, setFormData] = useState({
+    title: 'Percorso di Coaching',
+    description: '',
+    totalSessions: 4,
+    sessionDuration: 60,
+    priceTotal: 400,
+    validDays: 7,
+    coachNotes: ''
+  })
+  
+  // Calcoli
+  const pricing = calculatePricing(formData.priceTotal, formData.totalSessions)
+  
+  // Carica coachee (utenti che hanno interagito con il coach)
   useEffect(() => {
-    if (!loading && user) {
-      if (user.role === 'coach') {
-        router.push(redirectUrl || '/coach/dashboard')
-      } else {
-        router.push('/dashboard')
+    const loadCoachees = async () => {
+      if (!user?.id) return
+      
+      setIsLoading(true)
+      try {
+        // Carica tutti gli utenti coachee
+        const usersQuery = query(
+          collection(db, 'users'),
+          where('role', '==', 'coachee')
+        )
+        const snapshot = await getDocs(usersQuery)
+        const loadedCoachees: Coachee[] = snapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name || doc.data().email?.split('@')[0] || 'Utente',
+          email: doc.data().email || '',
+          photoURL: doc.data().photoURL
+        }))
+        setCoachees(loadedCoachees)
+      } catch (err) {
+        console.error('Errore caricamento coachee:', err)
+      } finally {
+        setIsLoading(false)
       }
     }
-  }, [user, loading, router])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-
-    // Validazioni
-    if (password !== confirmPassword) {
-      setError('Le password non coincidono')
-      return
-    }
-
-    if (password.length < 8) {
-      setError('La password deve essere di almeno 8 caratteri')
-      return
-    }
-
-    if (!acceptTerms) {
-      setError('Devi accettare i termini di servizio')
-      return
-    }
-
-    setIsLoading(true)
-
-    try {
-      await signUp(email, password, name)
-      // Redirect dopo registrazione
-      router.push(redirectUrl || '/dashboard')
-    } catch (err: any) {
-      if (err.code === 'auth/email-already-in-use') {
-        setError('Questa email è già registrata. Prova ad accedere.')
-      } else {
-        setError(err.message || 'Errore durante la registrazione')
+    
+    loadCoachees()
+  }, [user?.id])
+  
+  // Pre-seleziona coachee da URL params (es. dalla chat)
+  useEffect(() => {
+    if (preselectedCoacheeId && coachees.length > 0 && !selectedCoachee) {
+      const found = coachees.find(c => c.id === preselectedCoacheeId)
+      if (found) {
+        setSelectedCoachee(found)
+        setStep(2)
       }
-    } finally {
-      setIsLoading(false)
+    }
+    if (preselectedCoacheeId && preselectedCoacheeName && coachees.length === 0 && !selectedCoachee && !isLoading) {
+      setSelectedCoachee({
+        id: preselectedCoacheeId,
+        name: decodeURIComponent(preselectedCoacheeName),
+        email: ''
+      })
+      setStep(2)
+    }
+  }, [preselectedCoacheeId, preselectedCoacheeName, coachees.length, isLoading])
+  
+  // Filtra coachee per ricerca
+  const filteredCoachees = coachees.filter(c => 
+    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.email.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+  
+  // Validazione step
+  const isStepValid = (stepNum: number) => {
+    switch (stepNum) {
+      case 1:
+        return selectedCoachee !== null
+      case 2:
+        return formData.totalSessions >= 1 && 
+               formData.totalSessions <= PLATFORM_CONFIG.maxSessions &&
+               formData.sessionDuration >= 30
+      case 3:
+        return formData.priceTotal >= formData.totalSessions * PLATFORM_CONFIG.minPricePerSession &&
+               formData.title.trim().length > 0
+      default:
+        return true
     }
   }
-
-  const handleGoogleSignIn = async () => {
+  
+  // Crea offerta
+  const handleSubmit = async () => {
+    if (!user || !selectedCoachee) return
+    
     setError('')
-    setIsLoading(true)
-
+    setIsSubmitting(true)
+    
     try {
-      await signInWithGoogle()
-      // Redirect gestito da useEffect
+      const validUntil = new Date()
+      validUntil.setDate(validUntil.getDate() + formData.validDays)
+      
+      // Crea le rate (installments) con calcoli CORRETTI
+      const installments = Array.from({ length: formData.totalSessions }, (_, i) => ({
+        sessionNumber: i + 1,
+        amount: pricing.pricePerSession, // €100 - pagato dal coachee
+        coachPayout: pricing.perSessionCoachPayout, // €70 - al coach (70%)
+        platformFee: pricing.perSessionPlatformFee, // €30 - a CoachaMi (30%)
+        status: 'pending'
+      }))
+      
+      const offerData = {
+        // Coach
+        coachId: user.id,
+        coachName: user.name || 'Coach',
+        coachEmail: user.email,
+        
+        // Coachee
+        coacheeId: selectedCoachee.id,
+        coacheeName: selectedCoachee.name,
+        coacheeEmail: selectedCoachee.email,
+        
+        // Dettagli
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        
+        // Sessioni
+        totalSessions: formData.totalSessions,
+        sessionDuration: formData.sessionDuration,
+        completedSessions: 0,
+        
+        // Pricing CORRETTO
+        priceTotal: pricing.priceTotal, // €400 - totale pagato dal coachee
+        pricePerSession: pricing.pricePerSession, // €100 - per sessione
+        coachPayoutTotal: pricing.coachPayoutTotal, // €280 - totale al coach (70%)
+        platformFeeTotal: pricing.platformFeeTotal, // €120 - totale a CoachaMi (30%)
+        platformFeeNet: pricing.platformFeeNet, // €98,36 - guadagno netto CoachaMi
+        
+        // Rate
+        installments,
+        paidInstallments: 0,
+        
+        // Status
+        status: 'pending',
+        validUntil,
+        
+        // Metadata
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }
+      
+      const docRef = await addDoc(collection(db, 'offers'), offerData)
+      
+      // Invia notifica al coachee
+      try {
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'new_offer',
+            data: {
+              coacheeEmail: selectedCoachee.email,
+              coacheeName: selectedCoachee.name,
+              coachName: user.name || 'Il tuo coach',
+              offerTitle: formData.title,
+              totalSessions: formData.totalSessions,
+              priceTotal: pricing.priceTotal,
+              pricePerSession: pricing.pricePerSession,
+              validDays: formData.validDays,
+              offerId: docRef.id
+            }
+          })
+        })
+      } catch (emailErr) {
+        console.error('Errore invio email:', emailErr)
+      }
+      
+      setSuccess(true)
+      
+      // Redirect dopo 2 secondi
+      setTimeout(() => {
+        router.push('/coach/offers')
+      }, 2000)
+      
     } catch (err: any) {
-      setError(err.message || 'Errore durante la registrazione con Google')
+      console.error('Errore creazione offerta:', err)
+      setError(err.message || 'Errore durante la creazione dell\'offerta')
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
-
-  // Se sta caricando auth, mostra loading
-  if (loading) {
+  
+  // Success state
+  if (success) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+      <div className="min-h-screen bg-cream flex items-center justify-center p-4">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-lg"
+        >
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Check size={32} className="text-green-600" />
+          </div>
+          <h2 className="text-xl font-bold text-charcoal mb-2">Offerta Inviata!</h2>
+          <p className="text-gray-600 mb-6">
+            {selectedCoachee?.name} riceverà una notifica e potrà accettare l'offerta.
+          </p>
+          <p className="text-sm text-gray-500">Reindirizzamento in corso...</p>
+        </motion.div>
       </div>
     )
   }
-
+  
   return (
-    <div className="min-h-screen bg-cream flex flex-col items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-block">
-            <Logo size="lg" />
+    <div className="min-h-screen bg-cream">
+      {/* Header */}
+      <header className="bg-white border-b sticky top-0 z-50">
+        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
+          <Link href="/coach/offers" className="flex items-center gap-2 text-gray-600 hover:text-charcoal">
+            <ArrowLeft size={20} />
+            <span>Indietro</span>
           </Link>
-          <h1 className="mt-6 text-2xl font-semibold text-gray-900">
-            Crea il tuo account
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Inizia il tuo percorso di crescita personale
-          </p>
+          <Logo className="h-8" />
+          <div className="w-20" />
         </div>
-
-        {/* Form */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nome
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Il tuo nome"
-                  required
-                />
+      </header>
+      
+      {/* Progress */}
+      <div className="bg-white border-b">
+        <div className="max-w-3xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between mb-2">
+            {[1, 2, 3].map((s) => (
+              <div key={s} className="flex items-center">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  s < step ? 'bg-green-500 text-white' :
+                  s === step ? 'bg-primary-500 text-white' :
+                  'bg-gray-200 text-gray-500'
+                }`}>
+                  {s < step ? <Check size={16} /> : s}
+                </div>
+                {s < 3 && (
+                  <div className={`w-24 sm:w-32 h-1 mx-2 rounded ${
+                    s < step ? 'bg-green-500' : 'bg-gray-200'
+                  }`} />
+                )}
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="nome@email.com"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Minimo 8 caratteri"
-                  minLength={8}
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Conferma Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Ripeti la password"
-                  minLength={8}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
+            ))}
+          </div>
+          <div className="flex justify-between text-xs text-gray-500">
+            <span>Destinatario</span>
+            <span>Sessioni</span>
+            <span>Prezzo</span>
+          </div>
+        </div>
+      </div>
+      
+      {/* Content */}
+      <main className="max-w-3xl mx-auto px-4 py-6">
+        {/* Step 1: Seleziona coachee */}
+        {step === 1 && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="space-y-4"
+          >
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+                <User size={20} className="text-primary-500" />
+                Seleziona il destinatario
+              </h2>
+              
               <input
-                type="checkbox"
-                id="terms"
-                checked={acceptTerms}
-                onChange={(e) => setAcceptTerms(e.target.checked)}
-                className="mt-1 w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cerca per nome o email..."
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
-              <label htmlFor="terms" className="text-sm text-gray-600">
-                Accetto i{' '}
-                <Link href="/terms" className="text-primary-500 hover:underline">
-                  Termini di Servizio
-                </Link>{' '}
-                e la{' '}
-                <Link href="/privacy" className="text-primary-500 hover:underline">
-                  Privacy Policy
-                </Link>
-              </label>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
+              
               {isLoading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <div className="text-center py-8">
+                  <Loader2 className="animate-spin mx-auto text-primary-500" size={32} />
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {filteredCoachees.length === 0 ? (
+                    <p className="text-center text-gray-500 py-8">
+                      Nessun coachee trovato
+                    </p>
+                  ) : (
+                    filteredCoachees.map((coachee) => (
+                      <button
+                        key={coachee.id}
+                        onClick={() => setSelectedCoachee(coachee)}
+                        className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                          selectedCoachee?.id === coachee.id
+                            ? 'border-primary-500 bg-primary-50'
+                            : 'border-gray-100 hover:border-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium">
+                            {coachee.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-charcoal">{coachee.name}</p>
+                            <p className="text-sm text-gray-500">{coachee.email}</p>
+                          </div>
+                          {selectedCoachee?.id === coachee.id && (
+                            <Check size={20} className="ml-auto text-primary-500" />
+                          )}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+        
+        {/* Step 2: Configura sessioni */}
+        {step === 2 && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="space-y-4"
+          >
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+                <Package size={20} className="text-primary-500" />
+                Numero di sessioni
+              </h2>
+              
+              <div className="grid grid-cols-4 gap-2 mb-4">
+                {[4, 6, 8, 10].map((num) => (
+                  <button
+                    key={num}
+                    onClick={() => setFormData({ ...formData, totalSessions: num })}
+                    className={`py-3 rounded-xl font-medium transition-colors ${
+                      formData.totalSessions === num
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+              
+              <input
+                type="number"
+                min={1}
+                max={PLATFORM_CONFIG.maxSessions}
+                value={formData.totalSessions}
+                onChange={(e) => setFormData({ ...formData, totalSessions: parseInt(e.target.value) || 1 })}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+                <Clock size={20} className="text-primary-500" />
+                Durata sessione
+              </h2>
+              
+              <div className="grid grid-cols-3 gap-2">
+                {[45, 60, 90].map((dur) => (
+                  <button
+                    key={dur}
+                    onClick={() => setFormData({ ...formData, sessionDuration: dur })}
+                    className={`py-3 rounded-xl font-medium transition-colors ${
+                      formData.sessionDuration === dur
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {dur} min
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+        
+        {/* Step 3: Prezzo e riepilogo */}
+        {step === 3 && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="space-y-4"
+          >
+            {/* Titolo */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+                <FileText size={20} className="text-primary-500" />
+                Titolo del percorso
+              </h2>
+              
+              <input
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Es: Percorso di Life Coaching"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Descrizione opzionale..."
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl mt-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            
+            {/* Prezzo */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <h2 className="font-semibold text-charcoal mb-4 flex items-center gap-2">
+                <Euro size={20} className="text-primary-500" />
+                Prezzo Totale
+              </h2>
+              
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">€</span>
+                <input
+                  type="number"
+                  min={formData.totalSessions * PLATFORM_CONFIG.minPricePerSession}
+                  step={10}
+                  value={formData.priceTotal || ''}
+                  onChange={(e) => setFormData({ ...formData, priceTotal: parseFloat(e.target.value) || 0 })}
+                  className="w-full pl-10 pr-4 py-4 border border-gray-200 rounded-xl text-2xl font-bold focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              
+              <p className="text-sm text-gray-500 mt-2">
+                Minimo: {formatCurrency(formData.totalSessions * PLATFORM_CONFIG.minPricePerSession)} 
+                ({formatCurrency(PLATFORM_CONFIG.minPricePerSession)} per sessione)
+              </p>
+              
+              {/* Prezzi suggeriti */}
+              <div className="mt-4">
+                <p className="text-xs text-gray-500 mb-2">Prezzi suggeriti:</p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    formData.totalSessions * 50,
+                    formData.totalSessions * 70,
+                    formData.totalSessions * 100,
+                    formData.totalSessions * 120,
+                  ].map(price => (
+                    <button
+                      key={price}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, priceTotal: price })}
+                      className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                        formData.priceTotal === price
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {formatCurrency(price)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            {/* Calcolo guadagno CORRETTO */}
+            {formData.priceTotal >= formData.totalSessions * PLATFORM_CONFIG.minPricePerSession && (
+              <div className="bg-green-50 rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Calculator size={20} className="text-green-600" />
+                  <span className="font-semibold text-green-700">Riepilogo economico</span>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Prezzo totale (pagato dal coachee)</span>
+                    <span className="font-semibold">{formatCurrency(pricing.priceTotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">÷ {formData.totalSessions} sessioni</span>
+                    <span>{formatCurrency(pricing.pricePerSession)} / sessione</span>
+                  </div>
+                  
+                  <div className="border-t border-green-200 pt-3 mt-3">
+                    <div className="flex justify-between text-sm text-red-600">
+                      <span>Commissione CoachaMi (30%)</span>
+                      <span>-{formatCurrency(pricing.platformFeeTotal)}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="border-t border-green-200 pt-3">
+                    <div className="flex justify-between text-green-700">
+                      <span className="font-semibold">Il tuo guadagno totale (70%)</span>
+                      <span className="text-xl font-bold">{formatCurrency(pricing.coachPayoutTotal)}</span>
+                    </div>
+                    <p className="text-sm text-green-600 mt-1">
+                      = {formatCurrency(pricing.perSessionCoachPayout)} per ogni sessione
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Info pagamento a rate */}
+            <div className="bg-blue-50 rounded-xl p-4 flex items-start gap-3">
+              <Info size={20} className="text-blue-500 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-700">
+                <p className="font-medium mb-1">Come funziona il pagamento</p>
+                <ul className="space-y-1 text-blue-600">
+                  <li>• {selectedCoachee?.name} pagherà {formatCurrency(pricing.pricePerSession)} prima di ogni sessione</li>
+                  <li>• Riceverai {formatCurrency(pricing.perSessionCoachPayout)} per ogni sessione</li>
+                  <li>• Dovrai emettere fattura a CoachaMi per ricevere il pagamento</li>
+                </ul>
+              </div>
+            </div>
+            
+            {/* Riepilogo offerta */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <h3 className="font-semibold text-charcoal mb-4">Riepilogo Offerta</h3>
+              
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Coachee</span>
+                  <span className="font-medium">{selectedCoachee?.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Percorso</span>
+                  <span className="font-medium">{formData.title}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Sessioni</span>
+                  <span className="font-medium">{formData.totalSessions} x {formData.sessionDuration} min</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Prezzo totale</span>
+                  <span className="font-medium">{formatCurrency(pricing.priceTotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Rata per sessione</span>
+                  <span className="font-medium">{formatCurrency(pricing.pricePerSession)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Tuo guadagno per sessione</span>
+                  <span className="font-medium text-green-600">{formatCurrency(pricing.perSessionCoachPayout)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Validità offerta</span>
+                  <span className="font-medium">{formData.validDays} giorni</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Error */}
+            {error && (
+              <div className="bg-red-50 rounded-xl p-4 flex items-center gap-3 text-red-600">
+                <AlertCircle size={20} />
+                {error}
+              </div>
+            )}
+          </motion.div>
+        )}
+        
+        {/* Navigation buttons */}
+        <div className="flex gap-4 mt-8">
+          {step > 1 && (
+            <button
+              onClick={() => setStep(step - 1)}
+              className="flex-1 px-6 py-3 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Indietro
+            </button>
+          )}
+          
+          {step < 3 ? (
+            <button
+              onClick={() => setStep(step + 1)}
+              disabled={!isStepValid(step)}
+              className="flex-1 px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Continua
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={!isStepValid(3) || isSubmitting}
+              className="flex-1 px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" />
+                  Invio in corso...
+                </>
               ) : (
                 <>
-                  Registrati
-                  <ArrowRight className="h-5 w-5" />
+                  <Send size={20} />
+                  Invia Offerta
                 </>
               )}
             </button>
-          </form>
-
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Oppure</span>
-              </div>
-            </div>
-
-            <button
-              onClick={handleGoogleSignIn}
-              disabled={isLoading}
-              className="mt-4 w-full py-3 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              Continua con Google
-            </button>
-          </div>
+          )}
         </div>
-
-        {/* Link login */}
-        <p className="mt-6 text-center text-gray-600">
-          Hai già un account?{' '}
-          <Link href={redirectUrl ? `/login?redirect=${encodeURIComponent(redirectUrl)}` : "/login"} className="text-primary-500 hover:text-primary-600 font-medium">
-            Accedi
-          </Link>
-        </p>
-
-        {/* Link coach */}
-        <p className="mt-3 text-center text-sm text-gray-500">
-          Sei un coach?{' '}
-          <Link href="/coach/apply" className="text-primary-500 hover:text-primary-600">
-            Registrati come Coach
-          </Link>
-        </p>
-      </motion.div>
+      </main>
     </div>
   )
 }
