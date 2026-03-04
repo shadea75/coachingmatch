@@ -360,7 +360,7 @@ export default function AdminPaymentsPage() {
               scheduledPayoutDate: tracking?.scheduledPayoutDate?.toDate?.() || scheduledDate,
               completedAt: tracking?.completedAt?.toDate?.() || null,
               coachBilling: coachBillingMap[offer.coachId] || null,
-              payoutMethod: coachPayoutMethodMap[offer.coachId] || null
+              payoutMethod: (coachPayoutMethodMap[offer.coachId] || null) as 'stripe' | 'bank_transfer' | null
             })
           }
         })
