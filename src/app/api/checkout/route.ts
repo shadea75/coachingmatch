@@ -1,5 +1,6 @@
 // src/app/api/checkout/route.ts
-// Stripe Connect opzionale: split automatico se coach ha Stripe, altrimenti incasso diretto CoachaMi
+// Se il coach ha Stripe Connect → split automatico 70/30
+// Se il coach usa bonifico → 100% a CoachaMi, poi bonifica manualmente
 
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
@@ -11,8 +12,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10'
 })
 
-// Configurazione split
-const PLATFORM_FEE_PERCENT = 30 // 30% a CoachaMi
+const COACH_PERCENT = 70
+const PLATFORM_PERCENT = 30
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,9 +26,7 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Recupera offerta
     const offerDoc = await adminDb.collection('offers').doc(offerId).get()
-    
     if (!offerDoc.exists) {
       return NextResponse.json({ error: 'Offerta non trovata' }, { status: 404 })
     }
@@ -38,34 +37,33 @@ export async function POST(request: NextRequest) {
     if (!installment) {
       return NextResponse.json({ error: 'Rata non trovata' }, { status: 404 })
     }
-    
     if (installment.status === 'paid') {
       return NextResponse.json({ error: 'Rata già pagata' }, { status: 400 })
     }
     
     const amountInCents = Math.round(installment.amount * 100)
-    
-    // Verifica se il coach ha Stripe Connect configurato
-    let coachHasStripe = false
-    let coachStripeAccountId = ''
-    
+    const platformFeeCents = Math.round(installment.amount * (PLATFORM_PERCENT / 100) * 100)
+    const coachPayoutAmount = Math.round(installment.amount * (COACH_PERCENT / 100) * 100) / 100
+
+    // Recupera payoutMethod e Stripe del coach
+    let payoutMethod = 'bank_transfer'
+    let coachStripeAccountId: string | null = null
+
     try {
-      const coachStripeDoc = await adminDb.collection('coachStripeAccounts').doc(offer.coachId).get()
-      
-      if (coachStripeDoc.exists) {
-        const coachStripeData = coachStripeDoc.data() as any
-        if (coachStripeData.chargesEnabled && coachStripeData.stripeAccountId) {
-          coachHasStripe = true
-          coachStripeAccountId = coachStripeData.stripeAccountId
-        }
+      const [coachAppDoc, stripeDoc] = await Promise.all([
+        adminDb.collection('coachApplications').doc(offer.coachId).get(),
+        adminDb.collection('coachStripeAccounts').doc(offer.coachId).get(),
+      ])
+      if (coachAppDoc.exists) {
+        payoutMethod = coachAppDoc.data()?.payoutMethod || 'bank_transfer'
+      }
+      if (stripeDoc.exists && stripeDoc.data()?.chargesEnabled) {
+        coachStripeAccountId = stripeDoc.data()?.stripeAccountId || null
       }
     } catch (e) {
-      console.log('Coach senza Stripe Connect, pagamento diretto a piattaforma')
+      console.log('Impossibile caricare dati coach')
     }
     
-    const coachPayoutAmount = Math.round(installment.amount * (100 - PLATFORM_FEE_PERCENT)) / 100
-    
-    // Prepara sessione checkout
     const sessionConfig: any = {
       mode: 'payment',
       payment_method_types: ['card'],
@@ -88,7 +86,8 @@ export async function POST(request: NextRequest) {
         coacheeId: offer.coacheeId,
         coachName: offer.coachName,
         coachEmail: offer.coachEmail,
-        paymentMode: coachHasStripe ? 'stripe_connect' : 'platform_direct',
+        payoutMethod,
+        coachPayoutAmount: String(coachPayoutAmount),
       },
       customer_email: offer.coacheeEmail,
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/pay/success?session_id={CHECKOUT_SESSION_ID}&offerId=${offerId}&installment=${installmentNumber}`,
@@ -96,76 +95,53 @@ export async function POST(request: NextRequest) {
       expires_at: Math.floor(Date.now() / 1000) + 1800,
     }
     
-    if (coachHasStripe) {
-      // STRIPE CONNECT: Split automatico 70% coach / 30% piattaforma
-      const platformFeeInCents = Math.round(amountInCents * (PLATFORM_FEE_PERCENT / 100))
-      
+    if (payoutMethod === 'stripe' && coachStripeAccountId) {
+      // Split automatico — transfer diretto al coach
       sessionConfig.payment_intent_data = {
-        application_fee_amount: platformFeeInCents,
-        transfer_data: {
-          destination: coachStripeAccountId,
-        },
+        application_fee_amount: platformFeeCents,
+        transfer_data: { destination: coachStripeAccountId },
         metadata: {
           offerId,
           installmentNumber: String(installmentNumber),
           coachId: offer.coachId,
           coacheeId: offer.coacheeId,
-          paymentMode: 'stripe_connect',
+          payoutMethod: 'stripe',
         }
       }
-      sessionConfig.metadata.coachStripeAccountId = coachStripeAccountId
-      
-      console.log(`💳 Checkout con Stripe Connect: ${installment.amount}€ (30% fee a piattaforma)`)
+      console.log(`💳 Stripe split: €${installment.amount} → coach €${coachPayoutAmount} (auto)`)
     } else {
-      // PAGAMENTO DIRETTO: Tutto a CoachaMi, il coach verrà pagato manualmente
+      // Tutto a CoachaMi — bonifico manuale
       sessionConfig.payment_intent_data = {
         metadata: {
           offerId,
           installmentNumber: String(installmentNumber),
           coachId: offer.coachId,
           coacheeId: offer.coacheeId,
-          paymentMode: 'platform_direct',
-          coachPayoutPending: 'true',
+          payoutMethod: 'bank_transfer',
           coachPayoutAmount: String(coachPayoutAmount),
         }
       }
-      
-      console.log(`💳 Checkout diretto piattaforma: ${installment.amount}€ (coach payout manuale: ${coachPayoutAmount}€)`)
+      console.log(`🏦 Bonifico manuale: €${installment.amount} → CoachaMi (da bonificare €${coachPayoutAmount})`)
     }
     
-    const session = await stripe.checkout.sessions.create(sessionConfig)
-    
-    // Salva info pagamento nell'offerta per tracciamento admin
+    // Pre-aggiorna installment con info payout
     const installments = [...(offer.installments || [])]
     installments[installmentNumber - 1] = {
       ...installments[installmentNumber - 1],
-      paymentMode: coachHasStripe ? 'stripe_connect' : 'platform_direct',
+      payoutMethod,
       coachPayoutAmount,
-      coachPayoutStatus: coachHasStripe ? 'automatic' : 'pending_manual',
+      coachPayoutStatus: payoutMethod === 'stripe' ? 'automatic' : 'pending',
     }
-    
     await adminDb.collection('offers').doc(offerId).update({
       installments,
       updatedAt: new Date()
     })
     
-    return NextResponse.json({ 
-      url: session.url, 
-      sessionId: session.id 
-    })
+    const session = await stripe.checkout.sessions.create(sessionConfig)
+    return NextResponse.json({ url: session.url, sessionId: session.id })
     
   } catch (error: any) {
     console.error('Checkout error:', error)
-    
-    if (error.type === 'StripeInvalidRequestError') {
-      if (error.message.includes('destination')) {
-        return NextResponse.json({
-          error: 'Problema con l\'account del coach. Contatta l\'assistenza.',
-          code: 'STRIPE_CONNECT_ERROR'
-        }, { status: 500 })
-      }
-    }
-    
     return NextResponse.json(
       { error: error.message || 'Errore durante la creazione del checkout' },
       { status: 500 }
