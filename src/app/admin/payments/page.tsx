@@ -111,6 +111,7 @@ interface PendingPayout {
     fiscalCode?: string
     vatNumber?: string
   }
+  payoutMethod?: 'stripe' | 'bank_transfer' | null
 }
 
 interface Subscription {
@@ -137,9 +138,11 @@ function formatCurrency(amount: number): string {
 export default function AdminPaymentsPage() {
   const [offers, setOffers] = useState<Offer[]>([])
   const [pendingPayouts, setPendingPayouts] = useState<PendingPayout[]>([])
+  const [coachPayoutsList, setCoachPayoutsList] = useState<any[]>([])
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'payouts' | 'coaches' | 'subscriptions'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'payouts' | 'coaches' | 'subscriptions' | 'da-pagare'>('overview')
+  const [processingPayoutId, setProcessingPayoutId] = useState<string | null>(null)
   
   // Filtri
   const [selectedCoach, setSelectedCoach] = useState<string>('all')
@@ -287,14 +290,20 @@ export default function AdminPaymentsPage() {
         // Collection potrebbe non esistere ancora
       }
       
-      // Carica dati billing di tutti i coach coinvolti
+      // Carica dati billing e payoutMethod di tutti i coach coinvolti
       const coachBillingMap: Record<string, any> = {}
+      const coachPayoutMethodMap: Record<string, string> = {}
       const uniqueCoachIds = Array.from(new Set(loadedOffers.map(o => o.coachId).filter(Boolean)))
       await Promise.all(uniqueCoachIds.map(async (coachId) => {
         try {
           const coachDoc = await getDoc(doc(db, 'users', coachId))
           if (coachDoc.exists()) {
             coachBillingMap[coachId] = coachDoc.data().billing || null
+          }
+          // Carica anche payoutMethod da coachApplications
+          const coachAppDoc = await getDoc(doc(db, 'coachApplications', coachId))
+          if (coachAppDoc.exists()) {
+            coachPayoutMethodMap[coachId] = coachAppDoc.data().payoutMethod || null
           }
         } catch (e) {
           console.error('Errore caricamento billing coach:', coachId, e)
@@ -350,7 +359,8 @@ export default function AdminPaymentsPage() {
               payoutStatus: tracking?.payoutStatus || 'awaiting_invoice',
               scheduledPayoutDate: tracking?.scheduledPayoutDate?.toDate?.() || scheduledDate,
               completedAt: tracking?.completedAt?.toDate?.() || null,
-              coachBilling: coachBillingMap[offer.coachId] || null
+              coachBilling: coachBillingMap[offer.coachId] || null,
+              payoutMethod: coachPayoutMethodMap[offer.coachId] || null
             })
           }
         })
@@ -359,6 +369,23 @@ export default function AdminPaymentsPage() {
       // Ordina per data pagamento (più recenti prima)
       generatedPayouts.sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime())
       setPendingPayouts(generatedPayouts)
+
+      // Carica coachPayouts dalla collection dedicata
+      try {
+        const coachPayoutsSnap = await getDocs(
+          query(collection(db, 'coachPayouts'), orderBy('paidAt', 'desc'))
+        )
+        const loadedCoachPayouts = coachPayoutsSnap.docs.map(d => ({
+          id: d.id,
+          ...d.data(),
+          paidAt: d.data().paidAt?.toDate?.() || new Date(),
+          completedAt: d.data().completedAt?.toDate?.() || null,
+        }))
+        setCoachPayoutsList(loadedCoachPayouts)
+      } catch (e) {
+        console.log('coachPayouts collection non ancora presente')
+        setCoachPayoutsList([])
+      }
     } catch (err) {
       console.error('Errore caricamento dati:', err)
     } finally {
@@ -866,6 +893,20 @@ export default function AdminPaymentsPage() {
             Per Coach ({uniqueCoaches.length})
           </button>
           <button
+            onClick={() => setActiveTab('da-pagare')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'da-pagare' ? 'bg-charcoal text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Banknote size={16} className="inline mr-2" />
+            Da pagare ai coach
+            {coachPayoutsList.filter(p => p.status === 'pending').length > 0 && (
+              <span className="ml-2 px-2 py-0.5 text-xs bg-red-500 text-white rounded-full">
+                {coachPayoutsList.filter(p => p.status === 'pending').length}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setActiveTab('subscriptions')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               activeTab === 'subscriptions' ? 'bg-charcoal text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
@@ -1072,7 +1113,14 @@ export default function AdminPaymentsPage() {
                           {format(payout.paidAt, 'dd MMM yyyy', { locale: it })}
                         </td>
                         <td className="px-6 py-4">
-                          <p className="font-medium text-charcoal">{payout.coachName}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-charcoal">{payout.coachName}</p>
+                            {payout.payoutMethod === 'bank_transfer' ? (
+                              <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap">🏦 Bonifico</span>
+                            ) : (
+                              <span className="bg-purple-100 text-purple-700 text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap">⚡ Stripe</span>
+                            )}
+                          </div>
                           <p className="text-xs text-gray-400">{payout.coachEmail}</p>
                         </td>
                         <td className="px-6 py-4">
@@ -1176,6 +1224,13 @@ export default function AdminPaymentsPage() {
                 </table>
               )}
             </>
+          ) : activeTab === 'da-pagare' ? (
+            <DaPagareTab
+              coachPayouts={coachPayoutsList}
+              setCoachPayouts={setCoachPayoutsList}
+              processingPayoutId={processingPayoutId}
+              setProcessingPayoutId={setProcessingPayoutId}
+            />
           ) : activeTab === 'coaches' ? (
             /* Tab Coach */
             coachTotals.length === 0 ? (
@@ -1554,5 +1609,262 @@ export default function AdminPaymentsPage() {
         </div>
       )}
     </AdminLayout>
+  )
+}
+
+// ============================================================
+// COMPONENTE: Tab "Da pagare ai coach"
+// ============================================================
+function DaPagareTab({
+  coachPayouts,
+  setCoachPayouts,
+  processingPayoutId,
+  setProcessingPayoutId,
+}: {
+  coachPayouts: any[]
+  setCoachPayouts: (payouts: any[]) => void
+  processingPayoutId: string | null
+  setProcessingPayoutId: (v: string | null) => void
+}) {
+  const [filter, setFilter] = useState<'all' | 'pending' | 'processing' | 'completed'>('pending')
+  const [expandedCoach, setExpandedCoach] = useState<string | null>(null)
+
+  const filtered = coachPayouts.filter(p => filter === 'all' || p.status === filter)
+
+  // Raggruppa per coach
+  const byCoach = filtered.reduce((acc: Record<string, any>, p) => {
+    if (!acc[p.coachId]) {
+      acc[p.coachId] = {
+        coachId: p.coachId,
+        coachName: p.coachName,
+        coachEmail: p.coachEmail,
+        payoutMethod: p.payoutMethod,
+        payouts: [],
+        totalPending: 0,
+      }
+    }
+    acc[p.coachId].payouts.push(p)
+    if (p.status === 'pending' || p.status === 'processing') {
+      acc[p.coachId].totalPending += p.coachPayout
+    }
+    return acc
+  }, {})
+
+  const coachList = Object.values(byCoach).sort((a: any, b: any) => b.totalPending - a.totalPending)
+
+  const totalDaPagare = coachPayouts
+    .filter(p => p.status === 'pending')
+    .reduce((sum, p) => sum + p.coachPayout, 0)
+
+  const totalProcessing = coachPayouts
+    .filter(p => p.status === 'processing')
+    .reduce((sum, p) => sum + p.coachPayout, 0)
+
+  const totalPagato = coachPayouts
+    .filter(p => p.status === 'completed')
+    .reduce((sum, p) => sum + p.coachPayout, 0)
+
+  const markAsProcessing = async (payoutId: string) => {
+    setProcessingPayoutId(payoutId)
+    try {
+      const { db } = await import('@/lib/firebase')
+      const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore')
+      await updateDoc(doc(db, 'coachPayouts', payoutId), {
+        status: 'processing',
+        processingAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      })
+      setCoachPayouts([...coachPayouts].map(p => p.id === payoutId ? { ...p, status: 'processing' } : p))
+    } catch (e) {
+      alert('Errore aggiornamento stato')
+    } finally {
+      setProcessingPayoutId(null)
+    }
+  }
+
+  const markAsCompleted = async (payoutId: string) => {
+    setProcessingPayoutId(payoutId)
+    try {
+      const { db } = await import('@/lib/firebase')
+      const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore')
+      await updateDoc(doc(db, 'coachPayouts', payoutId), {
+        status: 'completed',
+        completedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      })
+      setCoachPayouts([...coachPayouts].map(p => p.id === payoutId ? { ...p, status: 'completed', completedAt: new Date() } : p))
+    } catch (e) {
+      alert('Errore aggiornamento stato')
+    } finally {
+      setProcessingPayoutId(null)
+    }
+  }
+
+  const markAllPendingForCoach = async (coachId: string) => {
+    const pending = coachPayouts.filter(p => p.coachId === coachId && p.status === 'pending')
+    if (!pending.length) return
+    if (!confirm(`Segni ${pending.length} pagamenti come "in elaborazione" per questo coach?`)) return
+    setProcessingPayoutId(coachId)
+    try {
+      const { db } = await import('@/lib/firebase')
+      const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore')
+      await Promise.all(pending.map(p =>
+        updateDoc(doc(db, 'coachPayouts', p.id), {
+          status: 'processing',
+          processingAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+      ))
+      setCoachPayouts([...coachPayouts].map(p =>
+        p.coachId === coachId && p.status === 'pending' ? { ...p, status: 'processing' } : p
+      ))
+    } catch (e) {
+      alert('Errore')
+    } finally {
+      setProcessingPayoutId(null)
+    }
+  }
+
+  function formatCurrencyLocal(n: number) {
+    return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n)
+  }
+
+  return (
+    <div>
+      {/* Stats riepilogative */}
+      <div className="p-6 border-b bg-gray-50 grid grid-cols-3 gap-4">
+        <div className="bg-white rounded-xl p-4 text-center border border-red-100">
+          <p className="text-xs text-gray-500 mb-1">Da pagare</p>
+          <p className="text-2xl font-bold text-red-600">{formatCurrencyLocal(totalDaPagare)}</p>
+          <p className="text-xs text-gray-400">{coachPayouts.filter(p => p.status === 'pending').length} pagamenti</p>
+        </div>
+        <div className="bg-white rounded-xl p-4 text-center border border-amber-100">
+          <p className="text-xs text-gray-500 mb-1">In elaborazione</p>
+          <p className="text-2xl font-bold text-amber-600">{formatCurrencyLocal(totalProcessing)}</p>
+          <p className="text-xs text-gray-400">{coachPayouts.filter(p => p.status === 'processing').length} pagamenti</p>
+        </div>
+        <div className="bg-white rounded-xl p-4 text-center border border-green-100">
+          <p className="text-xs text-gray-500 mb-1">Già pagato</p>
+          <p className="text-2xl font-bold text-green-600">{formatCurrencyLocal(totalPagato)}</p>
+          <p className="text-xs text-gray-400">{coachPayouts.filter(p => p.status === 'completed').length} pagamenti</p>
+        </div>
+      </div>
+
+      {/* Filtri */}
+      <div className="px-6 py-3 border-b flex gap-2">
+        {(['pending', 'processing', 'completed', 'all'] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              filter === f ? 'bg-charcoal text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {f === 'pending' ? '🔴 Da pagare' : f === 'processing' ? '🟡 In elaborazione' : f === 'completed' ? '🟢 Pagati' : 'Tutti'}
+          </button>
+        ))}
+      </div>
+
+      {/* Lista per coach */}
+      {coachList.length === 0 ? (
+        <div className="p-12 text-center text-gray-400">
+          <CheckCircle className="mx-auto mb-3 text-green-300" size={40} />
+          <p>Nessun pagamento in questa categoria</p>
+        </div>
+      ) : (
+        <div className="divide-y">
+          {(coachList as any[]).map((coach: any) => (
+            <div key={coach.coachId} className="p-4">
+              {/* Header coach */}
+              <div
+                className="flex items-center gap-4 cursor-pointer"
+                onClick={() => setExpandedCoach(expandedCoach === coach.coachId ? null : coach.coachId)}
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-charcoal">{coach.coachName}</p>
+                    {coach.payoutMethod === 'bank_transfer' ? (
+                      <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-medium">🏦 Bonifico</span>
+                    ) : (
+                      <span className="bg-purple-100 text-purple-700 text-xs px-2 py-0.5 rounded-full font-medium">⚡ Stripe</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500">{coach.coachEmail}</p>
+                </div>
+                <div className="text-right">
+                  {coach.totalPending > 0 && (
+                    <p className="text-lg font-bold text-red-600">{formatCurrencyLocal(coach.totalPending)}</p>
+                  )}
+                  <p className="text-xs text-gray-400">{coach.payouts.length} sessioni</p>
+                </div>
+                {filter !== 'completed' && coach.payouts.filter((p: any) => p.status === 'pending').length > 0 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); markAllPendingForCoach(coach.coachId) }}
+                    disabled={processingPayoutId === coach.coachId}
+                    className="px-3 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {processingPayoutId === coach.coachId ? '...' : 'Segna in elaborazione'}
+                  </button>
+                )}
+                <span className="text-gray-400 text-sm">{expandedCoach === coach.coachId ? '▲' : '▼'}</span>
+              </div>
+
+              {/* Dettaglio sessioni */}
+              {expandedCoach === coach.coachId && (
+                <div className="mt-3 ml-4 space-y-2">
+                  {coach.payouts.map((p: any) => (
+                    <div key={p.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-charcoal">{p.offerTitle}</p>
+                        <p className="text-xs text-gray-500">
+                          Sessione {p.sessionNumber}/{p.totalSessions} •{' '}
+                          {p.paidAt ? new Date(p.paidAt).toLocaleDateString('it-IT') : '—'} •{' '}
+                          Pagato dal coachee: {formatCurrencyLocal(p.amountPaid)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-green-700">{formatCurrencyLocal(p.coachPayout)}</p>
+                        <p className="text-xs text-gray-400">70% al coach</p>
+                      </div>
+                      <div className="flex flex-col gap-1 items-end">
+                        {p.status === 'pending' && (
+                          <>
+                            <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Da pagare</span>
+                            <button
+                              onClick={() => markAsProcessing(p.id)}
+                              disabled={processingPayoutId === p.id}
+                              className="text-xs text-amber-600 hover:underline disabled:opacity-50"
+                            >
+                              Segna elaborazione
+                            </button>
+                          </>
+                        )}
+                        {p.status === 'processing' && (
+                          <>
+                            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">In elaborazione</span>
+                            <button
+                              onClick={() => markAsCompleted(p.id)}
+                              disabled={processingPayoutId === p.id}
+                              className="text-xs text-green-600 hover:underline disabled:opacity-50"
+                            >
+                              ✓ Segna pagato
+                            </button>
+                          </>
+                        )}
+                        {p.status === 'completed' && (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                            ✓ Pagato {p.completedAt ? new Date(p.completedAt).toLocaleDateString('it-IT') : ''}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
