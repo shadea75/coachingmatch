@@ -525,9 +525,13 @@ function daysSince(timestamp: any): number {
 // =====================
 
 export async function GET(request: NextRequest) {
-  // Verifica autorizzazione - supporta sia Vercel Cron che chiamate manuali
+  // Verifica autorizzazione - supporta Vercel Cron e chiamate manuali
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${CRON_SECRET}`) {
+  const vercelCronSecret = request.headers.get('x-vercel-cron-auth-token')
+  const isVercelCron = vercelCronSecret === process.env.CRON_SECRET
+  const isManualCall = authHeader === `Bearer ${CRON_SECRET}`
+  
+  if (!isVercelCron && !isManualCall) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   
