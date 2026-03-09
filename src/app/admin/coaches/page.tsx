@@ -106,7 +106,7 @@ export default function AdminCoachesPage() {
         const loadedCoaches: Coach[] = snapshot.docs.map(docSnap => {
           const data = docSnap.data()
           
-          // Calcola stato abbonamento
+          // Calcola stato abbonamento (sempre dinamico, ignora valore DB stale)
           let subscriptionStatus: 'trial' | 'active' | 'expired' | 'free' = 'trial'
           const now = new Date()
           
@@ -132,7 +132,7 @@ export default function AdminCoachesPage() {
             lifeAreas: data.lifeAreas || [],
             createdAt: data.createdAt,
             approvedAt: data.approvedAt,
-            subscriptionStatus: data.subscriptionStatus || subscriptionStatus,
+            subscriptionStatus: subscriptionStatus,
             subscriptionTier: data.subscriptionTier || null,
             subscriptionPrice: data.subscriptionPrice ?? defaultPrice,
             subscriptionStartDate: data.subscriptionStartDate,
