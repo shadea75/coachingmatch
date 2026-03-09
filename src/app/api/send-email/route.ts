@@ -1049,6 +1049,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, emailResult })
     }
 
+    // =====================================================
+    // EMAIL ATTIVAZIONE ABBONAMENTO COACH (da admin)
+    // =====================================================
+    if (type === 'subscription_activated') {
+      const result = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: data.email,
+        subject: `🎉 Il tuo abbonamento ${data.tier} è attivo - CoachaMi`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr><td>${logoHeader}
+                <table width="100%" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                  <tr><td style="padding: 30px;">
+                    <h2 style="margin: 0 0 20px 0;">Abbonamento attivato! 🎉</h2>
+                    <p>Ciao <strong>${data.name}</strong>!</p>
+                    <p>Il tuo abbonamento su <strong>CoachaMi</strong> è stato attivato con successo dall'amministratore.</p>
+                    <div style="background: #f0fdf4; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #16a34a;">
+                      <h3 style="margin: 0 0 12px 0; color: #15803d;">📋 Dettagli abbonamento</h3>
+                      <p style="margin: 4px 0;"><strong>Piano:</strong> ${data.tier}</p>
+                      <p style="margin: 4px 0;"><strong>Prezzo:</strong> €${data.price}/mese</p>
+                      <p style="margin: 4px 0;"><strong>Durata:</strong> 30 giorni (rinnovabile)</p>
+                    </div>
+                    <p>Puoi ora accedere a tutte le funzionalità della piattaforma incluse nel tuo piano.</p>
+                    <center style="margin: 25px 0;">
+                      <a href="https://www.coachami.it/coach/dashboard" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Vai alla tua Dashboard →</a>
+                    </center>
+                    <p style="font-size: 14px; color: #666;">Per qualsiasi domanda, contatta il supporto rispondendo a questa email.</p>
+                  </td></tr>
+                </table>
+                ${footer}
+              </td></tr>
+            </table>
+          </body></html>`
+      })
+
+      console.log('✅ Email attivazione abbonamento inviata')
+      return NextResponse.json({ success: true, result })
+    }
+
     return NextResponse.json({ error: 'Tipo email non supportato' }, { status: 400 })
 
   } catch (error: any) {

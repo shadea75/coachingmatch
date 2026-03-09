@@ -236,32 +236,75 @@ export default function AdminCoachesPage() {
     
     setSaving(true)
     try {
+      const finalStatus = editPrice === 0 ? 'free' : editStatus
+      const finalTier = editPrice === 0 ? null : editTier
+
       const updateData: any = {
         subscriptionPrice: editPrice,
-        subscriptionTier: editPrice === 0 ? null : editTier,
-        subscriptionStatus: editPrice === 0 ? 'free' : editStatus,
+        subscriptionTier: finalTier,
+        subscriptionStatus: finalStatus,
         updatedAt: new Date()
       }
       
-      // Se viene attivato l'abbonamento, imposta le date
+      // Se viene attivato l'abbonamento, imposta le date e azzera il trial
       if (editStatus === 'active' && editPrice > 0) {
         const now = new Date()
         updateData.subscriptionStartDate = now
-        updateData.subscriptionEndDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // +30 giorni (1 mese)
+        updateData.subscriptionEndDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+        updateData.trialEndDate = null // azzera trial per evitare che la logica di calcolo lo sovrascriva
       }
       
       // Se viene messo in trial, imposta data fine trial
       if (editStatus === 'trial' && editPrice > 0) {
         const now = new Date()
         updateData.trialEndDate = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000)
+        updateData.subscriptionEndDate = null
+      }
+
+      // Se free o expired, azzera tutto
+      if (editPrice === 0 || editStatus === 'expired') {
+        updateData.trialEndDate = null
+        updateData.subscriptionEndDate = null
       }
       
       await updateDoc(doc(db, 'coachApplications', editingCoach.id), updateData)
+
+      // Invia email di conferma attivazione abbonamento al coach
+      if (editStatus === 'active' && editPrice > 0 && editingCoach.email) {
+        const tierLabel: Record<string, string> = {
+          starter: 'Starter',
+          professional: 'Professional',
+          business: 'Business',
+          elite: 'Elite'
+        }
+        try {
+          await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'subscription_activated',
+              data: {
+                email: editingCoach.email,
+                name: editingCoach.name,
+                tier: tierLabel[editTier] || editTier,
+                price: editPrice,
+              }
+            })
+          })
+        } catch (emailErr) {
+          console.error('Errore invio email abbonamento:', emailErr)
+        }
+      }
       
-      // Aggiorna stato locale
+      // Aggiorna stato locale con tutti i valori corretti
       setCoaches(prev => prev.map(c => 
         c.id === editingCoach.id 
-          ? { ...c, subscriptionPrice: editPrice, subscriptionTier: editPrice === 0 ? null : editTier as any, subscriptionStatus: editPrice === 0 ? 'free' : editStatus }
+          ? { 
+              ...c, 
+              subscriptionPrice: editPrice, 
+              subscriptionTier: finalTier as any, 
+              subscriptionStatus: finalStatus 
+            }
           : c
       ))
       
