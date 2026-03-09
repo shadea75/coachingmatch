@@ -135,14 +135,15 @@ export async function POST(request: NextRequest) {
         type: 'coach_subscription',
         tier,
         billingCycle: cycle,
+        priceAmount: priceAmount.toString(),
       },
       subscription_data: {
-        trial_period_days: 14,
         metadata: {
           coachId,
           type: 'coach_subscription',
           tier,
           billingCycle: cycle,
+          priceAmount: priceAmount.toString(),
         },
       },
       success_url: `${BASE_URL}/coach/subscription/success?session_id={CHECKOUT_SESSION_ID}`,

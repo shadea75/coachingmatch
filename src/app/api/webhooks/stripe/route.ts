@@ -63,6 +63,33 @@ export async function POST(request: NextRequest) {
         }
         break
       }
+
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice
+        // Gestisci rinnovi abbonamento coach
+        if (invoice.subscription && invoice.billing_reason === 'subscription_cycle') {
+          const sub = await stripe.subscriptions.retrieve(invoice.subscription as string)
+          if (sub.metadata?.type === 'coach_subscription') {
+            await handleCoachSubscriptionRenewed(sub, invoice)
+          }
+        }
+        break
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice
+        if (invoice.subscription) {
+          const sub = await stripe.subscriptions.retrieve(invoice.subscription as string)
+          if (sub.metadata?.type === 'coach_subscription' && sub.metadata?.coachId) {
+            console.log(`⚠️ Pagamento fallito per coach ${sub.metadata.coachId}`)
+            await adminDb.collection('coachApplications').doc(sub.metadata.coachId).update({
+              stripeSubscriptionStatus: 'past_due',
+              updatedAt: FieldValue.serverTimestamp(),
+            })
+          }
+        }
+        break
+      }
       
       case 'account.updated': {
         const account = event.data.object as Stripe.Account
@@ -277,33 +304,77 @@ async function handleSubscriptionCancelled(subscription: Stripe.Subscription) {
 
 // ===== COACH SUBSCRIPTION HANDLERS =====
 
+async function handleCoachSubscriptionRenewed(subscription: Stripe.Subscription, invoice: Stripe.Invoice) {
+  const coachId = subscription.metadata?.coachId
+  if (!coachId) return
+
+  const tier = subscription.metadata?.tier || 'professional'
+  const priceAmount = parseFloat(subscription.metadata?.priceAmount || '0')
+  const newPeriodEnd = new Date(subscription.current_period_end * 1000)
+
+  console.log(`🔄 Coach subscription renewed: ${coachId} - ${tier} - nuova scadenza: ${newPeriodEnd.toISOString()}`)
+
+  const updateData: any = {
+    subscriptionStatus: 'active',
+    subscriptionTier: tier,
+    stripeSubscriptionStatus: 'active',
+    subscriptionEndDate: newPeriodEnd,
+    trialEndDate: null,
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+  if (priceAmount > 0) updateData.subscriptionPrice = priceAmount
+
+  await adminDb.collection('coachApplications').doc(coachId).update(updateData)
+  await adminDb.collection('users').doc(coachId).update({
+    subscriptionStatus: 'active',
+    subscriptionTier: tier,
+    ...(priceAmount > 0 ? { subscriptionPrice: priceAmount } : {}),
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+}
+
 async function handleCoachSubscriptionCreated(session: Stripe.Checkout.Session) {
   const coachId = session.metadata?.coachId
   const tier = session.metadata?.tier || 'professional'
   const billingCycle = session.metadata?.billingCycle || 'monthly'
+  const priceAmount = parseFloat(session.metadata?.priceAmount || '0')
   
   if (!coachId) {
     console.error('No coachId in coach_subscription session metadata')
     return
   }
   
-  console.log(`✅ Coach subscription created: ${coachId} - ${tier} (${billingCycle})`)
+  console.log(`✅ Coach subscription created: ${coachId} - ${tier} (${billingCycle}) €${priceAmount}`)
   
-  // Update coachApplications with subscription info
+  // Recupera i dettagli della subscription per avere current_period_end
+  let subscriptionEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+  if (session.subscription) {
+    try {
+      const sub = await stripe.subscriptions.retrieve(session.subscription as string)
+      subscriptionEndDate = new Date(sub.current_period_end * 1000)
+    } catch (e) {
+      console.error('Errore recupero subscription:', e)
+    }
+  }
+
   await adminDb.collection('coachApplications').doc(coachId).update({
     subscriptionStatus: 'active',
     subscriptionTier: tier,
+    subscriptionPrice: priceAmount,
     subscriptionBillingCycle: billingCycle,
     stripeCustomerId: session.customer,
     stripeSubscriptionId: session.subscription,
+    stripeSubscriptionStatus: 'active',
     subscriptionStartDate: FieldValue.serverTimestamp(),
+    subscriptionEndDate: subscriptionEndDate,
+    trialEndDate: null,
     updatedAt: FieldValue.serverTimestamp(),
   })
   
-  // Also update the user document
   await adminDb.collection('users').doc(coachId).update({
     subscriptionStatus: 'active',
     subscriptionTier: tier,
+    subscriptionPrice: priceAmount,
     updatedAt: FieldValue.serverTimestamp(),
   })
 }
@@ -312,25 +383,54 @@ async function handleCoachSubscriptionUpdated(subscription: Stripe.Subscription)
   const coachId = subscription.metadata?.coachId
   if (!coachId) return
   
-  const status = subscription.status === 'active' || subscription.status === 'trialing' ? 'active' : 'expired'
+  const stripeStatus = subscription.status
   const tier = subscription.metadata?.tier || 'professional'
-  
-  // Calculate subscription end date
+  const priceAmount = parseFloat(subscription.metadata?.priceAmount || '0')
   const currentPeriodEnd = new Date(subscription.current_period_end * 1000)
+
+  // Mappa stati Stripe → stati interni
+  // 'trialing' = abbonamento creato ma non ancora pagato (trial gratuito Stripe)
+  // 'active' = pagamento avvenuto, abbonamento attivo
+  let status: 'active' | 'trial' | 'expired'
+  if (stripeStatus === 'active') {
+    status = 'active'
+  } else if (stripeStatus === 'trialing') {
+    status = 'trial'
+  } else {
+    status = 'expired'
+  }
   
-  console.log(`📋 Coach subscription updated: ${coachId} - ${status} - ${tier}`)
+  console.log(`📋 Coach subscription updated: ${coachId} - ${status} (stripe: ${stripeStatus}) - ${tier}`)
   
-  await adminDb.collection('coachApplications').doc(coachId).update({
+  const updateData: any = {
     subscriptionStatus: status,
     subscriptionTier: tier,
-    stripeSubscriptionStatus: subscription.status,
+    stripeSubscriptionStatus: stripeStatus,
     subscriptionEndDate: currentPeriodEnd,
     updatedAt: FieldValue.serverTimestamp(),
-  })
+  }
+
+  if (priceAmount > 0) {
+    updateData.subscriptionPrice = priceAmount
+  }
+
+  // Se diventa active (ha pagato), azzera trialEndDate
+  if (status === 'active') {
+    updateData.trialEndDate = null
+    updateData.subscriptionStartDate = FieldValue.serverTimestamp()
+  }
+
+  // Se trialing, imposta trialEndDate
+  if (status === 'trial' && subscription.trial_end) {
+    updateData.trialEndDate = new Date(subscription.trial_end * 1000)
+  }
+
+  await adminDb.collection('coachApplications').doc(coachId).update(updateData)
   
   await adminDb.collection('users').doc(coachId).update({
     subscriptionStatus: status,
     subscriptionTier: tier,
+    ...(priceAmount > 0 ? { subscriptionPrice: priceAmount } : {}),
     updatedAt: FieldValue.serverTimestamp(),
   })
 }

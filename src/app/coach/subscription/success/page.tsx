@@ -1,58 +1,34 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { CheckCircle, ArrowRight, Loader2, PartyPopper, Sparkles } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
-import { db } from '@/lib/firebase'
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import Link from 'next/link'
 
 function SubscriptionSuccessContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const { user } = useAuth()
-  const [isUpdating, setIsUpdating] = useState(true)
+  const [isVerifying, setIsVerifying] = useState(true)
+  const [sessionValid, setSessionValid] = useState(false)
 
   useEffect(() => {
-    const updateSubscription = async () => {
-      const sessionId = searchParams.get('session_id')
-      
-      if (!sessionId || !user?.id) {
-        setIsUpdating(false)
-        return
-      }
-
-      try {
-        // Aggiorna lo stato dell'abbonamento nel database
-        const now = new Date()
-        const endDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // +30 giorni
-
-        await updateDoc(doc(db, 'coachApplications', user.id), {
-          subscriptionStatus: 'active',
-          subscriptionStartDate: now,
-          subscriptionEndDate: endDate,
-          stripeSessionId: sessionId,
-          updatedAt: serverTimestamp(),
-        })
-      } catch (err) {
-        console.error('Errore aggiornamento abbonamento:', err)
-      } finally {
-        setIsUpdating(false)
-      }
+    const sessionId = searchParams.get('session_id')
+    if (sessionId) {
+      // Il webhook Stripe aggiornerà Firestore in modo affidabile.
+      // Qui verifichiamo solo che il session_id sia presente per mostrare la pagina di successo.
+      // Non scriviamo su Firestore dal client per evitare dati incoerenti.
+      setSessionValid(true)
     }
+    setIsVerifying(false)
+  }, [searchParams])
 
-    updateSubscription()
-  }, [searchParams, user?.id])
-
-  if (isUpdating) {
+  if (isVerifying) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="animate-spin text-primary-500 mx-auto mb-4" size={40} />
-          <p className="text-gray-600">Attivazione abbonamento in corso...</p>
+          <p className="text-gray-600">Verifica pagamento in corso...</p>
         </div>
       </div>
     )
