@@ -91,7 +91,6 @@ async function handleCoachingPayment(session: Stripe.Checkout.Session) {
   }
   
   const offerDoc = await adminDb.collection('offers').doc(offerId).get()
-  
   if (!offerDoc.exists) {
     console.error('Offer not found:', offerId)
     return
@@ -104,8 +103,12 @@ async function handleCoachingPayment(session: Stripe.Checkout.Session) {
   const coachPayout = amountPaid * (COACH_PERCENT / 100)
   const platformFee = amountPaid * (PLATFORM_PERCENT / 100)
   
-  console.log(`✅ Payment received via Stripe Connect: €${amountPaid}`)
+  // payoutMethod salvato nei metadata dal checkout
+  const payoutMethod = session.metadata?.payoutMethod || 'bank_transfer'
   
+  console.log(`✅ Pagamento: €${amountPaid} | metodo coach: ${payoutMethod}`)
+  
+  // 1. Aggiorna installment
   const updatedInstallments = [...(offer.installments || [])]
   if (updatedInstallments[instNum - 1]) {
     updatedInstallments[instNum - 1] = {
@@ -113,8 +116,10 @@ async function handleCoachingPayment(session: Stripe.Checkout.Session) {
       status: 'paid',
       paidAt: new Date().toISOString(),
       amount: amountPaid,
-      coachPayout: coachPayout,
-      platformFee: platformFee,
+      coachPayout,
+      platformFee,
+      payoutMethod,
+      coachPayoutStatus: payoutMethod === 'stripe' ? 'automatic' : 'pending',
       stripeSessionId: session.id,
       stripePaymentIntentId: session.payment_intent,
     }
@@ -128,27 +133,56 @@ async function handleCoachingPayment(session: Stripe.Checkout.Session) {
     updatedAt: FieldValue.serverTimestamp(),
   })
   
+  // 2. Solo per bonifico → scrivi in coachPayouts per dashboard admin
+  if (payoutMethod === 'bank_transfer') {
+    const payoutDocId = `${offerId}_${instNum}`
+    await adminDb.collection('coachPayouts').doc(payoutDocId).set({
+      offerId,
+      offerTitle: offer.title,
+      coachId: coachId || offer.coachId,
+      coachName: offer.coachName,
+      coachEmail: offer.coachEmail,
+      coacheeId: coacheeId || offer.coacheeId,
+      coacheeName: offer.coacheeName,
+      sessionNumber: instNum,
+      totalSessions: offer.totalSessions,
+      amountPaid,       // 100% pagato dal coachee
+      coachPayout,      // 70% da bonificare al coach
+      platformFee,      // 30% resta a CoachaMi
+      payoutMethod: 'bank_transfer',
+      status: 'pending',
+      stripeSessionId: session.id,
+      stripePaymentIntentId: session.payment_intent,
+      paidAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+    console.log(`🏦 coachPayouts creato: ${payoutDocId} — da bonificare €${coachPayout}`)
+  }
+  // Se stripe → il transfer è già avvenuto automaticamente, niente da fare
+  
+  // 3. Transazione
   await adminDb.collection('transactions').add({
     type: 'coaching_payment',
     offerId,
-    coachId,
-    coacheeId,
+    coachId: coachId || offer.coachId,
+    coacheeId: coacheeId || offer.coacheeId,
     sessionNumber: instNum,
     offerTitle: offer.title,
     amountPaid,
     coachPayout,
     platformFee,
+    payoutMethod,
     stripeSessionId: session.id,
     stripePaymentIntentId: session.payment_intent,
-    payoutMethod: 'stripe_connect_automatic',
     createdAt: FieldValue.serverTimestamp(),
   })
   
-  // Invia email
-  await sendPaymentEmails(offer, instNum, amountPaid, coachPayout)
+  // 4. Email
+  await sendPaymentEmails(offer, instNum, amountPaid, coachPayout, payoutMethod)
 }
 
-async function sendPaymentEmails(offer: any, sessionNumber: number, amountPaid: number, coachPayout: number) {
+async function sendPaymentEmails(offer: any, sessionNumber: number, amountPaid: number, coachPayout: number, payoutMethod: string = 'bank_transfer') {
   try {
     await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
       method: 'POST',
@@ -182,7 +216,7 @@ async function sendPaymentEmails(offer: any, sessionNumber: number, amountPaid: 
           sessionNumber,
           amountPaid,
           coachPayout,
-          note: 'Il pagamento è stato accreditato automaticamente sul tuo account Stripe.'
+          note: payoutMethod === 'stripe' ? 'Il pagamento è stato trasferito automaticamente sul tuo account Stripe.' : 'Riceverai il bonifico da CoachaMi entro lunedì prossimo. Ricorda di emettere fattura/ricevuta a CoachaMi.'
         }
       })
     })

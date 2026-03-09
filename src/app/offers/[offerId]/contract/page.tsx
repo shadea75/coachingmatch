@@ -199,17 +199,23 @@ ${clientInfo}
       .replace(/\{\{coachCity\}\}/g, contract.coachCity || coachBilling?.city || 'Italia')
       .replace(/\{\{coachName\}\}/g, offer.coachName || '')
     
-    // Gestisci condizioni
+    // Gestisci condizioni - prima le inner poi le outer, per evitare tag {{/if}} orfani
+    // {{#if installmentFeePercent}} ... {{/if}}
+    if (offer.installmentFeePercent > 0) {
+      text = text.replace(/\{\{#if installmentFeePercent\}\}([\s\S]*?)\{\{\/if\}\}/g, '$1')
+    } else {
+      text = text.replace(/\{\{#if installmentFeePercent\}\}[\s\S]*?\{\{\/if\}\}/g, '')
+    }
+
+    // {{#if allowInstallments}} ... {{/if}}
     if (offer.allowInstallments) {
-      text = text.replace(/\{\{#if allowInstallments\}\}/g, '').replace(/\{\{\/if\}\}/g, '')
-      if (offer.installmentFeePercent > 0) {
-        text = text.replace(/\{\{#if installmentFeePercent\}\}/g, '').replace(/\{\{\/if\}\}/g, '')
-      } else {
-        text = text.replace(/\{\{#if installmentFeePercent\}\}[\s\S]*?\{\{\/if\}\}/g, '')
-      }
+      text = text.replace(/\{\{#if allowInstallments\}\}([\s\S]*?)\{\{\/if\}\}/g, '$1')
     } else {
       text = text.replace(/\{\{#if allowInstallments\}\}[\s\S]*?\{\{\/if\}\}/g, '')
     }
+
+    // Pulizia tag orfani rimasti (sicurezza extra)
+    text = text.replace(/\{\{#if [^}]+\}\}/g, '').replace(/\{\{\/if\}\}/g, '')
     
     if (contract.customClauses) {
       text += '\n\n**CLAUSOLE AGGIUNTIVE**\n' + contract.customClauses
