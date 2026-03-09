@@ -225,9 +225,13 @@ export default function AdminCoachesPage() {
   // Apri modal modifica abbonamento
   const openEditModal = (coach: Coach) => {
     setEditingCoach(coach)
-    setEditPrice(coach.subscriptionPrice)
-    setEditTier(coach.subscriptionPrice === 0 ? 'free' : (coach.subscriptionTier || 'starter'))
+    const tier = coach.subscriptionPrice === 0 ? 'free' : (coach.subscriptionTier || 'starter')
+    setEditTier(tier)
     setEditStatus(coach.subscriptionStatus)
+    // Deriva il prezzo dal tier per evitare dati stale in Firestore
+    const tierPrices: Record<string, number> = { free: 0, starter: 9, professional: 29, business: 49, elite: 79 }
+    const correctPrice = tier === 'free' ? 0 : (tierPrices[tier] ?? coach.subscriptionPrice)
+    setEditPrice(correctPrice)
   }
 
   // Salva modifiche abbonamento
@@ -572,7 +576,12 @@ export default function AdminCoachesPage() {
                     <td className="px-4 py-3">
                       <span className={`font-medium ${coach.subscriptionPrice === 0 ? 'text-purple-600' : 'text-charcoal'}`}>
                         {coach.subscriptionTier 
-                          ? `${coach.subscriptionTier.charAt(0).toUpperCase() + coach.subscriptionTier.slice(1)} €${coach.subscriptionPrice}`
+                          ? (() => {
+                              const tierPrices: Record<string, number> = { starter: 9, professional: 29, business: 49, elite: 79 }
+                              const tierLabels: Record<string, string> = { starter: 'Starter', professional: 'Professional', business: 'Business', elite: 'Elite' }
+                              const displayPrice = tierPrices[coach.subscriptionTier] ?? coach.subscriptionPrice
+                              return `${tierLabels[coach.subscriptionTier] || coach.subscriptionTier} €${displayPrice}`
+                            })()
                           : coach.subscriptionPrice === 0 ? 'Gratuito' : `€${coach.subscriptionPrice}/mese`
                         }
                       </span>
