@@ -21,7 +21,7 @@ import {
   Euro
 } from 'lucide-react'
 import { db } from '@/lib/firebase'
-import { collection, query, getDocs, doc, updateDoc, getDoc, where, orderBy } from 'firebase/firestore'
+import { collection, query, getDocs, doc, updateDoc, getDoc, setDoc, where, orderBy, serverTimestamp } from 'firebase/firestore'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import Link from 'next/link'
@@ -143,6 +143,64 @@ export default function AdminCoachesPage() {
             rating: data.rating || 0
           }
         })
+        
+        // Sincronizza: cerca utenti con role=coach che non hanno un doc in coachApplications
+        const coachApplicationIds = new Set(snapshot.docs.map(d => d.id))
+        try {
+          const usersQuery = query(
+            collection(db, 'users'),
+            where('role', '==', 'coach')
+          )
+          const usersSnap = await getDocs(usersQuery)
+          
+          for (const userDoc of usersSnap.docs) {
+            if (!coachApplicationIds.has(userDoc.id)) {
+              const userData = userDoc.data()
+              console.log(`Sincronizzazione coach mancante: ${userData.name || userData.email}`)
+              
+              // Crea documento in coachApplications
+              await setDoc(doc(db, 'coachApplications', userDoc.id), {
+                name: userData.name || userData.displayName || 'Coach',
+                email: userData.email || '',
+                phone: userData.phone || '',
+                photo: userData.photoURL || userData.photo || null,
+                status: 'approved',
+                lifeArea: userData.lifeArea || 'crescita',
+                lifeAreas: userData.lifeAreas || [userData.lifeArea || 'crescita'],
+                bio: userData.bio || '',
+                createdAt: userData.createdAt || serverTimestamp(),
+                approvedAt: serverTimestamp(),
+                subscriptionPrice: defaultPrice,
+                source: 'auto-sync'
+              })
+              
+              // Aggiungi alla lista locale
+              const now = new Date()
+              loadedCoaches.push({
+                id: userDoc.id,
+                name: userData.name || userData.displayName || 'Coach',
+                email: userData.email || '',
+                photo: userData.photoURL || userData.photo || null,
+                status: 'approved',
+                lifeArea: userData.lifeArea || 'crescita',
+                lifeAreas: userData.lifeAreas || [],
+                createdAt: userData.createdAt,
+                approvedAt: null,
+                subscriptionStatus: 'expired',
+                subscriptionTier: null,
+                subscriptionPrice: defaultPrice,
+                subscriptionStartDate: null,
+                subscriptionEndDate: null,
+                trialEndDate: null,
+                sessionsCount: 0,
+                reviewsCount: 0,
+                rating: 0
+              })
+            }
+          }
+        } catch (syncErr) {
+          console.error('Errore sincronizzazione coach:', syncErr)
+        }
         
         setCoaches(loadedCoaches)
       } catch (err) {
