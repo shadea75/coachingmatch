@@ -40,6 +40,7 @@ import {
   orderBy, 
   limit, 
   getDocs,
+  getDoc,
   doc,
   updateDoc,
   increment,
