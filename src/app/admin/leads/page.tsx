@@ -31,6 +31,7 @@ interface Lead {
   id: string
   email: string
   name: string
+  phone?: string
   scores: Record<LifeAreaId, number>
   archetypeId: string
   priorityArea: LifeAreaId
@@ -97,7 +98,7 @@ export default function AdminLeadsPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [selectedCoachId, setSelectedCoachId] = useState<string>('')
   const [assigning, setAssigning] = useState(false)
-  const [roundRobinInfo, setRoundRobinInfo] = useState<Record<string, { nextCoach: Coach | null, position: number, total: number }>>({})
+  const [roundRobinInfo, setRoundRobinInfo] = useState<Record<string, { nextCoach: Coach | null, position: number, total: number, points: number }>>({})
   const [syncing, setSyncing] = useState(false)
   const [backfilling, setBackfilling] = useState(false)
 
@@ -151,7 +152,7 @@ export default function AdminLeadsPage() {
       const roundRobinDoc = await getDoc(doc(db, 'settings', 'roundRobin'))
       const cursors: Record<string, number> = roundRobinDoc.exists() ? (roundRobinDoc.data() as Record<string, number>) : {}
 
-      const info: Record<string, { nextCoach: Coach | null, position: number, total: number }> = {}
+      const info: Record<string, { nextCoach: Coach | null, position: number, total: number, points: number }> = {}
 
       // Conta i lead assegnati per coach per area (stesso criterio del cron)
       const leadsPerCoachPerArea: Record<string, Record<string, number>> = {}
@@ -163,6 +164,17 @@ export default function AdminLeadsPage() {
         }
       })
 
+      // Leggi i punti community per ogni coach (ordinamento meritocratico)
+      const pointsPerCoach: Record<string, number> = {}
+      for (const coach of coaches) {
+        try {
+          const pointsDoc = await getDoc(doc(db, 'coachPoints', coach.id))
+          pointsPerCoach[coach.id] = pointsDoc.exists() ? (pointsDoc.data()?.totalPoints || 0) : 0
+        } catch {
+          pointsPerCoach[coach.id] = 0
+        }
+      }
+
       for (const areaId of Object.keys(AREA_LABELS)) {
         const qualified = coaches
           .filter((c: Coach) => {
@@ -170,6 +182,9 @@ export default function AdminLeadsPage() {
             return areas.includes(areaId)
           })
           .sort((a: Coach, b: Coach) => {
+            const aPoints = pointsPerCoach[a.id] || 0
+            const bPoints = pointsPerCoach[b.id] || 0
+            if (aPoints !== bPoints) return bPoints - aPoints
             const aLeads = leadsPerCoachPerArea[areaId]?.[a.id] || 0
             const bLeads = leadsPerCoachPerArea[areaId]?.[b.id] || 0
             if (aLeads !== bLeads) return aLeads - bLeads
@@ -177,14 +192,15 @@ export default function AdminLeadsPage() {
           })
 
         if (qualified.length === 0) {
-          info[areaId] = { nextCoach: null, position: 0, total: 0 }
+          info[areaId] = { nextCoach: null, position: 0, total: 0, points: 0 }
           continue
         }
 
         info[areaId] = {
           nextCoach: qualified[0],
           position: leadsPerCoachPerArea[areaId]?.[qualified[0].id] || 0,
-          total: qualified.length
+          total: qualified.length,
+          points: pointsPerCoach[qualified[0].id] || 0
         }
       }
 
@@ -481,7 +497,7 @@ export default function AdminLeadsPage() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-charcoal truncate">{info.nextCoach.name}</p>
                         <div className="flex items-center gap-1 mt-0.5">
-                          <p className="text-xs text-gray-400">{info.position} lead ricevuti</p>
+                          <p className="text-xs text-gray-400">{info.position} lead · <span className="text-primary-500 font-medium">★ {info.points} pt</span></p>
                           {info.nextCoach.subscriptionStatus === 'active' && (
                             <span className="text-xs text-green-600 font-medium">● Attivo</span>
                           )}
@@ -593,6 +609,9 @@ export default function AdminLeadsPage() {
                           <div>
                             <p className="font-medium text-charcoal">{lead.name}</p>
                             <p className="text-sm text-gray-500">{lead.email}</p>
+                            {lead.phone && (
+                              <p className="text-sm text-gray-500">📞 {lead.phone}</p>
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -690,6 +709,11 @@ export default function AdminLeadsPage() {
               <div className="bg-gray-50 rounded-xl p-4 mb-6">
                 <p className="font-semibold text-charcoal">{selectedLead.name}</p>
                 <p className="text-sm text-gray-500">{selectedLead.email}</p>
+                {selectedLead.phone && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    📞 <a href={`tel:${selectedLead.phone}`} className="hover:text-primary-600 transition-colors">{selectedLead.phone}</a>
+                  </p>
+                )}
                 <div className="flex items-center gap-2 mt-2">
                   <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary-100 text-primary-700 text-xs">
                     <Target size={12} />
