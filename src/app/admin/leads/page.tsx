@@ -53,6 +53,7 @@ interface Coach {
   lifeArea?: string
   lifeAreas?: string[]
   photo?: string
+  subscriptionStatus?: string  // active | trial | expired | undefined
 }
 
 const AREA_LABELS: Record<string, string> = {
@@ -157,7 +158,8 @@ export default function AdminLeadsPage() {
           email: doc.data().email || '',
           lifeArea: doc.data().lifeArea,
           lifeAreas: doc.data().lifeAreas || [],
-          photo: doc.data().photo
+          photo: doc.data().photo,
+          subscriptionStatus: doc.data().subscriptionStatus
         }))
       setCoaches(loadedCoaches)
     } catch (err) {
@@ -397,7 +399,12 @@ export default function AdminLeadsPage() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {Object.entries(roundRobinInfo).map(([areaId, info]) => (
-                <div key={areaId} className={`rounded-lg p-3 ${info.nextCoach ? 'bg-gray-50' : 'bg-orange-50 border border-orange-100'}`}>
+                <div key={areaId} className={`rounded-lg p-3 ${
+                  !info.nextCoach ? 'bg-orange-50 border border-orange-100' :
+                  info.nextCoach.subscriptionStatus === 'expired' ? 'bg-red-50 border border-red-100' :
+                  info.nextCoach.subscriptionStatus === 'trial' ? 'bg-yellow-50 border border-yellow-100' :
+                  'bg-gray-50'
+                }`}>
                   <p className="text-xs text-gray-500 mb-1">{AREA_LABELS[areaId]}</p>
                   {info.nextCoach ? (
                     <div className="flex items-center gap-2">
@@ -406,14 +413,36 @@ export default function AdminLeadsPage() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-charcoal truncate">{info.nextCoach.name}</p>
-                        <p className="text-xs text-gray-400">{info.position}/{info.total}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <p className="text-xs text-gray-400">{info.position}/{info.total}</p>
+                          {info.nextCoach.subscriptionStatus === 'active' && (
+                            <span className="text-xs text-green-600 font-medium">● Attivo</span>
+                          )}
+                          {info.nextCoach.subscriptionStatus === 'trial' && (
+                            <span className="text-xs text-yellow-600 font-medium">● Prova</span>
+                          )}
+                          {info.nextCoach.subscriptionStatus === 'expired' && (
+                            <span className="text-xs text-red-500 font-medium">● Scaduto</span>
+                          )}
+                          {!info.nextCoach.subscriptionStatus && (
+                            <span className="text-xs text-gray-400 font-medium">● N/D</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-xs text-orange-400 italic">⚠️ Nessun coach disponibile</p>
+                    <p className="text-xs text-orange-400 italic">⚠️ Nessun coach</p>
                   )}
                 </div>
               ))}
+            </div>
+            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400">
+              <span>Legenda:</span>
+              <span className="text-green-600">● Attivo</span>
+              <span className="text-yellow-600">● In prova</span>
+              <span className="text-red-500">● Abbonamento scaduto</span>
+              <span className="text-gray-400">● Stato non disponibile</span>
+              <span className="text-orange-400">⚠️ Nessun coach per l'area</span>
             </div>
           </div>
         )}
