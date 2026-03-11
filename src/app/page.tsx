@@ -41,16 +41,10 @@ export default function HomePage() {
               Come Funziona
             </Link>
             <Link 
-              href="/coach/apply" 
-              className="text-gray-600 hover:text-charcoal transition-colors"
-            >
-              Diventa Coach
-            </Link>
-            <Link 
               href="/pricing" 
-              className="text-gray-600 hover:text-charcoal transition-colors"
+              className="btn btn-outline text-sm px-4 py-2"
             >
-              Piani Coach
+              Iscriviti come Coach
             </Link>
             <Link 
               href="/login" 
@@ -100,18 +94,11 @@ export default function HomePage() {
                 Come Funziona
               </Link>
               <Link 
-                href="/coach/apply" 
-                onClick={() => setMobileMenuOpen(false)}
-                className="block py-2 text-gray-600 hover:text-charcoal transition-colors"
-              >
-                Diventa Coach
-              </Link>
-              <Link 
                 href="/pricing" 
                 onClick={() => setMobileMenuOpen(false)}
-                className="block py-2 text-gray-600 hover:text-charcoal transition-colors"
+                className="block py-2 font-semibold text-primary-600 hover:text-primary-700 transition-colors"
               >
-                Piani Coach
+                Iscriviti come Coach →
               </Link>
               <Link 
                 href="/login" 
