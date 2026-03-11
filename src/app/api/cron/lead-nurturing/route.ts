@@ -463,41 +463,54 @@ function generateLeadReassignedEmail(lead: any, newCoach: any): string {
 
 async function findBestCoachForLead(lead: any, excludeCoachId?: string): Promise<any | null> {
   try {
-    // Cerca coach approvati specializzati nell'area prioritaria
     const snapshot = await adminDb.collection('coachApplications')
       .where('status', '==', 'approved')
       .get()
     
     if (snapshot.empty) return null
-    
-    // Filtra e ordina per area e rating, escludendo il coach specificato
-    const coaches = snapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() }))
-      .filter((coach: any) => {
-        // Escludi il coach precedente se specificato
-        if (excludeCoachId && coach.id === excludeCoachId) return false
-        
-        const areas = coach.lifeAreas || (coach.lifeArea ? [coach.lifeArea] : [])
-        return areas.includes(lead.priorityArea)
-      })
-      .sort((a: any, b: any) => {
-        // Priorità: rating, poi reviewCount
-        const ratingA = a.rating || 0
-        const ratingB = b.rating || 0
-        if (ratingB !== ratingA) return ratingB - ratingA
-        return (b.reviewCount || 0) - (a.reviewCount || 0)
-      })
-    
-    // Se nessun coach specializzato, prendi il primo disponibile (escluso quello precedente)
-    if (coaches.length === 0) {
-      const allCoaches = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter((coach: any) => !excludeCoachId || coach.id !== excludeCoachId)
-        .sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0))
-      return allCoaches[0] || null
+
+    const allApproved = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+
+    // Coach qualificati per l'area prioritaria del lead (escluso eventuale coach precedente)
+    let qualifiedCoaches = allApproved.filter((coach: any) => {
+      if (excludeCoachId && coach.id === excludeCoachId) return false
+      const areas = coach.lifeAreas || (coach.lifeArea ? [coach.lifeArea] : [])
+      return areas.includes(lead.priorityArea)
+    })
+
+    // Fallback: tutti i coach approvati se nessuno copre l'area
+    if (qualifiedCoaches.length === 0) {
+      qualifiedCoaches = allApproved.filter((coach: any) =>
+        !excludeCoachId || coach.id !== excludeCoachId
+      )
     }
-    
-    return coaches[0]
+
+    if (qualifiedCoaches.length === 0) return null
+
+    // Ordina per ID in modo deterministico per avere una lista stabile
+    qualifiedCoaches.sort((a: any, b: any) => a.id.localeCompare(b.id))
+
+    // Round-robin: leggi il cursore per quest'area da Firestore
+    const area = lead.priorityArea as string
+    const roundRobinRef = adminDb.collection('settings').doc('roundRobin')
+    const roundRobinDoc = await roundRobinRef.get()
+    const cursors: Record<string, number> = roundRobinDoc.exists
+      ? (roundRobinDoc.data() as Record<string, number>)
+      : {}
+
+    const currentIndex = cursors[area] ?? 0
+    const nextIndex = currentIndex % qualifiedCoaches.length
+    const selectedCoach = qualifiedCoaches[nextIndex]
+
+    // Avanza il cursore per la prossima assegnazione
+    await roundRobinRef.set(
+      { [area]: nextIndex + 1 },
+      { merge: true }
+    )
+
+    console.log(`🔄 Round-robin [${area}]: coach ${nextIndex + 1}/${qualifiedCoaches.length} → ${selectedCoach.name}`)
+    return selectedCoach
+
   } catch (err) {
     console.error('Errore ricerca coach:', err)
     return null
