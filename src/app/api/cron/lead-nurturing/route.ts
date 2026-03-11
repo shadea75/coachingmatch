@@ -468,7 +468,19 @@ async function findBestCoachForLead(lead: any, excludeCoachId?: string): Promise
     
     if (snapshot.empty) return null
 
-    const allApproved = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    const allApprovedRaw = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+
+    // Filtra coach sospesi controllando users.isSuspended
+    const suspendedSet = new Set<string>()
+    for (const coach of allApprovedRaw) {
+      try {
+        const userDoc = await adminDb.collection('users').doc(coach.id).get()
+        if (userDoc.exists && userDoc.data()?.isSuspended === true) {
+          suspendedSet.add(coach.id)
+        }
+      } catch { /* ignora errori singoli */ }
+    }
+    const allApproved = allApprovedRaw.filter((c: any) => !suspendedSet.has(c.id))
 
     // Coach qualificati per l'area prioritaria del lead (escluso eventuale coach precedente)
     let qualifiedCoaches = allApproved.filter((coach: any) => {
@@ -477,7 +489,7 @@ async function findBestCoachForLead(lead: any, excludeCoachId?: string): Promise
       return areas.includes(lead.priorityArea)
     })
 
-    // Fallback: tutti i coach approvati se nessuno copre l'area
+    // Fallback: tutti i coach approvati (non sospesi) se nessuno copre l'area
     if (qualifiedCoaches.length === 0) {
       qualifiedCoaches = allApproved.filter((coach: any) =>
         !excludeCoachId || coach.id !== excludeCoachId

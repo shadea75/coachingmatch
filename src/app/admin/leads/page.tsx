@@ -164,8 +164,9 @@ export default function AdminLeadsPage() {
         }
       })
 
-      // Leggi i punti community per ogni coach (ordinamento meritocratico)
+      // Leggi punti community e stato sospensione per ogni coach
       const pointsPerCoach: Record<string, number> = {}
+      const suspendedCoachIds = new Set<string>()
       for (const coach of coaches) {
         try {
           const pointsDoc = await getDoc(doc(db, 'coachPoints', coach.id))
@@ -173,10 +174,19 @@ export default function AdminLeadsPage() {
         } catch {
           pointsPerCoach[coach.id] = 0
         }
+        try {
+          const userDoc = await getDoc(doc(db, 'users', coach.id))
+          if (userDoc.exists() && userDoc.data()?.isSuspended === true) {
+            suspendedCoachIds.add(coach.id)
+          }
+        } catch { /* ignora */ }
       }
 
+      // Coach attivi = approvati e NON sospesi
+      const activeCoaches = coaches.filter((c: Coach) => !suspendedCoachIds.has(c.id))
+
       for (const areaId of Object.keys(AREA_LABELS)) {
-        const qualified = coaches
+        const qualified = activeCoaches
           .filter((c: Coach) => {
             const areas = (c as any).lifeAreas?.length ? (c as any).lifeAreas : (c.lifeArea ? [c.lifeArea] : [])
             return areas.includes(areaId)
