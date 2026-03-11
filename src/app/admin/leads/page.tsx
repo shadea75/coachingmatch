@@ -18,7 +18,9 @@ import {
   ExternalLink,
   RefreshCw,
   X,
-  UserPlus
+  UserPlus,
+  RotateCcw,
+  ArrowRight
 } from 'lucide-react'
 import AdminLayout from '@/components/AdminLayout'
 import { db } from '@/lib/firebase'
@@ -94,11 +96,48 @@ export default function AdminLeadsPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [selectedCoachId, setSelectedCoachId] = useState<string>('')
   const [assigning, setAssigning] = useState(false)
+  const [roundRobinInfo, setRoundRobinInfo] = useState<Record<string, { nextCoach: Coach | null, position: number, total: number }>>({})
 
   useEffect(() => {
     loadLeads()
     loadCoaches()
   }, [])
+
+  useEffect(() => {
+    if (coaches.length > 0) loadRoundRobinInfo()
+  }, [coaches])
+
+  const loadRoundRobinInfo = async () => {
+    try {
+      const roundRobinDoc = await getDoc(doc(db, 'settings', 'roundRobin'))
+      const cursors: Record<string, number> = roundRobinDoc.exists() ? (roundRobinDoc.data() as Record<string, number>) : {}
+
+      const info: Record<string, { nextCoach: Coach | null, position: number, total: number }> = {}
+
+      for (const areaId of Object.keys(AREA_LABELS)) {
+        const qualified = coaches
+          .filter((c: Coach) => {
+            const areas = (c as any).lifeAreas?.length ? (c as any).lifeAreas : (c.lifeArea ? [c.lifeArea] : [])
+            return areas.includes(areaId)
+          })
+          .sort((a: Coach, b: Coach) => a.id.localeCompare(b.id))
+
+        if (qualified.length === 0) continue
+
+        const cursor = cursors[areaId] ?? 0
+        const nextIndex = cursor % qualified.length
+        info[areaId] = {
+          nextCoach: qualified[nextIndex],
+          position: nextIndex + 1,
+          total: qualified.length
+        }
+      }
+
+      setRoundRobinInfo(info)
+    } catch (err) {
+      console.error('Errore caricamento round-robin:', err)
+    }
+  }
 
   const loadCoaches = async () => {
     try {
@@ -337,6 +376,44 @@ export default function AdminLeadsPage() {
             <p className="text-2xl font-bold text-primary-600">{stats.conversionRate}%</p>
           </div>
         </div>
+
+        {/* Round-Robin Status */}
+        {Object.keys(roundRobinInfo).length > 0 && (
+          <div className="bg-white rounded-xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <RotateCcw size={18} className="text-primary-500" />
+                <h2 className="font-semibold text-charcoal">Prossima assegnazione automatica per area</h2>
+              </div>
+              <button
+                onClick={loadRoundRobinInfo}
+                className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+              >
+                <RefreshCw size={12} /> Aggiorna
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {Object.entries(roundRobinInfo).map(([areaId, info]) => (
+                <div key={areaId} className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 mb-1">{AREA_LABELS[areaId]}</p>
+                  {info.nextCoach ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-xs flex-shrink-0">
+                        {info.nextCoach.name.charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-charcoal truncate">{info.nextCoach.name}</p>
+                        <p className="text-xs text-gray-400">{info.position}/{info.total}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400 italic">Nessun coach</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Filters */}
         <div className="bg-white rounded-xl p-4 shadow-sm">
