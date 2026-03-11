@@ -157,6 +157,14 @@ function CoachRegisterContent() {
 
       // 5. Se c'è una candidatura approvata, collegala e aggiorna con i dati extra
       if (applicationData?.id) {
+        // Controlla se questa email ha già usato il periodo di prova in passato
+        const previousDocsSnap = await getDocs(query(
+          collection(db, 'coachApplications'),
+          where('email', '==', email),
+          where('freeTrialUsed', '==', true)
+        ))
+        const trialAlreadyUsed = !previousDocsSnap.empty
+
         await updateDoc(doc(db, 'coachApplications', applicationData.id), {
           userId: userId,
           authLinked: true,
@@ -164,7 +172,9 @@ function CoachRegisterContent() {
           ...(motivation && { motivation: motivation }),
           availability: availability,
           registeredAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
+          updatedAt: serverTimestamp(),
+          // Se il trial è già stato usato, imposta trialEndDate = ora (trial = 0 giorni)
+          ...(trialAlreadyUsed && { trialEndDate: new Date(), freeTrialUsed: true })
         })
       }
 

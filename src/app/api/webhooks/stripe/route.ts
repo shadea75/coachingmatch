@@ -441,12 +441,31 @@ async function handleCoachSubscriptionCancelled(subscription: Stripe.Subscriptio
   
   console.log(`❌ Coach subscription cancelled: ${coachId}`)
   
+  // Recupera email del coach per marcare il trial come usato su tutti i suoi documenti
+  const coachDoc = await adminDb.collection('coachApplications').doc(coachId).get()
+  const coachEmail = coachDoc.exists ? coachDoc.data()?.email : null
+
   await adminDb.collection('coachApplications').doc(coachId).update({
     subscriptionStatus: 'expired',
     subscriptionEndDate: FieldValue.serverTimestamp(),
+    freeTrialUsed: true,
     updatedAt: FieldValue.serverTimestamp(),
   })
   
+  // Marca freeTrialUsed su tutti i documenti coachApplications con la stessa email
+  if (coachEmail) {
+    const sameEmailDocs = await adminDb.collection('coachApplications')
+      .where('email', '==', coachEmail)
+      .get()
+    const batch = adminDb.batch()
+    sameEmailDocs.docs.forEach((d: any) => {
+      if (d.id !== coachId) {
+        batch.update(d.ref, { freeTrialUsed: true, updatedAt: FieldValue.serverTimestamp() })
+      }
+    })
+    await batch.commit()
+  }
+
   await adminDb.collection('users').doc(coachId).update({
     subscriptionStatus: 'expired',
     updatedAt: FieldValue.serverTimestamp(),
