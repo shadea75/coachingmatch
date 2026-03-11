@@ -35,7 +35,7 @@ const benefits = [
     color: '#14B8A6',
     bg: '#F0FDFA',
     title: 'Pagamenti automatici e sicuri',
-    desc: 'Stripe Connect ti accredita il 70% di ogni sessione in automatico. Niente fatture manuali, niente inseguire i pagamenti.',
+    desc: 'Stripe Connect accredita i tuoi guadagni in automatico dopo ogni sessione. Niente fatture manuali, niente inseguire i pagamenti.',
   },
   {
     icon: HeartHandshake,
