@@ -487,28 +487,29 @@ async function findBestCoachForLead(lead: any, excludeCoachId?: string): Promise
 
     if (qualifiedCoaches.length === 0) return null
 
-    // Ordina per ID in modo deterministico per avere una lista stabile
-    qualifiedCoaches.sort((a: any, b: any) => a.id.localeCompare(b.id))
+    // Conta i lead già assegnati a ciascun coach per quest'area
+    const leadsSnap = await adminDb.collection('leads')
+      .where('status', 'in', ['assigned', 'booked', 'converted'])
+      .get()
 
-    // Round-robin: leggi il cursore per quest'area da Firestore
-    const area = lead.priorityArea as string
-    const roundRobinRef = adminDb.collection('settings').doc('roundRobin')
-    const roundRobinDoc = await roundRobinRef.get()
-    const cursors: Record<string, number> = roundRobinDoc.exists
-      ? (roundRobinDoc.data() as Record<string, number>)
-      : {}
+    const leadsPerCoach: Record<string, number> = {}
+    leadsSnap.docs.forEach((d: any) => {
+      const data = d.data()
+      if (data.assignedCoachId && data.priorityArea === lead.priorityArea) {
+        leadsPerCoach[data.assignedCoachId] = (leadsPerCoach[data.assignedCoachId] || 0) + 1
+      }
+    })
 
-    const currentIndex = cursors[area] ?? 0
-    const nextIndex = currentIndex % qualifiedCoaches.length
-    const selectedCoach = qualifiedCoaches[nextIndex] as any
+    // Ordina per: 1) meno lead ricevuti, 2) ID alfabetico come spareggio
+    qualifiedCoaches.sort((a: any, b: any) => {
+      const aLeads = leadsPerCoach[a.id] || 0
+      const bLeads = leadsPerCoach[b.id] || 0
+      if (aLeads !== bLeads) return aLeads - bLeads
+      return a.id.localeCompare(b.id)
+    })
 
-    // Avanza il cursore per la prossima assegnazione
-    await roundRobinRef.set(
-      { [area]: nextIndex + 1 },
-      { merge: true }
-    )
-
-    console.log(`🔄 Round-robin [${area}]: coach ${nextIndex + 1}/${qualifiedCoaches.length} → ${selectedCoach.name}`)
+    const selectedCoach = qualifiedCoaches[0] as any
+    console.log(`🔄 Lead balancing [${lead.priorityArea}]: ${selectedCoach.name} (${leadsPerCoach[selectedCoach.id] || 0} lead precedenti)`)
     return selectedCoach
 
   } catch (err) {
