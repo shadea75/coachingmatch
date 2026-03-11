@@ -99,6 +99,7 @@ export default function AdminLeadsPage() {
   const [assigning, setAssigning] = useState(false)
   const [roundRobinInfo, setRoundRobinInfo] = useState<Record<string, { nextCoach: Coach | null, position: number, total: number }>>({})
   const [syncing, setSyncing] = useState(false)
+  const [backfilling, setBackfilling] = useState(false)
 
   useEffect(() => {
     loadLeads()
@@ -108,6 +109,24 @@ export default function AdminLeadsPage() {
   useEffect(() => {
     if (coaches.length > 0) loadRoundRobinInfo()
   }, [coaches])
+
+  const backfillPoints = async () => {
+    if (!confirm('Ricalcola tutti i punti della community dai post esistenti? I valori attuali verranno sovrascritti.')) return
+    setBackfilling(true)
+    try {
+      const res = await fetch('/api/admin/backfill-points', { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        alert(`✅ Punti ricalcolati per ${data.updated} coach!`)
+      } else {
+        alert('Errore: ' + data.error)
+      }
+    } catch (err) {
+      alert('Errore di rete')
+    } finally {
+      setBackfilling(false)
+    }
+  }
 
   const syncRoundRobin = async () => {
     setSyncing(true)
@@ -410,6 +429,13 @@ export default function AdminLeadsPage() {
                 <h2 className="font-semibold text-charcoal">Prossima assegnazione automatica per area</h2>
               </div>
               <div className="flex items-center gap-3">
+                <button
+                  onClick={backfillPoints}
+                  disabled={backfilling}
+                  className="text-xs text-green-600 hover:text-green-800 flex items-center gap-1 disabled:opacity-50"
+                >
+                  <TrendingUp size={12} /> {backfilling ? 'Ricalcolando...' : 'Ricalcola punti community'}
+                </button>
                 <button
                   onClick={syncRoundRobin}
                   disabled={syncing}
