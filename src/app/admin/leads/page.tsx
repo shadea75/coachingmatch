@@ -122,7 +122,10 @@ export default function AdminLeadsPage() {
           })
           .sort((a: Coach, b: Coach) => a.id.localeCompare(b.id))
 
-        if (qualified.length === 0) continue
+        if (qualified.length === 0) {
+          info[areaId] = { nextCoach: null, position: 0, total: 0 }
+          continue
+        }
 
         const cursor = cursors[areaId] ?? 0
         const nextIndex = cursor % qualified.length
@@ -394,7 +397,7 @@ export default function AdminLeadsPage() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {Object.entries(roundRobinInfo).map(([areaId, info]) => (
-                <div key={areaId} className="bg-gray-50 rounded-lg p-3">
+                <div key={areaId} className={`rounded-lg p-3 ${info.nextCoach ? 'bg-gray-50' : 'bg-orange-50 border border-orange-100'}`}>
                   <p className="text-xs text-gray-500 mb-1">{AREA_LABELS[areaId]}</p>
                   {info.nextCoach ? (
                     <div className="flex items-center gap-2">
@@ -407,7 +410,7 @@ export default function AdminLeadsPage() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-xs text-gray-400 italic">Nessun coach</p>
+                    <p className="text-xs text-orange-400 italic">⚠️ Nessun coach disponibile</p>
                   )}
                 </div>
               ))}
