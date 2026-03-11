@@ -500,7 +500,7 @@ async function findBestCoachForLead(lead: any, excludeCoachId?: string): Promise
 
     const currentIndex = cursors[area] ?? 0
     const nextIndex = currentIndex % qualifiedCoaches.length
-    const selectedCoach = qualifiedCoaches[nextIndex]
+    const selectedCoach = qualifiedCoaches[nextIndex] as any
 
     // Avanza il cursore per la prossima assegnazione
     await roundRobinRef.set(
