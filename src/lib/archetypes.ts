@@ -38,7 +38,7 @@ export const ARCHETYPES: Archetype[] = [
     advice: 'Il vero successo include le persone che ami. Il prossimo traguardo? Investire nelle relazioni con la stessa energia che dedichi al lavoro.',
     pattern: {
       highAreas: ['carriera', 'finanze'],
-      lowAreas: ['relazioni', 'amore', 'divertimento']
+      lowAreas: ['relazioni', 'amore', 'sport']
     }
   },
   {
@@ -52,7 +52,7 @@ export const ARCHETYPES: Archetype[] = [
     advice: 'Anche i leader hanno bisogno di essere guidati qualche volta. Trova il tuo mentore o coach - non è debolezza, è saggezza.',
     pattern: {
       highAreas: ['carriera', 'relazioni'],
-      lowAreas: ['spiritualita', 'divertimento']
+      lowAreas: ['spiritualita', 'sport']
     }
   },
   {
@@ -66,7 +66,7 @@ export const ARCHETYPES: Archetype[] = [
     advice: 'Il miglior piano è quello che include spazio per l\'inaspettato. Prova a fare qualcosa di non pianificato questa settimana.',
     pattern: {
       highAreas: ['finanze', 'crescita'],
-      lowAreas: ['divertimento', 'amore']
+      lowAreas: ['sport', 'amore']
     }
   },
 
@@ -215,7 +215,7 @@ export const ARCHETYPES: Archetype[] = [
     challenges: ['Struttura e disciplina', 'Monetizzare i talenti', 'Portare a termine', 'Aspetti pratici'],
     advice: 'La creatività fiorisce con la struttura, non nonostante essa. Crea routine che supportino la tua arte.',
     pattern: {
-      highAreas: ['divertimento', 'crescita'],
+      highAreas: ['sport', 'crescita'],
       lowAreas: ['finanze', 'carriera']
     }
   }

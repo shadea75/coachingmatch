@@ -20,7 +20,7 @@ const AREA_LABELS: Record<string, string> = {
   'amore': 'Amore',
   'crescita': 'Crescita',
   'spiritualita': 'Spiritualità',
-  'divertimento': 'Divertimento',
+  'sport': 'Sport & Performance',
 }
 
 export default function RadarChart({ 

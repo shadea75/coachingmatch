@@ -158,7 +158,7 @@ export function determineArchetype(scores: Record<LifeAreaId, number>): Archetyp
   const careerFinance = ((scores.carriera || 0) + (scores.finanze || 0)) / 2
   const relationships = ((scores.relazioni || 0) + (scores.amore || 0)) / 2
   const innerLife = ((scores.spiritualita || 0) + (scores.crescita || 0)) / 2
-  const wellness = ((scores.salute || 0) + (scores.divertimento || 0)) / 2
+  const wellness = ((scores.salute || 0) + (scores.sport || 0)) / 2
   
   // Logica di selezione archetipo
   
@@ -396,31 +396,31 @@ const AREA_INTERPRETATIONS: Record<LifeAreaId, Record<string, AreaAnalysis>> = {
       quickWin: 'Condividi la tua saggezza con chi sta cercando.'
     }
   },
-  divertimento: {
+  sport: {
     critical: {
       level: 'critical',
-      interpretation: 'La gioia è sparita dalla tua vita. Quando hai riso l\'ultima volta di cuore?',
-      quickWin: 'Fai qualcosa di "inutile" ma divertente oggi. Senza sensi di colpa.'
+      interpretation: 'Lo sport è completamente assente dalla tua vita. Il tuo potenziale atletico è inesplorato.',
+      quickWin: 'Scegli UNO sport che ti ha sempre incuriosito e fai una singola sessione di prova questa settimana.'
     },
     low: {
       level: 'low',
-      interpretation: 'Stai prendendo la vita troppo seriamente. Il gioco è essenziale.',
-      quickWin: 'Riscopri un hobby che amavi da bambino. Provalo questa settimana.'
+      interpretation: 'Le performance sportive sono lontane da dove vorresti essere. La motivazione fatica ad accendersi.',
+      quickWin: 'Scrivi il tuo obiettivo sportivo più ambizioso. Poi identifica il primo passo concreto.'
     },
     medium: {
       level: 'medium',
-      interpretation: 'C\'è divertimento ma forse non abbastanza. La vita merita più leggerezza.',
-      quickWin: 'Blocca in agenda 2 ore a settimana SOLO per fare qualcosa che ti piace.'
+      interpretation: 'Ti alleni ma le performance stagnano. Manca qualcosa: disciplina, metodo o mentalità.',
+      quickWin: 'Analizza un tuo allenamento recente: cosa cambieresti? Implementa subito un piccolo miglioramento.'
     },
     good: {
       level: 'good',
-      interpretation: 'Sai goderti la vita! Il divertimento ha il suo spazio.',
-      quickWin: 'Prova qualcosa di completamente nuovo questo mese.'
+      interpretation: 'Buone performance e costanza. Sei sulla strada giusta, con margini di crescita ancora ampi.',
+      quickWin: 'Identifica il tuo punto debole principale e dedica il prossimo mese a lavorarci specificamente.'
     },
     excellent: {
       level: 'excellent',
-      interpretation: 'Vivi con gioia! Hai capito che il divertimento non è un lusso.',
-      quickWin: 'Organizza qualcosa di divertente per altri. La gioia condivisa si moltiplica.'
+      interpretation: 'Esprimi il tuo potenziale atletico al massimo. Performance elevate e mentalità vincente.',
+      quickWin: 'Condividi il tuo metodo con altri atleti. Insegnare consolida e amplifica le tue competenze.'
     }
   }
 }
@@ -462,7 +462,7 @@ const AREA_LABELS: Record<LifeAreaId, string> = {
   amore: 'Amore',
   crescita: 'Crescita',
   spiritualita: 'Spiritualità',
-  divertimento: 'Divertimento'
+  sport: 'Sport & Performance'
 }
 
 export function generateFullAnalysis(

@@ -12,7 +12,7 @@ import {
   Users,
   HeartHandshake,
   TrendingUp,
-  PartyPopper,
+  Trophy,
   PiggyBank,
   Star,
   Check
@@ -37,7 +37,7 @@ const AREA_ICONS: Record<LifeAreaId, typeof Briefcase> = {
   amore: HeartHandshake,
   crescita: TrendingUp,
   spiritualita: Star,
-  divertimento: PartyPopper
+  sport: Trophy
 }
 
 export default function OnboardingPage() {

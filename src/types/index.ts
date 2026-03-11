@@ -9,7 +9,7 @@ export const LIFE_AREAS = [
   { id: 'amore', label: 'Amore', color: '#EC4899', icon: 'HeartHandshake' },
   { id: 'crescita', label: 'Crescita Personale', color: '#8B5CF6', icon: 'TrendingUp' },
   { id: 'spiritualita', label: 'Spiritualità/Contributo', color: '#F97316', icon: 'Star' },
-  { id: 'divertimento', label: 'Divertimento', color: '#3B82F6', icon: 'PartyPopper' },
+  { id: 'sport', label: 'Sport & Performance', color: '#3B82F6', icon: 'Trophy' },
 ] as const
 
 export type LifeAreaId = typeof LIFE_AREAS[number]['id']
@@ -88,15 +88,15 @@ export const OBJECTIVES_BY_AREA: Record<LifeAreaId, string[]> = {
     'Sviluppare una pratica spirituale',
     'Vivere con più intenzionalità',
   ],
-  divertimento: [
-    'Riscoprire hobby e passioni',
-    'Creare più momenti di gioia',
-    'Bilanciare lavoro e tempo libero',
-    'Viaggiare e fare nuove esperienze',
-    'Coltivare la creatività',
-    'Ridurre lo stress attraverso il gioco',
-    'Costruire ricordi memorabili',
-    'Imparare a rilassarsi e godersi la vita',
+  sport: [
+    'Migliorare le performance sportive',
+    'Mental coaching per atleti',
+    'Preparazione mentale alle gare',
+    'Gestione della pressione agonistica',
+    'Recupero da infortuni e resilienza',
+    'Bilanciare sport e vita quotidiana',
+    'Definire obiettivi sportivi ambiziosi',
+    'Coaching per sport di squadra e individuali',
   ],
 }
 
@@ -377,15 +377,15 @@ export const FOCUS_TOPICS_BY_AREA: Record<LifeAreaId, string[]> = {
     'Volontariato e impatto',
     'Gratitudine',
   ],
-  divertimento: [
-    'Riscoprire passioni',
-    'Hobby e creatività',
-    'Viaggi e avventure',
-    'Equilibrio vita-lavoro',
-    'Riduzione stress',
-    'Socializzazione',
-    'Nuove esperienze',
-    'Rilassamento',
+  sport: [
+    'Performance sportiva',
+    'Mental coaching atleti',
+    'Preparazione gare',
+    'Gestione pressione',
+    'Recupero infortuni',
+    'Sport di squadra',
+    'Sport individuali',
+    'Obiettivi agonistici',
   ],
 }
 

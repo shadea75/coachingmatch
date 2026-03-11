@@ -57,7 +57,7 @@ const LIFE_AREAS_MAP: Record<string, string> = {
   'amore': 'Amore',
   'crescita': 'Crescita Personale',
   'spiritualita': 'Spiritualità',
-  'divertimento': 'Divertimento'
+  'sport': 'Sport & Performance'
 }
 
 export default function AdminCoachesPage() {

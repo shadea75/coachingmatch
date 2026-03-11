@@ -39,7 +39,7 @@ const AREA_LABELS: Record<LifeAreaId, string> = {
   amore: 'Amore',
   crescita: 'Crescita Personale',
   spiritualita: 'Spiritualità',
-  divertimento: 'Divertimento'
+  sport: 'Sport & Performance'
 }
 
 const AREA_DESCRIPTIONS: Record<LifeAreaId, string> = {
@@ -50,7 +50,7 @@ const AREA_DESCRIPTIONS: Record<LifeAreaId, string> = {
   amore: 'Relazione romantica, intimità, vita di coppia',
   crescita: 'Autostima, apprendimento, sviluppo personale',
   spiritualita: 'Scopo, valori, senso di significato',
-  divertimento: 'Hobby, svago, tempo libero, gioia'
+  sport: 'Performance sportiva, agonismo, mental coaching'
 }
 
 export default function TestGratuitoPage() {

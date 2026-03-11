@@ -110,19 +110,19 @@ export const AREA_SCORE_DESCRIPTIONS: Record<LifeAreaId, {
       10: 'Missione di vita realizzata, valori pienamente vissuti, pace profonda',
     }
   },
-  divertimento: {
-    subtitle: 'Tempo libero, hobby, gioia, avventura, leggerezza',
+  sport: {
+    subtitle: 'Performance sportiva, agonismo, miglioramento, mental coaching',
     scores: {
-      1: 'Nessun tempo per sé, niente hobby, vita monotona e pesante',
-      2: 'Pochissimo tempo libero, rari momenti di svago, pesantezza',
-      3: 'Tempo libero scarso, pochi hobby, poca gioia quotidiana',
-      4: 'Tempo libero limitato, qualche interesse, gioia occasionale',
-      5: 'Discreto tempo libero, hobby saltuari, momenti di leggerezza',
-      6: 'Buon tempo per sé, hobby coltivati, gioia presente',
-      7: 'Tempo libero soddisfacente, passioni coltivate, buona leggerezza',
-      8: 'Ottimo equilibrio, hobby appaganti, frequente gioia',
-      9: 'Eccellente tempo per sé, passioni vissute, gioia costante',
-      10: 'Vita ricca di divertimento, avventure, gioia e leggerezza quotidiana',
+      1: 'Nessuna attività sportiva, lontano dai propri obiettivi di performance',
+      2: 'Sport assente o molto sporadico, performance molto al di sotto del potenziale',
+      3: 'Attività irregolare, scarso miglioramento, poca motivazione agonistica',
+      4: 'Allenamento discontinuo, risultati insoddisfacenti, difficoltà a progredire',
+      5: 'Attività discreta ma performance stagnante, margini di miglioramento ampi',
+      6: 'Allenamento regolare, qualche risultato, consapevolezza delle aree da sviluppare',
+      7: 'Buona costanza, progressi visibili, performance in crescita',
+      8: 'Ottima preparazione, risultati soddisfacenti, mentalità agonistica solida',
+      9: 'Performance elevata, obiettivi centrati, eccellente gestione della pressione',
+      10: 'Picco di performance, piena espressione del potenziale atletico e mentale',
     }
   },
 }

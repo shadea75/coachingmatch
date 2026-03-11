@@ -64,7 +64,7 @@ const AREA_LABELS: Record<string, string> = {
   amore: 'Amore',
   crescita: 'Crescita',
   spiritualita: 'Spiritualità',
-  divertimento: 'Divertimento'
+  sport: 'Sport & Performance'
 }
 
 const STATUS_CONFIG: Record<string, { label: string, color: string, icon: any }> = {

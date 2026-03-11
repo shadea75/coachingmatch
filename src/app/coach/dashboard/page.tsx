@@ -780,7 +780,7 @@ export default function CoachDashboardPage() {
                              lead.priorityArea === 'amore' ? 'Amore' :
                              lead.priorityArea === 'crescita' ? 'Crescita' :
                              lead.priorityArea === 'spiritualita' ? 'Spiritualità' :
-                             lead.priorityArea === 'divertimento' ? 'Divertimento' :
+                             lead.priorityArea === 'sport' ? 'Sport & Performance' :
                              lead.priorityArea}
                           </span>
                           <p className="text-xs text-gray-400 mt-1">

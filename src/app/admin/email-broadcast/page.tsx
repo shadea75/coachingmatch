@@ -460,7 +460,7 @@ export default function EmailBroadcastPage() {
                     <option value="amore">Amore</option>
                     <option value="crescita">Crescita</option>
                     <option value="spiritualita">Spiritualità</option>
-                    <option value="divertimento">Divertimento</option>
+                    <option value="sport">Sport & Performance</option>
                   </select>
                   
                   <select

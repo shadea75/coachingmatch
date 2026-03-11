@@ -35,14 +35,14 @@ import {
 
 // Mappa aree correlate per fallback
 const RELATED_AREAS: Record<LifeAreaId, LifeAreaId[]> = {
-  salute: ['crescita', 'divertimento', 'spiritualita'],
+  salute: ['crescita', 'sport', 'spiritualita'],
   finanze: ['carriera', 'crescita', 'spiritualita'],
   carriera: ['finanze', 'crescita', 'relazioni'],
-  relazioni: ['amore', 'crescita', 'divertimento'],
+  relazioni: ['amore', 'crescita', 'sport'],
   amore: ['relazioni', 'crescita', 'spiritualita'],
   crescita: ['carriera', 'spiritualita', 'salute'],
   spiritualita: ['crescita', 'salute', 'amore'],
-  divertimento: ['relazioni', 'salute', 'crescita']
+  sport: ['relazioni', 'salute', 'crescita']
 }
 
 const AREA_LABELS: Record<LifeAreaId, string> = {
@@ -53,7 +53,7 @@ const AREA_LABELS: Record<LifeAreaId, string> = {
   amore: 'Amore',
   crescita: 'Crescita Personale',
   spiritualita: 'Spiritualità',
-  divertimento: 'Divertimento'
+  sport: 'Sport & Performance'
 }
 
 // Componente interno che usa useSearchParams

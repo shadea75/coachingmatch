@@ -481,6 +481,76 @@ export const SpiritualityIllustration = ({ size = 120, className = '' }: AreaIll
   </svg>
 )
 
+// SPORT - Lottatore di Sumo (stile giapponese, forza, performance, concentrazione)
+export const SportIllustration = ({ size = 120, className = '' }: AreaIllustrationProps) => (
+  <svg width={size} height={size} viewBox="0 0 120 120" fill="none" className={className}>
+    {/* Sfondo */}
+    <circle cx="60" cy="60" r="55" fill="url(#sportBg)" />
+
+    {/* Cerchi dohyo (ring sumo) */}
+    <circle cx="60" cy="85" rx="40" ry="8" fill="#D97706" opacity="0.3" />
+    <circle cx="60" cy="85" rx="30" ry="6" fill="none" stroke="#D97706" strokeWidth="1.5" opacity="0.5" />
+    <circle cx="60" cy="85" rx="20" ry="4" fill="none" stroke="#D97706" strokeWidth="1" opacity="0.4" />
+
+    {/* Corpo sumo - forma robusta e stabile */}
+    <ellipse cx="60" cy="76" rx="22" ry="16" fill="#FEF3C7" /> {/* gambe/base */}
+    <ellipse cx="60" cy="60" rx="20" ry="20" fill="#FEF3C7" /> {/* corpo */}
+
+    {/* Mawashi (cintura sumo) */}
+    <rect x="44" y="66" width="32" height="12" rx="2" fill="#1E40AF" />
+    <rect x="50" y="64" width="20" height="5" rx="1" fill="#1D4ED8" />
+    {/* nodo anteriore mawashi */}
+    <ellipse cx="60" cy="63" rx="7" ry="5" fill="#1E40AF" />
+    <ellipse cx="60" cy="63" rx="5" ry="3.5" fill="#2563EB" />
+
+    {/* Braccia in posizione di guardia */}
+    <ellipse cx="38" cy="58" rx="9" ry="6" fill="#FDE68A" transform="rotate(-20 38 58)" />
+    <ellipse cx="82" cy="58" rx="9" ry="6" fill="#FDE68A" transform="rotate(20 82 58)" />
+    {/* Mani */}
+    <circle cx="31" cy="54" r="6" fill="#FEF3C7" />
+    <circle cx="89" cy="54" r="6" fill="#FEF3C7" />
+
+    {/* Testa */}
+    <circle cx="60" cy="38" r="16" fill="#FEF3C7" />
+
+    {/* Chonmage (acconciatura tradizionale sumo) */}
+    <ellipse cx="60" cy="23" rx="8" ry="5" fill="#1F2937" />
+    <ellipse cx="60" cy="20" rx="4" ry="6" fill="#1F2937" />
+    <ellipse cx="60" cy="18" rx="2.5" ry="3" fill="#374151" />
+
+    {/* Occhi - sguardo concentrato e determinato */}
+    <ellipse cx="53" cy="38" rx="4" ry="4.5" fill="#1F2937" />
+    <ellipse cx="67" cy="38" rx="4" ry="4.5" fill="#1F2937" />
+    <circle cx="54.5" cy="36.5" r="1.5" fill="white" />
+    <circle cx="68.5" cy="36.5" r="1.5" fill="white" />
+    {/* Sopracciglia spesse determinate */}
+    <path d="M48 32 Q53 30 58 32" stroke="#1F2937" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+    <path d="M62 32 Q67 30 72 32" stroke="#1F2937" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+
+    {/* Bocca seria/concentrata */}
+    <path d="M55 47 Q60 45 65 47" stroke="#1F2937" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+
+    {/* Linee di energia/movimento attorno alla figura */}
+    <line x1="18" y1="35" x2="26" y2="42" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+    <line x1="15" y1="45" x2="24" y2="48" stroke="#3B82F6" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
+    <line x1="102" y1="35" x2="94" y2="42" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+    <line x1="105" y1="45" x2="96" y2="48" stroke="#3B82F6" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
+
+    {/* Stelle/scintille performance */}
+    <path d="M25 25 L27 20 L29 25 L34 27 L29 29 L27 34 L25 29 L20 27 Z" fill="#FCD34D" opacity="0.7" />
+    <path d="M88 20 L89.5 16 L91 20 L95 21.5 L91 23 L89.5 27 L88 23 L84 21.5 Z" fill="#FCD34D" opacity="0.6" />
+    <circle cx="30" cy="100" r="2" fill="#3B82F6" opacity="0.4" />
+    <circle cx="90" cy="100" r="2" fill="#3B82F6" opacity="0.4" />
+
+    <defs>
+      <linearGradient id="sportBg" x1="60" y1="5" x2="60" y2="115" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#DBEAFE" />
+        <stop offset="1" stopColor="#BFDBFE" />
+      </linearGradient>
+    </defs>
+  </svg>
+)
+
 // Mappa per usare le illustrazioni per ID area (ID italiani dal database)
 export const AreaIllustrations: Record<string, React.FC<AreaIllustrationProps>> = {
   salute: HealthIllustration,
@@ -490,7 +560,7 @@ export const AreaIllustrations: Record<string, React.FC<AreaIllustrationProps>> 
   amore: LoveIllustration,               // Amore - Kokeshi coppia
   crescita: PersonalGrowthIllustration,
   spiritualita: SpiritualityIllustration,
-  divertimento: FunIllustration
+  sport: SportIllustration               // Sumo - forza, performance, concentrazione
 }
 
 // Componente helper per ottenere illustrazione per area

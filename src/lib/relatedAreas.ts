@@ -6,21 +6,21 @@ import { LifeAreaId } from '@/types'
 
 // Mappa delle aree affini - ordinate per rilevanza
 export const RELATED_AREAS: Record<LifeAreaId, LifeAreaId[]> = {
-  salute: ['crescita', 'divertimento', 'spiritualita'],
+  salute: ['crescita', 'sport', 'spiritualita'],
   finanze: ['carriera', 'crescita', 'spiritualita'],
   carriera: ['finanze', 'crescita', 'relazioni'],
-  relazioni: ['amore', 'crescita', 'divertimento'],
+  relazioni: ['amore', 'crescita', 'sport'],
   amore: ['relazioni', 'crescita', 'spiritualita'],
   crescita: ['carriera', 'spiritualita', 'salute'],
   spiritualita: ['crescita', 'salute', 'amore'],
-  divertimento: ['relazioni', 'salute', 'crescita']
+  sport: ['relazioni', 'salute', 'crescita']
 }
 
 // Descrizioni delle connessioni tra aree (solo per aree affini)
 export const AREA_CONNECTIONS: Record<LifeAreaId, Partial<Record<LifeAreaId, string>>> = {
   salute: {
     crescita: 'La crescita personale spesso inizia dal prendersi cura del proprio corpo',
-    divertimento: 'Il benessere fisico e la gioia di vivere sono strettamente collegati',
+    sport: 'Sport e salute si potenziano a vicenda: performance migliori con un corpo sano',
     spiritualita: 'Mente e corpo sono interconnessi nel percorso di benessere'
   },
   finanze: {
@@ -36,7 +36,7 @@ export const AREA_CONNECTIONS: Record<LifeAreaId, Partial<Record<LifeAreaId, str
   relazioni: {
     amore: 'Le competenze relazionali si applicano anche all\'amore',
     crescita: 'Migliorare le relazioni richiede lavorare su sé stessi',
-    divertimento: 'Le relazioni sane includono momenti di leggerezza'
+    sport: 'Lo sport di squadra rafforza le relazioni e la coesione di gruppo'
   },
   amore: {
     relazioni: 'L\'amore è una forma speciale di relazione',
@@ -53,8 +53,8 @@ export const AREA_CONNECTIONS: Record<LifeAreaId, Partial<Record<LifeAreaId, str
     salute: 'Il benessere spirituale influenza quello fisico',
     amore: 'L\'amore autentico ha radici spirituali'
   },
-  divertimento: {
-    relazioni: 'Il divertimento si amplifica quando condiviso',
+  sport: {
+    relazioni: 'La crescita personale accelera quando si perseguono obiettivi sportivi ambiziosi',
     salute: 'Divertirsi riduce lo stress e migliora la salute',
     crescita: 'Anche il gioco è una forma di crescita'
   }
@@ -69,7 +69,7 @@ export const AREA_LABELS: Record<LifeAreaId, string> = {
   amore: 'Amore',
   crescita: 'Crescita Personale',
   spiritualita: 'Spiritualità',
-  divertimento: 'Divertimento'
+  sport: 'Sport & Performance'
 }
 
 // Funzione per ottenere aree affini con descrizione
