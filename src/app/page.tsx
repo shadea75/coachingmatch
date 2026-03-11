@@ -41,7 +41,7 @@ export default function HomePage() {
               Come Funziona
             </Link>
             <Link 
-              href="/pricing" 
+              href="/iscrizionecoach" 
               className="btn btn-outline text-sm px-4 py-2"
             >
               Iscriviti come Coach
@@ -94,7 +94,7 @@ export default function HomePage() {
                 Come Funziona
               </Link>
               <Link 
-                href="/pricing" 
+                href="/iscrizionecoach" 
                 onClick={() => setMobileMenuOpen(false)}
                 className="block py-2 font-semibold text-primary-600 hover:text-primary-700 transition-colors"
               >
