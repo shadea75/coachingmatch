@@ -767,13 +767,8 @@ export default function CoachDashboardPage() {
                           </div>
                           <div>
                             <p className="font-medium text-charcoal">{lead.name}</p>
-                            <p className="text-xs text-gray-500">{lead.email}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary-100 text-primary-700 text-xs">
-                            <Target size={12} />
-                            {lead.priorityArea === 'salute' ? 'Salute' :
+                            <p className="text-xs text-gray-500">Area: {
+                             lead.priorityArea === 'salute' ? 'Salute' :
                              lead.priorityArea === 'finanze' ? 'Finanze' :
                              lead.priorityArea === 'carriera' ? 'Carriera' :
                              lead.priorityArea === 'relazioni' ? 'Relazioni' :
@@ -781,11 +776,14 @@ export default function CoachDashboardPage() {
                              lead.priorityArea === 'crescita' ? 'Crescita' :
                              lead.priorityArea === 'spiritualita' ? 'Spiritualità' :
                              lead.priorityArea === 'sport' ? 'Sport & Performance' :
-                             lead.priorityArea}
-                          </span>
-                          <p className="text-xs text-gray-400 mt-1">
-                            Life Score: {lead.lifeScore?.toFixed(1) || '-'}/10
+                             lead.priorityArea}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-primary-600">
+                            ⭐ {lead.lifeScore?.toFixed(1) || '-'}/10
                           </p>
+                          <p className="text-xs text-gray-400 mt-1">Life Score</p>
                         </div>
                       </div>
                       <div className="mt-3 flex gap-2">

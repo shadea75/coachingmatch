@@ -358,66 +358,57 @@ export const PersonalGrowthIllustration = ({ size = 120, className = '' }: AreaI
   </svg>
 )
 
-// DIVERTIMENTO - Matsuri (festival) con fuochi d'artificio
-export const FunIllustration = ({ size = 120, className = '' }: AreaIllustrationProps) => (
+// SPORT & PERFORMANCE - Atleta in corsa con podio e stella
+export const SportIllustration = ({ size = 120, className = '' }: AreaIllustrationProps) => (
   <svg width={size} height={size} viewBox="0 0 120 120" fill="none" className={className}>
-    {/* Sfondo - night sky */}
-    <circle cx="60" cy="60" r="55" fill="#1E1B4B" />
-    
-    {/* Fireworks */}
-    {/* Big firework center */}
-    <circle cx="60" cy="40" r="4" fill="#FCD34D" />
-    <path d="M60 40 L60 20" stroke="#FCD34D" strokeWidth="2" strokeLinecap="round" />
-    <path d="M60 40 L75 30" stroke="#F472B6" strokeWidth="2" strokeLinecap="round" />
-    <path d="M60 40 L45 30" stroke="#F472B6" strokeWidth="2" strokeLinecap="round" />
-    <path d="M60 40 L70 50" stroke="#60A5FA" strokeWidth="2" strokeLinecap="round" />
-    <path d="M60 40 L50 50" stroke="#60A5FA" strokeWidth="2" strokeLinecap="round" />
-    <path d="M60 40 L80 40" stroke="#4ADE80" strokeWidth="2" strokeLinecap="round" />
-    <path d="M60 40 L40 40" stroke="#4ADE80" strokeWidth="2" strokeLinecap="round" />
-    
-    {/* Sparkle dots */}
-    <circle cx="60" cy="18" r="2" fill="#FCD34D" />
-    <circle cx="77" cy="28" r="2" fill="#F472B6" />
-    <circle cx="43" cy="28" r="2" fill="#F472B6" />
-    <circle cx="72" cy="52" r="2" fill="#60A5FA" />
-    <circle cx="48" cy="52" r="2" fill="#60A5FA" />
-    <circle cx="82" cy="40" r="2" fill="#4ADE80" />
-    <circle cx="38" cy="40" r="2" fill="#4ADE80" />
-    
-    {/* Small firework left */}
-    <circle cx="25" cy="35" r="2" fill="#F472B6" />
-    <path d="M25 35 L25 25 M25 35 L32 30 M25 35 L18 30 M25 35 L30 40 M25 35 L20 40" stroke="#F472B6" strokeWidth="1.5" strokeLinecap="round" />
-    
-    {/* Small firework right */}
-    <circle cx="95" cy="30" r="2" fill="#4ADE80" />
-    <path d="M95 30 L95 22 M95 30 L100 25 M95 30 L90 25 M95 30 L100 35 M95 30 L90 35" stroke="#4ADE80" strokeWidth="1.5" strokeLinecap="round" />
-    
-    {/* Lanterns */}
-    <ellipse cx="35" cy="80" rx="10" ry="12" fill="#EF4444" />
-    <rect x="32" y="68" width="6" height="3" fill="#FCD34D" />
-    <path d="M35 92 L35 98" stroke="#EF4444" strokeWidth="1" />
-    <ellipse cx="35" cy="80" rx="8" ry="10" fill="#FCA5A5" opacity="0.3" />
-    
-    <ellipse cx="85" cy="80" rx="10" ry="12" fill="#EF4444" />
-    <rect x="82" y="68" width="6" height="3" fill="#FCD34D" />
-    <path d="M85 92 L85 98" stroke="#EF4444" strokeWidth="1" />
-    <ellipse cx="85" cy="80" rx="8" ry="10" fill="#FCA5A5" opacity="0.3" />
-    
-    {/* Center character - festival goer */}
-    <circle cx="60" cy="85" r="12" fill="#FEF3C7" />
-    <circle cx="56" cy="83" r="2" fill="#1F2937" />
-    <circle cx="64" cy="83" r="2" fill="#1F2937" />
-    <path d="M56 90 Q60 93 64 90" stroke="#1F2937" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-    
-    {/* Hachimaki (headband) */}
-    <rect x="48" y="75" width="24" height="4" rx="1" fill="#EF4444" />
-    <circle cx="68" cy="77" r="3" fill="#EF4444" />
-    
-    {/* Stars */}
-    <circle cx="20" cy="20" r="1" fill="white" />
-    <circle cx="100" cy="15" r="1" fill="white" />
-    <circle cx="15" cy="55" r="1" fill="white" />
-    <circle cx="105" cy="60" r="1" fill="white" />
+    {/* Sfondo - cielo azzurro */}
+    <circle cx="60" cy="60" r="55" fill="#EFF6FF" />
+
+    {/* Pista ovale */}
+    <ellipse cx="60" cy="88" rx="45" ry="12" fill="#BFDBFE" opacity="0.5" />
+    <ellipse cx="60" cy="88" rx="38" ry="8" fill="none" stroke="#93C5FD" strokeWidth="2" strokeDasharray="4 3" />
+
+    {/* Podio */}
+    {/* 2° posto */}
+    <rect x="22" y="72" width="20" height="18" rx="3" fill="#CBD5E1" />
+    <text x="32" y="84" textAnchor="middle" fontSize="9" fill="#64748B" fontWeight="bold">2</text>
+    {/* 1° posto */}
+    <rect x="45" y="64" width="22" height="26" rx="3" fill="#FCD34D" />
+    <text x="56" y="79" textAnchor="middle" fontSize="10" fill="#92400E" fontWeight="bold">1</text>
+    {/* 3° posto */}
+    <rect x="71" y="77" width="20" height="13" rx="3" fill="#FCA5A5" />
+    <text x="81" y="87" textAnchor="middle" fontSize="9" fill="#B91C1C" fontWeight="bold">3</text>
+
+    {/* Trofeo sul podio 1° */}
+    <path d="M53 58 Q53 52 56 50 L60 50 L64 50 Q67 52 67 58 L64 60 L56 60 Z" fill="#F59E0B" />
+    <rect x="58" y="60" width="4" height="4" fill="#F59E0B" />
+    <rect x="56" y="63" width="8" height="2" rx="1" fill="#F59E0B" />
+    <path d="M53 55 Q49 55 49 58 Q49 61 53 60" fill="none" stroke="#F59E0B" strokeWidth="2" />
+    <path d="M67 55 Q71 55 71 58 Q71 61 67 60" fill="none" stroke="#F59E0B" strokeWidth="2" />
+
+    {/* Atleta che corre (stilizzato) */}
+    {/* Testa */}
+    <circle cx="85" cy="28" r="8" fill="#FBBF24" />
+    {/* Fascia */}
+    <rect x="77" y="24" width="16" height="3" rx="1" fill="#3B82F6" />
+    {/* Corpo */}
+    <path d="M85 36 L83 52 L88 52 L90 42 L93 52 L97 52 L95 36 Z" fill="#3B82F6" />
+    {/* Gambe in corsa */}
+    <path d="M85 52 L80 65 L84 66 L87 56 L90 66 L94 65 L91 52 Z" fill="#1D4ED8" />
+    {/* Braccia in corsa */}
+    <path d="M83 38 L75 44" stroke="#FBBF24" strokeWidth="3" strokeLinecap="round" />
+    <path d="M95 38 L100 32" stroke="#FBBF24" strokeWidth="3" strokeLinecap="round" />
+    {/* Scarpe */}
+    <ellipse cx="81" cy="66" rx="4" ry="2" fill="#1E3A8A" />
+    <ellipse cx="93" cy="66" rx="4" ry="2" fill="#1E3A8A" />
+
+    {/* Stella in alto */}
+    <path d="M20 18 L22 13 L24 18 L29 18 L25 21 L27 26 L22 23 L17 26 L19 21 L15 18 Z" fill="#FCD34D" />
+
+    {/* Linee velocità */}
+    <path d="M72 35 L63 35" stroke="#93C5FD" strokeWidth="2" strokeLinecap="round" />
+    <path d="M70 40 L62 40" stroke="#93C5FD" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M68 45 L61 45" stroke="#93C5FD" strokeWidth="1" strokeLinecap="round" />
   </svg>
 )
 
@@ -481,76 +472,6 @@ export const SpiritualityIllustration = ({ size = 120, className = '' }: AreaIll
   </svg>
 )
 
-// SPORT - Lottatore di Sumo (stile giapponese, forza, performance, concentrazione)
-export const SportIllustration = ({ size = 120, className = '' }: AreaIllustrationProps) => (
-  <svg width={size} height={size} viewBox="0 0 120 120" fill="none" className={className}>
-    {/* Sfondo */}
-    <circle cx="60" cy="60" r="55" fill="url(#sportBg)" />
-
-    {/* Cerchi dohyo (ring sumo) */}
-    <circle cx="60" cy="85" rx="40" ry="8" fill="#D97706" opacity="0.3" />
-    <circle cx="60" cy="85" rx="30" ry="6" fill="none" stroke="#D97706" strokeWidth="1.5" opacity="0.5" />
-    <circle cx="60" cy="85" rx="20" ry="4" fill="none" stroke="#D97706" strokeWidth="1" opacity="0.4" />
-
-    {/* Corpo sumo - forma robusta e stabile */}
-    <ellipse cx="60" cy="76" rx="22" ry="16" fill="#FEF3C7" /> {/* gambe/base */}
-    <ellipse cx="60" cy="60" rx="20" ry="20" fill="#FEF3C7" /> {/* corpo */}
-
-    {/* Mawashi (cintura sumo) */}
-    <rect x="44" y="66" width="32" height="12" rx="2" fill="#1E40AF" />
-    <rect x="50" y="64" width="20" height="5" rx="1" fill="#1D4ED8" />
-    {/* nodo anteriore mawashi */}
-    <ellipse cx="60" cy="63" rx="7" ry="5" fill="#1E40AF" />
-    <ellipse cx="60" cy="63" rx="5" ry="3.5" fill="#2563EB" />
-
-    {/* Braccia in posizione di guardia */}
-    <ellipse cx="38" cy="58" rx="9" ry="6" fill="#FDE68A" transform="rotate(-20 38 58)" />
-    <ellipse cx="82" cy="58" rx="9" ry="6" fill="#FDE68A" transform="rotate(20 82 58)" />
-    {/* Mani */}
-    <circle cx="31" cy="54" r="6" fill="#FEF3C7" />
-    <circle cx="89" cy="54" r="6" fill="#FEF3C7" />
-
-    {/* Testa */}
-    <circle cx="60" cy="38" r="16" fill="#FEF3C7" />
-
-    {/* Chonmage (acconciatura tradizionale sumo) */}
-    <ellipse cx="60" cy="23" rx="8" ry="5" fill="#1F2937" />
-    <ellipse cx="60" cy="20" rx="4" ry="6" fill="#1F2937" />
-    <ellipse cx="60" cy="18" rx="2.5" ry="3" fill="#374151" />
-
-    {/* Occhi - sguardo concentrato e determinato */}
-    <ellipse cx="53" cy="38" rx="4" ry="4.5" fill="#1F2937" />
-    <ellipse cx="67" cy="38" rx="4" ry="4.5" fill="#1F2937" />
-    <circle cx="54.5" cy="36.5" r="1.5" fill="white" />
-    <circle cx="68.5" cy="36.5" r="1.5" fill="white" />
-    {/* Sopracciglia spesse determinate */}
-    <path d="M48 32 Q53 30 58 32" stroke="#1F2937" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-    <path d="M62 32 Q67 30 72 32" stroke="#1F2937" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-
-    {/* Bocca seria/concentrata */}
-    <path d="M55 47 Q60 45 65 47" stroke="#1F2937" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-
-    {/* Linee di energia/movimento attorno alla figura */}
-    <line x1="18" y1="35" x2="26" y2="42" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
-    <line x1="15" y1="45" x2="24" y2="48" stroke="#3B82F6" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
-    <line x1="102" y1="35" x2="94" y2="42" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
-    <line x1="105" y1="45" x2="96" y2="48" stroke="#3B82F6" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
-
-    {/* Stelle/scintille performance */}
-    <path d="M25 25 L27 20 L29 25 L34 27 L29 29 L27 34 L25 29 L20 27 Z" fill="#FCD34D" opacity="0.7" />
-    <path d="M88 20 L89.5 16 L91 20 L95 21.5 L91 23 L89.5 27 L88 23 L84 21.5 Z" fill="#FCD34D" opacity="0.6" />
-    <circle cx="30" cy="100" r="2" fill="#3B82F6" opacity="0.4" />
-    <circle cx="90" cy="100" r="2" fill="#3B82F6" opacity="0.4" />
-
-    <defs>
-      <linearGradient id="sportBg" x1="60" y1="5" x2="60" y2="115" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#DBEAFE" />
-        <stop offset="1" stopColor="#BFDBFE" />
-      </linearGradient>
-    </defs>
-  </svg>
-)
-
 // Mappa per usare le illustrazioni per ID area (ID italiani dal database)
 export const AreaIllustrations: Record<string, React.FC<AreaIllustrationProps>> = {
   salute: HealthIllustration,
@@ -560,7 +481,7 @@ export const AreaIllustrations: Record<string, React.FC<AreaIllustrationProps>> 
   amore: LoveIllustration,               // Amore - Kokeshi coppia
   crescita: PersonalGrowthIllustration,
   spiritualita: SpiritualityIllustration,
-  sport: SportIllustration               // Sumo - forza, performance, concentrazione
+  sport: SportIllustration
 }
 
 // Componente helper per ottenere illustrazione per area

@@ -40,7 +40,7 @@ const AREA_LABELS: Record<string, string> = {
   amore: 'Amore',
   crescita: 'Crescita Personale',
   spiritualita: 'Spiritualità',
-  divertimento: 'Divertimento'
+  sport: 'Sport & Performance'
 }
 
 // =====================
@@ -302,7 +302,6 @@ function generateCoachNotificationEmail(coach: any, lead: any): string {
       <!-- Lead Card -->
       <div style="background: #f8f5f0; padding: 20px; border-radius: 16px; margin: 20px 0;">
         <h3 style="color: #1f2937; margin: 0 0 10px 0;">${lead.name}</h3>
-        <p style="color: #6b7280; margin: 0 0 5px 0; font-size: 14px;">📧 ${lead.email}</p>
         <p style="color: #6b7280; margin: 0 0 5px 0; font-size: 14px;">🎯 Priorità: ${AREA_LABELS[lead.priorityArea]}</p>
         <p style="color: #6b7280; margin: 0; font-size: 14px;">📊 Life Score: ${lead.lifeScore}/10</p>
       </div>
@@ -500,11 +499,29 @@ async function findBestCoachForLead(lead: any, excludeCoachId?: string): Promise
       }
     })
 
-    // Ordina per: 1) meno lead ricevuti, 2) ID alfabetico come spareggio
+    // Leggi i punti community per ogni coach (per ordinamento meritocratico)
+    const coachIds = qualifiedCoaches.map((c: any) => c.id)
+    const pointsPerCoach: Record<string, number> = {}
+    for (const coachId of coachIds) {
+      try {
+        const pointsDoc = await adminDb.collection('coachPoints').doc(coachId).get()
+        pointsPerCoach[coachId] = pointsDoc.exists ? (pointsDoc.data()?.totalPoints || 0) : 0
+      } catch {
+        pointsPerCoach[coachId] = 0
+      }
+    }
+
+    // Ordina meritocraticamente:
+    // 1) più punti community → va prima (premiamo chi è più attivo)
+    // 2) parità punti → meno lead ricevuti (equità di distribuzione)
+    // 3) parità assoluta → ID alfabetico come spareggio deterministico
     qualifiedCoaches.sort((a: any, b: any) => {
+      const aPoints = pointsPerCoach[a.id] || 0
+      const bPoints = pointsPerCoach[b.id] || 0
+      if (aPoints !== bPoints) return bPoints - aPoints // più punti = prima
       const aLeads = leadsPerCoach[a.id] || 0
       const bLeads = leadsPerCoach[b.id] || 0
-      if (aLeads !== bLeads) return aLeads - bLeads
+      if (aLeads !== bLeads) return aLeads - bLeads // meno lead = prima
       return a.id.localeCompare(b.id)
     })
 
