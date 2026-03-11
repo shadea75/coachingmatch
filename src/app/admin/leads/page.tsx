@@ -98,6 +98,7 @@ export default function AdminLeadsPage() {
   const [selectedCoachId, setSelectedCoachId] = useState<string>('')
   const [assigning, setAssigning] = useState(false)
   const [roundRobinInfo, setRoundRobinInfo] = useState<Record<string, { nextCoach: Coach | null, position: number, total: number }>>({})
+  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     loadLeads()
@@ -107,6 +108,24 @@ export default function AdminLeadsPage() {
   useEffect(() => {
     if (coaches.length > 0) loadRoundRobinInfo()
   }, [coaches])
+
+  const syncRoundRobin = async () => {
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/admin/sync-roundrobin', { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        await loadRoundRobinInfo()
+        alert('Cursori sincronizzati!')
+      } else {
+        alert('Errore: ' + data.error)
+      }
+    } catch (err) {
+      alert('Errore di rete')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const loadRoundRobinInfo = async () => {
     try {
@@ -390,12 +409,21 @@ export default function AdminLeadsPage() {
                 <RotateCcw size={18} className="text-primary-500" />
                 <h2 className="font-semibold text-charcoal">Prossima assegnazione automatica per area</h2>
               </div>
-              <button
-                onClick={loadRoundRobinInfo}
-                className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
-              >
-                <RefreshCw size={12} /> Aggiorna
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={syncRoundRobin}
+                  disabled={syncing}
+                  className="text-xs text-primary-500 hover:text-primary-700 flex items-center gap-1 disabled:opacity-50"
+                >
+                  <RotateCcw size={12} /> {syncing ? 'Sincronizzando...' : 'Sincronizza con lead esistenti'}
+                </button>
+                <button
+                  onClick={loadRoundRobinInfo}
+                  className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+                >
+                  <RefreshCw size={12} /> Aggiorna
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {Object.entries(roundRobinInfo).map(([areaId, info]) => (
