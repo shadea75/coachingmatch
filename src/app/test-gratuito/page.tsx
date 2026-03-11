@@ -9,7 +9,6 @@ import {
   Sparkles,
   Check,
   Mail,
-  Lock,
   Target,
   Gift
 } from 'lucide-react'
@@ -63,6 +62,7 @@ export default function TestGratuitoPage() {
   const [priorityArea, setPriorityArea] = useState<LifeAreaId | null>(null)
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [archetypeResult, setArchetypeResult] = useState<ArchetypeResult | null>(null)
   const [scoreBand, setScoreBand] = useState<ScoreBand | null>(null)
@@ -159,6 +159,7 @@ export default function TestGratuitoPage() {
         body: JSON.stringify({
           email,
           name,
+          phone,
           scores,
           priorityArea,
           lifeScore,
@@ -527,18 +528,6 @@ export default function TestGratuitoPage() {
                 </div>
               </div>
               
-              {/* Radar Chart Sfocato/Teaser */}
-              <div className="bg-white rounded-2xl p-4 mb-4 relative overflow-hidden">
-                <div className="flex justify-center opacity-40 blur-[2px]">
-                  <RadarChart scores={scores} size={200} showLabels={false} />
-                </div>
-                <div className="absolute inset-0 flex items-center justify-center bg-white/60">
-                  <div className="text-center">
-                    <Lock size={24} className="mx-auto text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-500">Analisi completa nel report</p>
-                  </div>
-                </div>
-              </div>
               
               {/* Cosa include il report */}
               <div className="bg-charcoal rounded-2xl p-6 text-white">
@@ -607,11 +596,20 @@ export default function TestGratuitoPage() {
                   <span className="font-medium text-primary-600">{archetypeResult?.primary.name}</span> in 2 minuti
                 </p>
               </div>
+
+              {/* Banner community gratuita */}
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-5 flex items-start gap-3">
+                <span className="text-2xl flex-shrink-0">🎁</span>
+                <div>
+                  <p className="text-sm font-semibold text-green-800">Bonus: 30 giorni di Community gratuita!</p>
+                  <p className="text-xs text-green-700 mt-0.5">Ricevi il report e accedi gratis alla community CoachaMi: contenuti esclusivi, coach certificati e persone che condividono il tuo percorso di crescita.</p>
+                </div>
+              </div>
               
               <form onSubmit={handleEmailSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Il tuo nome
+                    Nome e Cognome <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -625,7 +623,21 @@ export default function TestGratuitoPage() {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    La tua email
+                    Numero di telefono <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+39 333 123 4567"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none transition-all"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="email"
@@ -639,10 +651,10 @@ export default function TestGratuitoPage() {
                 
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !name || !phone || !email}
                   className="w-full btn btn-primary py-4 disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Invio in corso...' : 'Inviami il Report Completo'}
+                  {isSubmitting ? 'Registrazione in corso...' : '🎯 Ricevi il Report e Trova il tuo Coach'}
                 </button>
                 
                 <p className="text-xs text-center text-gray-400">
@@ -665,18 +677,36 @@ export default function TestGratuitoPage() {
               </div>
               
               <h2 className="text-2xl font-display font-bold text-charcoal mb-3">
-                Report inviato! 🎉
+                Perfetto, ci siamo! 🎉
               </h2>
               <p className="text-gray-500 mb-2">
-                Controlla la tua casella email<br />(anche lo spam!)
+                Il tuo report è in arrivo su <strong>{email}</strong><br />(controlla anche lo spam!)
               </p>
-              <p className="text-sm text-gray-400 mb-8">
-                Il report arriverà entro 2 minuti a <strong>{email}</strong>
-              </p>
+
+
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 text-left">
+                <p className="text-sm text-amber-800 font-medium mb-1">📞 Cosa succede adesso?</p>
+                <ol className="text-sm text-amber-700 space-y-1 list-decimal list-inside">
+                  <li>Ricevi il report via email (controlla anche spam)</li>
+                  <li>Il nostro team ti abbina al coach più adatto</li>
+                  <li>Il coach ti contatta per una call gratuita</li>
+                </ol>
+              </div>
+
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-6 text-left">
+                <p className="text-sm text-green-800 font-medium mb-1">🎁 Il tuo regalo di benvenuto</p>
+                <p className="text-sm text-green-700">Abbiamo creato il tuo account CoachaMi. Accedi per esplorare la <strong>Community gratuita per 30 giorni</strong>: risorse, coach live e persone che condividono il tuo percorso.</p>
+                <button
+                  onClick={() => router.push('/login')}
+                  className="mt-3 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-4 rounded-xl transition-colors text-sm"
+                >
+                  Accedi alla Community →
+                </button>
+              </div>
               
               <div className="bg-primary-50 rounded-2xl p-6 mb-6">
                 <p className="text-sm text-primary-800 mb-3">
-                  🎯 Intanto, vuoi parlare con un coach specializzato in <strong>{priorityArea ? AREA_LABELS[priorityArea] : 'crescita personale'}</strong>?
+                  🎯 Nel frattempo, scopri i coach specializzati in <strong>{priorityArea ? AREA_LABELS[priorityArea] : 'crescita personale'}</strong>
                 </p>
                 <button
                   onClick={() => router.push(`/coaches?area=${priorityArea}`)}
