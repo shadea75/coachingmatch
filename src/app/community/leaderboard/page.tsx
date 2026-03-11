@@ -22,24 +22,29 @@ import {
   LEVELS_CONFIG,
   getLevelProgress
 } from '@/types/community'
+import { getCoachLeaderboard } from '@/lib/coachPoints'
 
-// Mock data
-const MOCK_LEADERBOARD: (Partial<CoachPoints> & { rank: number; photo?: string })[] = [
-  { rank: 1, coachId: '1', coachName: 'Laura Bianchi', photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', totalPoints: 1250, currentLevel: 'elite', pointsFromPosts: 450, pointsFromComments: 320, pointsFromLikesReceived: 280, pointsFromSessions: 200, streak: 45 },
-  { rank: 2, coachId: '2', coachName: 'Marco Rossi', photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400', totalPoints: 890, currentLevel: 'expert', pointsFromPosts: 320, pointsFromComments: 250, pointsFromLikesReceived: 180, pointsFromSessions: 140, streak: 30 },
-  { rank: 3, coachId: '3', coachName: 'Giulia Verdi', photo: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400', totalPoints: 650, currentLevel: 'expert', pointsFromPosts: 230, pointsFromComments: 180, pointsFromLikesReceived: 140, pointsFromSessions: 100, streak: 22 },
-  { rank: 4, coachId: '4', coachName: 'Alessandro Neri', totalPoints: 420, currentLevel: 'active', pointsFromPosts: 150, pointsFromComments: 120, pointsFromLikesReceived: 90, pointsFromSessions: 60, streak: 15 },
-  { rank: 5, coachId: '5', coachName: 'Francesca Blu', totalPoints: 310, currentLevel: 'active', pointsFromPosts: 120, pointsFromComments: 90, pointsFromLikesReceived: 60, pointsFromSessions: 40, streak: 10 },
-  { rank: 6, coachId: '6', coachName: 'Roberto Gialli', totalPoints: 280, currentLevel: 'rising', pointsFromPosts: 100, pointsFromComments: 80, pointsFromLikesReceived: 60, pointsFromSessions: 40, streak: 8 },
-  { rank: 7, coachId: '7', coachName: 'Maria Rosa', totalPoints: 220, currentLevel: 'rising', pointsFromPosts: 80, pointsFromComments: 70, pointsFromLikesReceived: 40, pointsFromSessions: 30, streak: 5 },
-  { rank: 8, coachId: '8', coachName: 'Paolo Bianchi', totalPoints: 150, currentLevel: 'rising', pointsFromPosts: 60, pointsFromComments: 50, pointsFromLikesReceived: 25, pointsFromSessions: 15, streak: 3 },
-  { rank: 9, coachId: '9', coachName: 'Anna Verdi', totalPoints: 90, currentLevel: 'rookie', pointsFromPosts: 40, pointsFromComments: 30, pointsFromLikesReceived: 15, pointsFromSessions: 5, streak: 2 },
-  { rank: 10, coachId: '10', coachName: 'Luca Neri', totalPoints: 45, currentLevel: 'rookie', pointsFromPosts: 20, pointsFromComments: 15, pointsFromLikesReceived: 8, pointsFromSessions: 2, streak: 1 },
-]
+type LeaderboardEntry = Partial<CoachPoints> & { rank: number; photo?: string }
 
 export default function LeaderboardPage() {
-  const [leaderboard, setLeaderboard] = useState(MOCK_LEADERBOARD)
-  const [selectedCoach, setSelectedCoach] = useState<typeof MOCK_LEADERBOARD[0] | null>(null)
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedCoach, setSelectedCoach] = useState<LeaderboardEntry | null>(null)
+
+  useEffect(() => {
+    const loadLeaderboard = async () => {
+      try {
+        const data = await getCoachLeaderboard(20)
+        const ranked = data.map((coach, i) => ({ ...coach, rank: i + 1 }))
+        setLeaderboard(ranked)
+      } catch (err) {
+        console.error('Errore caricamento leaderboard:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadLeaderboard()
+  }, [])
 
   const getRankStyle = (rank: number) => {
     if (rank === 1) return 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-white'
@@ -82,6 +87,19 @@ export default function LeaderboardPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8">
+        {loading && (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500"></div>
+          </div>
+        )}
+        {!loading && leaderboard.length === 0 && (
+          <div className="text-center py-20 text-gray-400">
+            <Trophy className="w-16 h-16 mx-auto mb-4 opacity-30" />
+            <p className="text-lg font-medium">Nessun dato ancora</p>
+            <p className="text-sm mt-1">La classifica si aggiornerà man mano che i coach partecipano alla community</p>
+          </div>
+        )}
+        {!loading && leaderboard.length > 0 && <>
         {/* Top 3 Podio */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           {/* 2° posto */}
@@ -321,6 +339,7 @@ export default function LeaderboardPage() {
             </div>
           </div>
         </div>
+        </>}
       </main>
     </div>
   )

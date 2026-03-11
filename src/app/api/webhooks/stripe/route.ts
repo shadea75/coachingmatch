@@ -377,6 +377,30 @@ async function handleCoachSubscriptionCreated(session: Stripe.Checkout.Session) 
     subscriptionPrice: priceAmount,
     updatedAt: FieldValue.serverTimestamp(),
   })
+
+  // Invia email al coach e all'admin
+  try {
+    const coachDoc = await adminDb.collection('coachApplications').doc(coachId).get()
+    const coachData = coachDoc.data()
+    const renewalDate = subscriptionEndDate.toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })
+    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'subscription_purchased',
+        data: {
+          coachName: coachData?.name || 'Coach',
+          coachEmail: coachData?.email || '',
+          tier,
+          priceAmount,
+          billingCycle,
+          renewalDate,
+        }
+      })
+    })
+  } catch (emailErr) {
+    console.error('Errore invio email abbonamento:', emailErr)
+  }
 }
 
 async function handleCoachSubscriptionUpdated(subscription: Stripe.Subscription) {

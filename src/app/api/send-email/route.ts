@@ -1089,6 +1089,81 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, result })
     }
 
+    // =====================================================
+    // EMAIL ACQUISTO ABBONAMENTO COACH (da Stripe)
+    // =====================================================
+    if (type === 'subscription_purchased') {
+      const tierLabels: Record<string, string> = {
+        starter: 'Starter', professional: 'Professional', business: 'Business', elite: 'Elite'
+      }
+      const tierLabel = tierLabels[data.tier] || data.tier || 'Starter'
+
+      // Email al coach
+      await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: data.coachEmail,
+        subject: `🎉 Abbonamento ${tierLabel} attivato - CoachaMi`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr><td>${logoHeader}
+                <table width="100%" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                  <tr><td style="padding: 30px;">
+                    <h2 style="margin: 0 0 20px 0;">Benvenuto su CoachaMi! 🎉</h2>
+                    <p>Ciao <strong>${data.coachName}</strong>!</p>
+                    <p>Il tuo abbonamento è stato attivato con successo. Sei ora visibile ai potenziali clienti sulla piattaforma.</p>
+                    <div style="background: #f0fdf4; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #16a34a;">
+                      <h3 style="margin: 0 0 12px 0; color: #15803d;">📋 Dettagli abbonamento</h3>
+                      <p style="margin: 4px 0;"><strong>Piano:</strong> ${tierLabel}</p>
+                      <p style="margin: 4px 0;"><strong>Importo:</strong> €${data.priceAmount}/mese</p>
+                      <p style="margin: 4px 0;"><strong>Ciclo:</strong> ${data.billingCycle === 'annual' ? 'Annuale' : 'Mensile'}</p>
+                      <p style="margin: 4px 0;"><strong>Prossimo rinnovo:</strong> ${data.renewalDate || '-'}</p>
+                    </div>
+                    <center style="margin: 25px 0;">
+                      <a href="https://www.coachami.it/coach/dashboard" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Vai alla tua Dashboard →</a>
+                    </center>
+                  </td></tr>
+                </table>
+                ${footer}
+              </td></tr>
+            </table>
+          </body></html>`
+      })
+
+      // Email all'admin
+      await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: 'debora.carofiglio@gmail.com',
+        subject: `💰 Nuovo abbonamento: ${data.coachName} - Piano ${tierLabel}`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr><td>${logoHeader}
+                <table width="100%" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                  <tr><td style="padding: 30px;">
+                    <h2 style="margin: 0 0 20px 0;">Nuovo abbonamento attivato 💰</h2>
+                    <div style="background: #f0fdf4; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #16a34a;">
+                      <p style="margin: 4px 0;"><strong>Coach:</strong> ${data.coachName}</p>
+                      <p style="margin: 4px 0;"><strong>Email:</strong> ${data.coachEmail}</p>
+                      <p style="margin: 4px 0;"><strong>Piano:</strong> ${tierLabel}</p>
+                      <p style="margin: 4px 0;"><strong>Importo:</strong> €${data.priceAmount}/mese</p>
+                      <p style="margin: 4px 0;"><strong>Ciclo:</strong> ${data.billingCycle === 'annual' ? 'Annuale' : 'Mensile'}</p>
+                    </div>
+                    <center style="margin: 25px 0;">
+                      <a href="https://www.coachami.it/admin/coaches" style="display: inline-block; background: #EC7711; color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: 600;">Gestisci Coach →</a>
+                    </center>
+                  </td></tr>
+                </table>
+                ${footer}
+              </td></tr>
+            </table>
+          </body></html>`
+      })
+
+      console.log('✅ Email abbonamento acquistato inviate')
+      return NextResponse.json({ success: true })
+    }
+
     return NextResponse.json({ error: 'Tipo email non supportato' }, { status: 400 })
 
   } catch (error: any) {
