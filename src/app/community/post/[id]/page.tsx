@@ -43,7 +43,7 @@ import {
   arrayUnion,
   arrayRemove
 } from 'firebase/firestore'
-import { addPoints } from '@/lib/coachPoints'
+import { addPoints, initializeCoachPoints } from '@/lib/coachPoints'
 
 // Mock data
 const MOCK_POST: CommunityPost = {
@@ -305,6 +305,13 @@ export default function PostPage() {
       const postRef = doc(db, 'communityPosts', post.id)
       if (newIsLiked) {
         await updateDoc(postRef, { likeCount: increment(1), likedBy: arrayUnion(user.id) })
+        // Aggiungi punti all'autore (solo se non è il proprio post)
+        if (post.authorId && post.authorId !== user.id) {
+          try {
+            await initializeCoachPoints(post.authorId, post.authorName || '')
+            await addPoints(post.authorId, 'LIKE_RECEIVED')
+          } catch (e) { console.error('Errore punti like:', e) }
+        }
       } else {
         await updateDoc(postRef, { likeCount: increment(-1), likedBy: arrayRemove(user.id) })
       }
@@ -326,6 +333,13 @@ export default function PostPage() {
       const postRef = doc(db, 'communityPosts', post.id)
       if (newIsSaved) {
         await updateDoc(postRef, { saveCount: increment(1), savedBy: arrayUnion(user.id) })
+        // Aggiungi punti all'autore (solo se non è il proprio post)
+        if (post.authorId && post.authorId !== user.id) {
+          try {
+            await initializeCoachPoints(post.authorId, post.authorName || '')
+            await addPoints(post.authorId, 'SAVE_RECEIVED')
+          } catch (e) { console.error('Errore punti save:', e) }
+        }
       } else {
         await updateDoc(postRef, { saveCount: increment(-1), savedBy: arrayRemove(user.id) })
       }

@@ -17,7 +17,7 @@ import Logo from '@/components/Logo'
 import { CommunitySection, SECTIONS_CONFIG } from '@/types/community'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
-import { addPoints, incrementMonthlyPosts } from '@/lib/coachPoints'
+import { addPoints, incrementMonthlyPosts, initializeCoachPoints } from '@/lib/coachPoints'
 
 export default function NewPostPage() {
   const router = useRouter()
@@ -105,10 +105,12 @@ export default function NewPostPage() {
       // Se è un coach (non admin), aggiungi punti
       if (userRole === 'coach' && user?.id) {
         try {
+          // Inizializza il documento punti se non esiste ancora
+          await initializeCoachPoints(user.id, user.name || '')
           await addPoints(user.id, 'POST_CREATED')
           await incrementMonthlyPosts(user.id)
         } catch (pointsError) {
-          console.log('Punti non aggiunti (documento coachPoints potrebbe non esistere)')
+          console.error('Errore aggiunta punti post:', pointsError)
         }
       }
 

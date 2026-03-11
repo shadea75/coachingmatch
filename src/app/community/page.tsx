@@ -49,7 +49,7 @@ import {
   arrayUnion,
   arrayRemove
 } from 'firebase/firestore'
-import { getCoachLeaderboard } from '@/lib/coachPoints'
+import { getCoachLeaderboard, addPoints, initializeCoachPoints } from '@/lib/coachPoints'
 
 export default function CommunityPage() {
   const router = useRouter()
@@ -185,6 +185,15 @@ export default function CommunityPage() {
           likeCount: increment(1),
           likedBy: arrayUnion(user.id)
         })
+        // Aggiungi punti all'autore del post (solo se non è il proprio post)
+        const postDoc = await getDoc(postRef)
+        const authorId = postDoc.data()?.authorId
+        if (authorId && authorId !== user.id) {
+          try {
+            await initializeCoachPoints(authorId, postDoc.data()?.authorName || '')
+            await addPoints(authorId, 'LIKE_RECEIVED')
+          } catch (e) { console.error('Errore punti like:', e) }
+        }
       } else {
         await updateDoc(postRef, {
           likeCount: increment(-1),
@@ -218,6 +227,15 @@ export default function CommunityPage() {
           saveCount: increment(1),
           savedBy: arrayUnion(user.id)
         })
+        // Aggiungi punti all'autore del post (solo se non è il proprio post)
+        const postDoc = await getDoc(postRef)
+        const authorId = postDoc.data()?.authorId
+        if (authorId && authorId !== user.id) {
+          try {
+            await initializeCoachPoints(authorId, postDoc.data()?.authorName || '')
+            await addPoints(authorId, 'SAVE_RECEIVED')
+          } catch (e) { console.error('Errore punti save:', e) }
+        }
       } else {
         await updateDoc(postRef, {
           saveCount: increment(-1),
