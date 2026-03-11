@@ -153,24 +153,37 @@ export default function AdminLeadsPage() {
 
       const info: Record<string, { nextCoach: Coach | null, position: number, total: number }> = {}
 
+      // Conta i lead assegnati per coach per area (stesso criterio del cron)
+      const leadsPerCoachPerArea: Record<string, Record<string, number>> = {}
+      leads.forEach(lead => {
+        if (lead.assignedCoachId && ['assigned','booked','converted'].includes(lead.status)) {
+          const area = lead.priorityArea
+          if (!leadsPerCoachPerArea[area]) leadsPerCoachPerArea[area] = {}
+          leadsPerCoachPerArea[area][lead.assignedCoachId] = (leadsPerCoachPerArea[area][lead.assignedCoachId] || 0) + 1
+        }
+      })
+
       for (const areaId of Object.keys(AREA_LABELS)) {
         const qualified = coaches
           .filter((c: Coach) => {
             const areas = (c as any).lifeAreas?.length ? (c as any).lifeAreas : (c.lifeArea ? [c.lifeArea] : [])
             return areas.includes(areaId)
           })
-          .sort((a: Coach, b: Coach) => a.id.localeCompare(b.id))
+          .sort((a: Coach, b: Coach) => {
+            const aLeads = leadsPerCoachPerArea[areaId]?.[a.id] || 0
+            const bLeads = leadsPerCoachPerArea[areaId]?.[b.id] || 0
+            if (aLeads !== bLeads) return aLeads - bLeads
+            return a.id.localeCompare(b.id)
+          })
 
         if (qualified.length === 0) {
           info[areaId] = { nextCoach: null, position: 0, total: 0 }
           continue
         }
 
-        const cursor = cursors[areaId] ?? 0
-        const nextIndex = cursor % qualified.length
         info[areaId] = {
-          nextCoach: qualified[nextIndex],
-          position: nextIndex + 1,
+          nextCoach: qualified[0],
+          position: leadsPerCoachPerArea[areaId]?.[qualified[0].id] || 0,
           total: qualified.length
         }
       }
@@ -468,7 +481,7 @@ export default function AdminLeadsPage() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-charcoal truncate">{info.nextCoach.name}</p>
                         <div className="flex items-center gap-1 mt-0.5">
-                          <p className="text-xs text-gray-400">{info.position}/{info.total}</p>
+                          <p className="text-xs text-gray-400">{info.position} lead ricevuti</p>
                           {info.nextCoach.subscriptionStatus === 'active' && (
                             <span className="text-xs text-green-600 font-medium">● Attivo</span>
                           )}
