@@ -189,11 +189,13 @@ export default function AdminLeadsPage() {
         } catch { /* ignora */ }
       }
 
-      // Includi solo active e free
-      const ALLOWED_STATUSES = new Set(['active', 'free'])
+      // Riceve lead: free (esentati) oppure active + stripeSubscriptionStatus: active
       const activeCoaches = coaches.filter((c: Coach) => {
         const s = c.subscriptionStatus
-        return !suspendedCoachIds.has(c.id) && !!s && ALLOWED_STATUSES.has(s)
+        const ss = (c as any).stripeSubscriptionStatus
+        if (suspendedCoachIds.has(c.id)) return false
+        if (s === 'free') return true
+        return s === 'active' && ss === 'active'
       })
 
       for (const areaId of Object.keys(AREA_LABELS)) {
@@ -385,11 +387,13 @@ export default function AdminLeadsPage() {
     return Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24))
   }
 
-  // Includi solo active e free
-  const ALLOWED_COACH_STATUSES = new Set(['active', 'free'])
+  // Riceve lead: free (esentati) oppure active + stripeSubscriptionStatus: active
   const assignableCoaches = coaches.filter(coach => {
     const s = coach.subscriptionStatus
-    return !!s && ALLOWED_COACH_STATUSES.has(s) && !(coach as any).isSuspended
+    const ss = (coach as any).stripeSubscriptionStatus
+    if ((coach as any).isSuspended) return false
+    if (s === 'free') return true
+    return s === 'active' && ss === 'active'
   })
 
   // Coach consigliati per un lead (basati sull'area prioritaria)
