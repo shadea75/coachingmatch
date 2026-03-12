@@ -14,7 +14,11 @@
     },
     {
       "path": "/api/cron/lead-nurturing",
-      "schedule": "0 10 * * *"
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/admin/backfill-points",
+      "schedule": "5 23 * * *"
     }
   ]
 }
