@@ -612,14 +612,17 @@ export default function AdminLeadsPage() {
                                 {coach.subscriptionStatus === 'active' && (
                                   <span className="text-xs bg-green-50 text-green-600 font-medium px-2 py-0.5 rounded-full">● Attivo</span>
                                 )}
-                                {coach.subscriptionStatus === 'trial' && (
+                                {(coach.subscriptionStatus === 'trial' || coach.subscriptionStatus === 'trialing') && (
                                   <span className="text-xs bg-yellow-50 text-yellow-600 font-medium px-2 py-0.5 rounded-full">● In prova</span>
+                                )}
+                                {coach.subscriptionStatus === 'free' && (
+                                  <span className="text-xs bg-blue-50 text-blue-500 font-medium px-2 py-0.5 rounded-full">● Free</span>
                                 )}
                                 {coach.subscriptionStatus === 'expired' && (
                                   <span className="text-xs bg-red-50 text-red-500 font-medium px-2 py-0.5 rounded-full">● Scaduto</span>
                                 )}
                                 {!coach.subscriptionStatus && (
-                                  <span className="text-xs bg-gray-50 text-gray-400 font-medium px-2 py-0.5 rounded-full">● Esentato</span>
+                                  <span className="text-xs bg-gray-50 text-gray-400 font-medium px-2 py-0.5 rounded-full">● –</span>
                                 )}
                               </div>
                             </div>
