@@ -254,7 +254,9 @@ export default function AdminLeadsPage() {
           lifeArea: doc.data().lifeArea,
           lifeAreas: doc.data().lifeAreas || [],
           photo: doc.data().photo,
-          subscriptionStatus: doc.data().subscriptionStatus
+          subscriptionStatus: doc.data().subscriptionStatus,
+          stripeSubscriptionStatus: doc.data().stripeSubscriptionStatus,
+          stripeSubscriptionId: doc.data().stripeSubscriptionId,
         }))
       setCoaches(loadedCoaches)
     } catch (err) {
