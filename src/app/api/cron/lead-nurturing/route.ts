@@ -482,32 +482,46 @@ async function findBestCoachForLead(lead: any, excludeCoachId?: string): Promise
     }
     const allApproved = allApprovedRaw.filter((c: any) => !suspendedSet.has(c.id))
 
+    // Filtra coach attivi: subscriptionStatus 'active' | 'trial' | undefined/null (esentati da Debora)
+    // Escludi solo chi ha subscriptionStatus === 'expired'
+    const activeCoaches = allApproved.filter((coach: any) => {
+      const s = coach.subscriptionStatus
+      return s !== 'expired'
+    })
+
     // Coach qualificati per l'area prioritaria del lead (escluso eventuale coach precedente)
-    let qualifiedCoaches = allApproved.filter((coach: any) => {
+    let qualifiedCoaches = activeCoaches.filter((coach: any) => {
       if (excludeCoachId && coach.id === excludeCoachId) return false
       const areas = coach.lifeAreas || (coach.lifeArea ? [coach.lifeArea] : [])
       return areas.includes(lead.priorityArea)
     })
 
-    // Fallback: tutti i coach approvati (non sospesi) se nessuno copre l'area
+    // Fallback: tutti i coach attivi se nessuno copre l'area
     if (qualifiedCoaches.length === 0) {
-      qualifiedCoaches = allApproved.filter((coach: any) =>
+      qualifiedCoaches = activeCoaches.filter((coach: any) =>
         !excludeCoachId || coach.id !== excludeCoachId
       )
     }
 
     if (qualifiedCoaches.length === 0) return null
 
-    // Conta i lead già assegnati a ciascun coach per quest'area
+    // Conta i lead assegnati (attivi) per ogni coach — su TUTTE le aree
     const leadsSnap = await adminDb.collection('leads')
       .where('status', 'in', ['assigned', 'booked', 'converted'])
       .get()
 
-    const leadsPerCoach: Record<string, number> = {}
+    const activeLeadsPerCoach: Record<string, number> = {}  // lead attivi (assigned/booked)
+    const totalLeadsPerCoach: Record<string, number> = {}   // storico totale (per meritocratica)
     leadsSnap.docs.forEach((d: any) => {
       const data = d.data()
-      if (data.assignedCoachId && data.priorityArea === lead.priorityArea) {
-        leadsPerCoach[data.assignedCoachId] = (leadsPerCoach[data.assignedCoachId] || 0) + 1
+      if (!data.assignedCoachId) return
+      // Lead attivi (assigned o booked) — usati per il limite max 1
+      if (data.status === 'assigned' || data.status === 'booked') {
+        activeLeadsPerCoach[data.assignedCoachId] = (activeLeadsPerCoach[data.assignedCoachId] || 0) + 1
+      }
+      // Totale storico per area — usato per l'ordinamento equo
+      if (data.priorityArea === lead.priorityArea) {
+        totalLeadsPerCoach[data.assignedCoachId] = (totalLeadsPerCoach[data.assignedCoachId] || 0) + 1
       }
     })
 
@@ -523,22 +537,32 @@ async function findBestCoachForLead(lead: any, excludeCoachId?: string): Promise
       }
     }
 
+    // Regola MAX 1 LEAD ATTIVO per coach:
+    // Prima prova con i coach che non hanno lead attivi
+    // Se tutti ne hanno già uno, apri a tutti (ciclo completo)
+    const coachesWithoutActiveLead = qualifiedCoaches.filter((c: any) =>
+      (activeLeadsPerCoach[c.id] || 0) === 0
+    )
+    const candidateCoaches = coachesWithoutActiveLead.length > 0
+      ? coachesWithoutActiveLead
+      : qualifiedCoaches  // tutti hanno già 1 lead → giro completo, passa al prossimo
+
     // Ordina meritocraticamente:
-    // 1) più punti community → va prima (premiamo chi è più attivo)
-    // 2) parità punti → meno lead ricevuti (equità di distribuzione)
-    // 3) parità assoluta → ID alfabetico come spareggio deterministico
-    qualifiedCoaches.sort((a: any, b: any) => {
+    // 1) più punti community → va prima
+    // 2) parità punti → meno lead storici ricevuti per quest'area
+    // 3) parità assoluta → ID alfabetico
+    candidateCoaches.sort((a: any, b: any) => {
       const aPoints = pointsPerCoach[a.id] || 0
       const bPoints = pointsPerCoach[b.id] || 0
-      if (aPoints !== bPoints) return bPoints - aPoints // più punti = prima
-      const aLeads = leadsPerCoach[a.id] || 0
-      const bLeads = leadsPerCoach[b.id] || 0
-      if (aLeads !== bLeads) return aLeads - bLeads // meno lead = prima
+      if (aPoints !== bPoints) return bPoints - aPoints
+      const aLeads = totalLeadsPerCoach[a.id] || 0
+      const bLeads = totalLeadsPerCoach[b.id] || 0
+      if (aLeads !== bLeads) return aLeads - bLeads
       return a.id.localeCompare(b.id)
     })
 
-    const selectedCoach = qualifiedCoaches[0] as any
-    console.log(`🔄 Lead balancing [${lead.priorityArea}]: ${selectedCoach.name} (${leadsPerCoach[selectedCoach.id] || 0} lead precedenti)`)
+    const selectedCoach = candidateCoaches[0] as any
+    console.log(`🔄 Lead balancing [${lead.priorityArea}]: ${selectedCoach.name} | attivi: ${activeLeadsPerCoach[selectedCoach.id] || 0} | storici: ${totalLeadsPerCoach[selectedCoach.id] || 0} | pt: ${pointsPerCoach[selectedCoach.id] || 0}`)
     return selectedCoach
 
   } catch (err) {

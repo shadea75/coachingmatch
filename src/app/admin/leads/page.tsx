@@ -154,10 +154,16 @@ export default function AdminLeadsPage() {
 
       const info: Record<string, { nextCoach: Coach | null, position: number, total: number, points: number }> = {}
 
-      // Conta i lead assegnati per coach per area (stesso criterio del cron)
+      // Conta i lead attivi (assigned/booked) per coach — per limite max 1
+      // e storico totale per area — per ordinamento equo
+      const activeLeadsPerCoach: Record<string, number> = {}
       const leadsPerCoachPerArea: Record<string, Record<string, number>> = {}
       leads.forEach(lead => {
-        if (lead.assignedCoachId && ['assigned','booked','converted'].includes(lead.status)) {
+        if (!lead.assignedCoachId) return
+        if (['assigned','booked'].includes(lead.status)) {
+          activeLeadsPerCoach[lead.assignedCoachId] = (activeLeadsPerCoach[lead.assignedCoachId] || 0) + 1
+        }
+        if (['assigned','booked','converted'].includes(lead.status)) {
           const area = lead.priorityArea
           if (!leadsPerCoachPerArea[area]) leadsPerCoachPerArea[area] = {}
           leadsPerCoachPerArea[area][lead.assignedCoachId] = (leadsPerCoachPerArea[area][lead.assignedCoachId] || 0) + 1
@@ -182,8 +188,11 @@ export default function AdminLeadsPage() {
         } catch { /* ignora */ }
       }
 
-      // Coach attivi = approvati e NON sospesi
-      const activeCoaches = coaches.filter((c: Coach) => !suspendedCoachIds.has(c.id))
+      // Coach attivi = approvati, NON sospesi, NON expired
+      // undefined/null = esentati da admin (non devono pagare)
+      const activeCoaches = coaches.filter((c: Coach) =>
+        !suspendedCoachIds.has(c.id) && c.subscriptionStatus !== 'expired'
+      )
 
       for (const areaId of Object.keys(AREA_LABELS)) {
         const qualified = activeCoaches
@@ -191,26 +200,31 @@ export default function AdminLeadsPage() {
             const areas = (c as any).lifeAreas?.length ? (c as any).lifeAreas : (c.lifeArea ? [c.lifeArea] : [])
             return areas.includes(areaId)
           })
-          .sort((a: Coach, b: Coach) => {
-            const aPoints = pointsPerCoach[a.id] || 0
-            const bPoints = pointsPerCoach[b.id] || 0
-            if (aPoints !== bPoints) return bPoints - aPoints
-            const aLeads = leadsPerCoachPerArea[areaId]?.[a.id] || 0
-            const bLeads = leadsPerCoachPerArea[areaId]?.[b.id] || 0
-            if (aLeads !== bLeads) return aLeads - bLeads
-            return a.id.localeCompare(b.id)
-          })
 
         if (qualified.length === 0) {
           info[areaId] = { nextCoach: null, position: 0, total: 0, points: 0 }
           continue
         }
 
+        // Max 1 lead attivo: preferisci coach senza lead attivi
+        const withoutActive = qualified.filter((c: Coach) => (activeLeadsPerCoach[c.id] || 0) === 0)
+        const candidates = withoutActive.length > 0 ? withoutActive : qualified
+
+        candidates.sort((a: Coach, b: Coach) => {
+          const aPoints = pointsPerCoach[a.id] || 0
+          const bPoints = pointsPerCoach[b.id] || 0
+          if (aPoints !== bPoints) return bPoints - aPoints
+          const aLeads = leadsPerCoachPerArea[areaId]?.[a.id] || 0
+          const bLeads = leadsPerCoachPerArea[areaId]?.[b.id] || 0
+          if (aLeads !== bLeads) return aLeads - bLeads
+          return a.id.localeCompare(b.id)
+        })
+
         info[areaId] = {
-          nextCoach: qualified[0],
-          position: leadsPerCoachPerArea[areaId]?.[qualified[0].id] || 0,
+          nextCoach: candidates[0],
+          position: leadsPerCoachPerArea[areaId]?.[candidates[0].id] || 0,
           total: qualified.length,
-          points: pointsPerCoach[qualified[0].id] || 0
+          points: pointsPerCoach[candidates[0].id] || 0
         }
       }
 
