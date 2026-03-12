@@ -483,7 +483,7 @@ async function findBestCoachForLead(lead: any, excludeCoachId?: string): Promise
     const allApproved = allApprovedRaw.filter((c: any) => !suspendedSet.has(c.id))
 
     // Escludi solo expired e inactive — tutto il resto (active, trial, trialing, free, undefined) = incluso
-    const EXCLUDED_STATUSES = new Set(['expired', 'inactive'])
+    const EXCLUDED_STATUSES = new Set(['expired', 'inactive', 'trial', 'trialing'])
     const activeCoaches = allApproved.filter((coach: any) => {
       const s = coach.subscriptionStatus
       return !EXCLUDED_STATUSES.has(s)
@@ -588,6 +588,51 @@ function daysSince(timestamp: any): number {
 }
 
 // =====================
+// SYNC ROUND-ROBIN
+// =====================
+
+async function syncRoundRobinCursors(): Promise<void> {
+  const leadsSnap = await adminDb.collection('leads')
+    .where('status', 'in', ['assigned', 'booked', 'converted'])
+    .get()
+
+  const coachesSnap = await adminDb.collection('coachApplications')
+    .where('status', '==', 'approved')
+    .get()
+
+  const allCoaches = coachesSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[]
+
+  // Per ogni area, traccia l'ultimo coach assegnato in ordine cronologico
+  const areaLastCoach: Record<string, { coachId: string, assignedAt: any }> = {}
+  leadsSnap.docs.forEach(d => {
+    const data = d.data()
+    const area = data.priorityArea
+    const coachId = data.assignedCoachId
+    const assignedAt = data.assignedAt
+    if (!area || !coachId) return
+    if (!areaLastCoach[area] || (assignedAt && assignedAt > areaLastCoach[area].assignedAt)) {
+      areaLastCoach[area] = { coachId, assignedAt }
+    }
+  })
+
+  const cursors: Record<string, number> = {}
+  for (const [area, { coachId }] of Object.entries(areaLastCoach)) {
+    const qualified = allCoaches
+      .filter((c: any) => {
+        const areas = c.lifeAreas || (c.lifeArea ? [c.lifeArea] : [])
+        return areas.includes(area)
+      })
+      .sort((a: any, b: any) => a.id.localeCompare(b.id))
+
+    if (qualified.length === 0) continue
+    const lastIndex = qualified.findIndex((c: any) => c.id === coachId)
+    cursors[area] = lastIndex >= 0 ? lastIndex + 1 : 1
+  }
+
+  await adminDb.collection('settings').doc('roundRobin').set(cursors, { merge: true })
+}
+
+// =====================
 // MAIN HANDLER
 // =====================
 
@@ -603,6 +648,37 @@ export async function GET(request: NextRequest) {
   }
   
   console.log('🔔 Starting lead nurturing cron job')
+
+  // Auto-sync cursori round-robin all'inizio di ogni run
+  try {
+    await syncRoundRobinCursors()
+    console.log('✅ Round-robin cursori sincronizzati')
+  } catch (syncErr) {
+    console.error('⚠️ Errore sync round-robin (non bloccante):', syncErr)
+  }
+
+  // Auto-scadenza trial: se subscriptionEndDate è passata, imposta expired
+  try {
+    const now = new Date()
+    const trialSnap = await adminDb.collection('coachApplications')
+      .where('status', '==', 'approved')
+      .where('subscriptionStatus', 'in', ['trial', 'trialing'])
+      .get()
+
+    for (const doc of trialSnap.docs) {
+      const data = doc.data()
+      const endDate = data.subscriptionEndDate?.toDate?.()
+      if (endDate && endDate < now) {
+        await adminDb.collection('coachApplications').doc(doc.id).update({
+          subscriptionStatus: 'expired',
+          updatedAt: new Date()
+        })
+        console.log(`⏰ Trial scaduto: ${data.name} (${data.email})`)
+      }
+    }
+  } catch (trialErr) {
+    console.error('⚠️ Errore controllo scadenza trial (non bloccante):', trialErr)
+  }
   
   try {
     // Carica tutti i lead non ancora convertiti
