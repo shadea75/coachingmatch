@@ -573,7 +573,7 @@ export default function AdminLeadsPage() {
             </div>
             <div className="space-y-2">
               {Object.entries(AREA_LABELS).map(([areaId, areaLabel]) => {
-                const areaCoaches = coaches.filter((c: Coach) => {
+                const areaCoaches = assignableCoaches.filter((c: Coach) => {
                   const areas = (c as any).lifeAreas?.length ? (c as any).lifeAreas : (c.lifeArea ? [c.lifeArea] : [])
                   return areas.includes(areaId)
                 })
