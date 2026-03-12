@@ -384,9 +384,15 @@ export default function AdminLeadsPage() {
     return Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24))
   }
 
+  // Coach assegnabili = approvati, non scaduti, non sospesi
+  // (subscriptionStatus undefined/null = esentati da admin)
+  const assignableCoaches = coaches.filter(coach =>
+    coach.subscriptionStatus !== 'expired' && !(coach as any).isSuspended
+  )
+
   // Coach consigliati per un lead (basati sull'area prioritaria)
   const getRecommendedCoaches = (lead: Lead) => {
-    return coaches.filter(coach => {
+    return assignableCoaches.filter(coach => {
       const coachAreas = coach.lifeAreas?.length ? coach.lifeAreas : (coach.lifeArea ? [coach.lifeArea] : [])
       return coachAreas.includes(lead.priorityArea)
     })
@@ -856,7 +862,7 @@ export default function AdminLeadsPage() {
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">-- Seleziona un coach --</option>
-                  {coaches.map(coach => (
+                  {assignableCoaches.map(coach => (
                     <option key={coach.id} value={coach.id}>
                       {coach.name} {coach.lifeArea ? `(${AREA_LABELS[coach.lifeArea] || coach.lifeArea})` : ''}
                     </option>
