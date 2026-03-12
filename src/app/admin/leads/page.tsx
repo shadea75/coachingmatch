@@ -193,7 +193,7 @@ export default function AdminLeadsPage() {
       const EXCLUDED_STATUSES = new Set(['expired', 'inactive'])
       const activeCoaches = coaches.filter((c: Coach) => {
         const s = c.subscriptionStatus
-        return !suspendedCoachIds.has(c.id) && !EXCLUDED_STATUSES.has(s)
+        return !suspendedCoachIds.has(c.id) && !EXCLUDED_STATUSES.has(s ?? '')
       })
 
       for (const areaId of Object.keys(AREA_LABELS)) {
@@ -389,7 +389,7 @@ export default function AdminLeadsPage() {
   const EXCLUDED_COACH_STATUSES = new Set(['expired', 'inactive'])
   const assignableCoaches = coaches.filter(coach => {
     const s = coach.subscriptionStatus
-    return !EXCLUDED_COACH_STATUSES.has(s) && !(coach as any).isSuspended
+    return !EXCLUDED_COACH_STATUSES.has(s ?? '') && !(coach as any).isSuspended
   })
 
   // Coach consigliati per un lead (basati sull'area prioritaria)
