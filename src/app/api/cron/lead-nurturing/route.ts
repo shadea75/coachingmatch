@@ -482,11 +482,11 @@ async function findBestCoachForLead(lead: any, excludeCoachId?: string): Promise
     }
     const allApproved = allApprovedRaw.filter((c: any) => !suspendedSet.has(c.id))
 
-    // Escludi solo expired e inactive — tutto il resto (active, trial, trialing, free, undefined) = incluso
-    const EXCLUDED_STATUSES = new Set(['expired', 'inactive', 'trial', 'trialing'])
+    // Includi solo active e free — tutto il resto (expired, inactive, trial, trialing, undefined) = escluso
+    const ALLOWED_STATUSES = new Set(['active', 'free'])
     const activeCoaches = allApproved.filter((coach: any) => {
       const s = coach.subscriptionStatus
-      return !EXCLUDED_STATUSES.has(s)
+      return s && ALLOWED_STATUSES.has(s)
     })
 
     // Coach qualificati per l'area prioritaria del lead (escluso eventuale coach precedente)
