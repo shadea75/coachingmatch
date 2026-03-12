@@ -99,6 +99,7 @@ export default function AdminLeadsPage() {
   const [selectedCoachId, setSelectedCoachId] = useState<string>('')
   const [assigning, setAssigning] = useState(false)
   const [roundRobinInfo, setRoundRobinInfo] = useState<Record<string, { nextCoach: Coach | null, position: number, total: number, points: number }>>({})
+  const [openAreaCoaches, setOpenAreaCoaches] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [backfilling, setBackfilling] = useState(false)
 
@@ -550,6 +551,77 @@ export default function AdminLeadsPage() {
               <span className="text-red-500">● Abbonamento scaduto</span>
               <span className="text-gray-400">● Stato non disponibile</span>
               <span className="text-orange-400">⚠️ Nessun coach per l'area</span>
+            </div>
+          </div>
+        )}
+
+        {/* Coach per area */}
+        {coaches.length > 0 && (
+          <div className="bg-white rounded-xl p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <Users size={18} className="text-primary-500" />
+              <h2 className="font-semibold text-charcoal">Coach per area</h2>
+              <span className="text-xs text-gray-400 ml-1">— clicca un'area per vedere i coach</span>
+            </div>
+            <div className="space-y-2">
+              {Object.entries(AREA_LABELS).map(([areaId, areaLabel]) => {
+                const areaCoaches = coaches.filter((c: Coach) => {
+                  const areas = (c as any).lifeAreas?.length ? (c as any).lifeAreas : (c.lifeArea ? [c.lifeArea] : [])
+                  return areas.includes(areaId)
+                })
+                const isOpen = openAreaCoaches === areaId
+                return (
+                  <div key={areaId} className="border border-gray-100 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setOpenAreaCoaches(isOpen ? null : areaId)}
+                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="font-medium text-sm text-charcoal">{areaLabel}</span>
+                        <span className="text-xs bg-primary-50 text-primary-600 font-semibold px-2 py-0.5 rounded-full">
+                          {areaCoaches.length} coach
+                        </span>
+                      </div>
+                      <span className="text-gray-400 text-xs">{isOpen ? '▲' : '▼'}</span>
+                    </button>
+                    {isOpen && (
+                      <div className="border-t border-gray-100 divide-y divide-gray-50">
+                        {areaCoaches.length === 0 ? (
+                          <p className="text-xs text-orange-400 italic px-4 py-3">⚠️ Nessun coach per questa area</p>
+                        ) : (
+                          areaCoaches.map((coach: Coach) => (
+                            <div key={coach.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50">
+                              <div className="flex items-center gap-3">
+                                <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-xs flex-shrink-0">
+                                  {coach.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-charcoal">{coach.name}</p>
+                                  <p className="text-xs text-gray-400">{coach.email}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {coach.subscriptionStatus === 'active' && (
+                                  <span className="text-xs bg-green-50 text-green-600 font-medium px-2 py-0.5 rounded-full">● Attivo</span>
+                                )}
+                                {coach.subscriptionStatus === 'trial' && (
+                                  <span className="text-xs bg-yellow-50 text-yellow-600 font-medium px-2 py-0.5 rounded-full">● In prova</span>
+                                )}
+                                {coach.subscriptionStatus === 'expired' && (
+                                  <span className="text-xs bg-red-50 text-red-500 font-medium px-2 py-0.5 rounded-full">● Scaduto</span>
+                                )}
+                                {!coach.subscriptionStatus && (
+                                  <span className="text-xs bg-gray-50 text-gray-400 font-medium px-2 py-0.5 rounded-full">● Esentato</span>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
