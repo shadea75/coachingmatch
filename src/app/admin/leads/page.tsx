@@ -150,16 +150,17 @@ export default function AdminLeadsPage() {
 
   const loadRoundRobinInfo = async () => {
     try {
-      const roundRobinDoc = await getDoc(doc(db, 'settings', 'roundRobin'))
-      const cursors: Record<string, number> = roundRobinDoc.exists() ? (roundRobinDoc.data() as Record<string, number>) : {}
-
       const info: Record<string, { nextCoach: Coach | null, position: number, total: number, points: number }> = {}
+
+      // Ricarica lead freschi da Firestore per evitare dati stale
+      const leadsSnap = await getDocs(collection(db, 'leads'))
+      const freshLeads = leadsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[]
 
       // Conta i lead attivi (assigned/booked) per coach — per limite max 1
       // e storico totale per area — per ordinamento equo
       const activeLeadsPerCoach: Record<string, number> = {}
       const leadsPerCoachPerArea: Record<string, Record<string, number>> = {}
-      leads.forEach(lead => {
+      freshLeads.forEach(lead => {
         if (!lead.assignedCoachId) return
         if (['assigned','booked'].includes(lead.status)) {
           activeLeadsPerCoach[lead.assignedCoachId] = (activeLeadsPerCoach[lead.assignedCoachId] || 0) + 1
@@ -503,13 +504,6 @@ export default function AdminLeadsPage() {
                   className="text-xs text-green-600 hover:text-green-800 flex items-center gap-1 disabled:opacity-50"
                 >
                   <TrendingUp size={12} /> {backfilling ? 'Ricalcolando...' : 'Ricalcola punti community'}
-                </button>
-                <button
-                  onClick={syncRoundRobin}
-                  disabled={syncing}
-                  className="text-xs text-primary-500 hover:text-primary-700 flex items-center gap-1 disabled:opacity-50"
-                >
-                  <RotateCcw size={12} /> {syncing ? 'Sincronizzando...' : 'Sincronizza con lead esistenti'}
                 </button>
                 <button
                   onClick={loadRoundRobinInfo}
