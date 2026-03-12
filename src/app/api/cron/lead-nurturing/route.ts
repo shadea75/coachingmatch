@@ -482,11 +482,11 @@ async function findBestCoachForLead(lead: any, excludeCoachId?: string): Promise
     }
     const allApproved = allApprovedRaw.filter((c: any) => !suspendedSet.has(c.id))
 
-    // Filtra coach attivi: subscriptionStatus 'active' | 'trial' | undefined/null (esentati da Debora)
-    // Escludi solo chi ha subscriptionStatus === 'expired'
+    // Escludi solo expired e inactive — tutto il resto (active, trial, trialing, free, undefined) = incluso
+    const EXCLUDED_STATUSES = new Set(['expired', 'inactive'])
     const activeCoaches = allApproved.filter((coach: any) => {
       const s = coach.subscriptionStatus
-      return s !== 'expired'
+      return !EXCLUDED_STATUSES.has(s)
     })
 
     // Coach qualificati per l'area prioritaria del lead (escluso eventuale coach precedente)

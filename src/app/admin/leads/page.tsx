@@ -189,11 +189,12 @@ export default function AdminLeadsPage() {
         } catch { /* ignora */ }
       }
 
-      // Coach attivi = approvati, NON sospesi, NON expired
-      // undefined/null = esentati da admin (non devono pagare)
-      const activeCoaches = coaches.filter((c: Coach) =>
-        !suspendedCoachIds.has(c.id) && c.subscriptionStatus !== 'expired'
-      )
+      // Escludi solo expired e inactive
+      const EXCLUDED_STATUSES = new Set(['expired', 'inactive'])
+      const activeCoaches = coaches.filter((c: Coach) => {
+        const s = c.subscriptionStatus
+        return !suspendedCoachIds.has(c.id) && !EXCLUDED_STATUSES.has(s)
+      })
 
       for (const areaId of Object.keys(AREA_LABELS)) {
         const qualified = activeCoaches
@@ -384,11 +385,12 @@ export default function AdminLeadsPage() {
     return Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24))
   }
 
-  // Coach assegnabili = approvati, non scaduti, non sospesi
-  // (subscriptionStatus undefined/null = esentati da admin)
-  const assignableCoaches = coaches.filter(coach =>
-    coach.subscriptionStatus !== 'expired' && !(coach as any).isSuspended
-  )
+  // Escludi solo expired e inactive
+  const EXCLUDED_COACH_STATUSES = new Set(['expired', 'inactive'])
+  const assignableCoaches = coaches.filter(coach => {
+    const s = coach.subscriptionStatus
+    return !EXCLUDED_COACH_STATUSES.has(s) && !(coach as any).isSuspended
+  })
 
   // Coach consigliati per un lead (basati sull'area prioritaria)
   const getRecommendedCoaches = (lead: Lead) => {
