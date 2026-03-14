@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     if (type === 'coach_registration') {
       // Email al coach
       await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: data.email,
         subject: '✅ Registrazione ricevuta - CoachaMi',
         html: `
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
       // Email di notifica all'admin
       await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: 'debora.carofiglio@gmail.com', // Cambia con la tua email admin
         subject: '🆕 Nuova registrazione coach - ' + data.name,
         html: `

@@ -302,7 +302,7 @@ export async function POST(request: NextRequest) {
     if (resend) {
       try {
         const emailResult = await resend.emails.send({
-          from: 'CoachaMi <noreply@coachami.it>',
+          from: 'CoachaMi <coachami@coachami.it>',
           to: email,
           subject: `${name}, ecco il tuo Report completo della Ruota della Vita 🎯`,
           html: emailHtml
@@ -410,7 +410,7 @@ export async function POST(request: NextRequest) {
 </html>`
 
         await resend.emails.send({
-          from: 'CoachaMi <noreply@coachami.it>',
+          from: 'CoachaMi <coachami@coachami.it>',
           to: 'debora.carofiglio@gmail.com',
           subject: `🎉 Nuovo lead: ${name} — ${AREA_LABELS[priorityArea]} (${typeof lifeScore === 'number' ? lifeScore.toFixed(1) : lifeScore}/10)`,
           html: adminEmailHtml

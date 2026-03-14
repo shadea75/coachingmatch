@@ -179,7 +179,7 @@ export async function GET(request: NextRequest) {
                 
                 if (resend) {
                   await resend.emails.send({
-                    from: 'CoachaMi <noreply@coachami.it>',
+                    from: 'CoachaMi <coachami@coachami.it>',
                     to: coachEmail,
                     subject: profNotif.subject,
                     html
@@ -404,7 +404,7 @@ async function sendNotificationEmail(notification: any) {
   const html = generateNotificationEmailHtml(notification)
   
   await resend.emails.send({
-    from: 'CoachaMi <noreply@coachami.it>',
+    from: 'CoachaMi <coachami@coachami.it>',
     to: notification.coachEmail,
     subject: notification.subject,
     html

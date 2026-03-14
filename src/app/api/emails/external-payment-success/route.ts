@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     // Email al cliente
     await resend.emails.send({
-      from: 'CoachaMi <noreply@coachami.it>',
+      from: 'CoachaMi <coachami@coachami.it>',
       to: clientEmail,
       subject: `✅ Pagamento confermato - Sessione ${sessionNumber}/${totalSessions}`,
       html: `
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     // Email al coach
     await resend.emails.send({
-      from: 'CoachaMi <noreply@coachami.it>',
+      from: 'CoachaMi <coachami@coachami.it>',
       to: coachEmail,
       subject: `💰 Nuovo pagamento ricevuto da ${clientName}`,
       html: `

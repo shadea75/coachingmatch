@@ -713,7 +713,7 @@ export async function GET(request: NextRequest) {
             // Email al vecchio coach
             if (resend && oldCoach?.email) {
               await resend.emails.send({
-                from: 'CoachaMi <noreply@coachami.it>',
+                from: 'CoachaMi <coachami@coachami.it>',
                 to: oldCoach.email,
                 subject: `⚠️ Lead riassegnato: ${lead.name}`,
                 html: generateCoachLostLeadEmail(oldCoach, lead)
@@ -723,7 +723,7 @@ export async function GET(request: NextRequest) {
             // Email al nuovo coach
             if (resend && newCoach.email) {
               await resend.emails.send({
-                from: 'CoachaMi <noreply@coachami.it>',
+                from: 'CoachaMi <coachami@coachami.it>',
                 to: newCoach.email,
                 subject: `🎉 Nuovo lead assegnato: ${lead.name}`,
                 html: generateCoachNotificationEmail(newCoach, lead)
@@ -733,7 +733,7 @@ export async function GET(request: NextRequest) {
             // Email al lead
             if (resend) {
               await resend.emails.send({
-                from: 'CoachaMi <noreply@coachami.it>',
+                from: 'CoachaMi <coachami@coachami.it>',
                 to: lead.email,
                 subject: `🔄 Ti abbiamo trovato un nuovo coach!`,
                 html: generateLeadReassignedEmail(lead, newCoach)
@@ -762,7 +762,7 @@ export async function GET(request: NextRequest) {
         if (lead.status === 'new' && daysOld >= 3 && lead.reminderCount === 0) {
           if (resend) {
             await resend.emails.send({
-              from: 'CoachaMi <noreply@coachami.it>',
+              from: 'CoachaMi <coachami@coachami.it>',
               to: lead.email,
               subject: NURTURING_SCHEDULE[0].subject.replace('{{name}}', lead.name),
               html: generateReminder1Email(lead)
@@ -786,7 +786,7 @@ export async function GET(request: NextRequest) {
           
           if (topCoach && resend) {
             await resend.emails.send({
-              from: 'CoachaMi <noreply@coachami.it>',
+              from: 'CoachaMi <coachami@coachami.it>',
               to: lead.email,
               subject: NURTURING_SCHEDULE[1].subject,
               html: generateReminder2Email(lead, topCoach)
@@ -813,7 +813,7 @@ export async function GET(request: NextRequest) {
             // Email al lead
             if (resend) {
               await resend.emails.send({
-                from: 'CoachaMi <noreply@coachami.it>',
+                from: 'CoachaMi <coachami@coachami.it>',
                 to: lead.email,
                 subject: NURTURING_SCHEDULE[2].subject,
                 html: generateAutoAssignEmail(lead, assignedCoach)
@@ -822,7 +822,7 @@ export async function GET(request: NextRequest) {
               // Email al coach
               if (assignedCoach.email) {
                 await resend.emails.send({
-                  from: 'CoachaMi <noreply@coachami.it>',
+                  from: 'CoachaMi <coachami@coachami.it>',
                   to: assignedCoach.email,
                   subject: `🎉 Nuovo lead assegnato: ${lead.name}`,
                   html: generateCoachNotificationEmail(assignedCoach, lead)

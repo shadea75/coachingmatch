@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     // Email al coachee
     const { data, error } = await resend.emails.send({
-      from: 'CoachaMi <noreply@coachami.it>',
+      from: 'CoachaMi <coachami@coachami.it>',
       to: coacheeEmail,
       subject: `🎯 Nuova offerta da ${coachName}`,
       html: `

@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         const html = generateEmailHtml(coach.name, personalizedBody)
         
         await resend.emails.send({
-          from: 'CoachaMi <noreply@coachami.it>',
+          from: 'CoachaMi <coachami@coachami.it>',
           to: coach.email,
           subject: personalizedSubject,
           html

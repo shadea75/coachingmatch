@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (coacheeEmail) {
       emails.push(
         resend.emails.send({
-          from: 'CoachaMi <noreply@coachami.it>',
+          from: 'CoachaMi <coachami@coachami.it>',
           to: coacheeEmail,
           subject: `✅ Pagamento confermato - Sessione #${sessionNumber}`,
           html: `
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     if (coachEmail) {
       emails.push(
         resend.emails.send({
-          from: 'CoachaMi <noreply@coachami.it>',
+          from: 'CoachaMi <coachami@coachami.it>',
           to: coachEmail,
           subject: `💰 Nuovo pagamento ricevuto - ${coacheeName}`,
           html: `
