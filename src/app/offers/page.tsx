@@ -132,7 +132,7 @@ export default function CoacheeOffersPage() {
         setOffers(loadedOffers)
 
         // Carica tier abbonamento dei coach coinvolti nelle offerte
-        const uniqueCoachIds = [...new Set(loadedOffers.map(o => o.coachId))]
+        const uniqueCoachIds = Array.from(new Set(loadedOffers.map(o => o.coachId)))
         const tierMap: Record<string, string> = {}
         await Promise.all(uniqueCoachIds.map(async (coachId) => {
           try {
