@@ -34,7 +34,7 @@ import { collection, query, where, getDocs, doc, getDoc, orderBy, updateDoc, ser
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { user, signOut, canAccessAdmin } = useAuth()
+  const { user, signOut, canAccessAdmin, loading } = useAuth()
   const [activeTab, setActiveTab] = useState<'overview' | 'calls' | 'community'>('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [stats, setStats] = useState({ activeCoaches: 0, totalCoachees: 0 })
@@ -108,14 +108,17 @@ export default function DashboardPage() {
     }
   }
   
-  // Redirect coach alla loro dashboard, admin alla dashboard admin
+  // Redirect in base al ruolo (o al login se non loggato)
   useEffect(() => {
-    if (user?.role === 'admin') {
+    if (loading) return
+    if (!user) {
+      router.replace('/login')
+    } else if (user.role === 'admin') {
       router.push('/admin')
-    } else if (user?.role === 'coach') {
+    } else if (user.role === 'coach') {
       router.push('/coach/dashboard')
     }
-  }, [user?.role, router])
+  }, [user, loading, router])
   
   // Carica statistiche reali e offerte pendenti
   useEffect(() => {
