@@ -5,8 +5,9 @@ import Link from 'next/link'
 import {
   Check, ArrowRight, ChevronDown, Star, Users, TrendingUp,
   Calendar, FileText, CreditCard, Globe, Megaphone, Shield,
-  Award, Zap, BookOpen, BarChart3, HeartHandshake, Sparkles
+  Award, Zap, BookOpen, BarChart3, HeartHandshake
 } from 'lucide-react'
+import Logo from '@/components/Logo'
 
 const benefits = [
   {
@@ -42,7 +43,7 @@ const benefits = [
     color: '#EC4899',
     bg: '#FDF2F8',
     title: 'Community esclusiva Coach',
-    desc: 'Forum aperto a coach e coachee, discussioni pubbliche indicizzate su Google. Costruisci la tua reputazione professionale.',
+    desc: 'Coach Corner, masterclass, risorse e colleghi con cui confrontarsi. Non sei solo: sei parte di una rete di professionisti in crescita.',
   },
   {
     icon: Globe,
@@ -100,6 +101,7 @@ const plans = [
       'Matching illimitato con coachee',
       { text: 'Ufficio Virtuale completo', isNew: true },
       'Gestione clienti esterni (CRM)',
+      'Offerte e percorsi personalizzati',
       'Google Calendar sync',
       'Report guadagni mensili',
     ],
@@ -141,6 +143,8 @@ const plans = [
       'Commissione ridotta: 20% (invece di 30%)',
       'Boost visibilità da engagement Community',
       'Pagina profilo personalizzata premium',
+      'Pubblicazione articoli sul blog',
+      'Webinar e masterclass sulla piattaforma',
       'Account manager dedicato',
       'Early access nuove funzionalità',
     ],
@@ -179,21 +183,18 @@ export default function PricingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   return (
-    <div className="min-h-screen bg-[#FDFAF6]">
+    <div className="min-h-screen bg-cream">
 
       {/* HEADER */}
       <header className="flex items-center justify-between px-6 py-5 max-w-7xl mx-auto">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-9 h-9 bg-[#D4A574] rounded-xl flex items-center justify-center">
-            <Sparkles className="text-white" size={18} />
-          </div>
-          <span className="text-xl font-bold text-[#1a1a1a]">CoachaMi</span>
+          <Logo size="sm" />
         </Link>
         <div className="flex items-center gap-4">
           <Link href="/login" className="text-sm text-gray-500 hover:text-gray-800 transition-colors">
             Accedi
           </Link>
-          <Link href="/coach/apply" className="bg-[#D4A574] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#C4956A] transition-colors">
+          <Link href="/coach/apply" className="bg-[#EC7711] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#D4600A] transition-colors">
             Candidati →
           </Link>
         </div>
@@ -205,14 +206,14 @@ export default function PricingPage() {
         <div className="absolute top-20 -left-20 w-[300px] h-[300px] rounded-full bg-amber-50 blur-2xl pointer-events-none" />
 
         <div className="max-w-4xl mx-auto text-center relative">
-          <div className="inline-flex items-center gap-2 bg-white border border-orange-200 px-5 py-2 rounded-full text-xs font-semibold text-[#D4A574] uppercase tracking-wider mb-8 shadow-sm">
-            <span className="w-1.5 h-1.5 bg-[#D4A574] rounded-full" />
+          <div className="inline-flex items-center gap-2 bg-white border border-orange-200 px-5 py-2 rounded-full text-xs font-semibold text-[#EC7711] uppercase tracking-wider mb-8 shadow-sm">
+            <span className="w-1.5 h-1.5 bg-[#EC7711] rounded-full" />
             Per coach professionisti italiani
           </div>
 
-          <h1 className="text-5xl md:text-6xl lg:text-[68px] font-bold leading-[1.1] text-[#1a1a1a] mb-7 tracking-tight">
+          <h1 className="text-5xl md:text-6xl lg:text-[68px] font-serif font-bold leading-[1.1] text-charcoal mb-7 tracking-tight">
             Smetti di cercare clienti.<br />
-            <span className="text-[#D4A574]">Lascia che vengano da te.</span>
+            <span className="text-[#EC7711]">Lascia che vengano da te.</span>
           </h1>
 
           <p className="text-xl text-gray-500 max-w-2xl mx-auto leading-relaxed mb-10">
@@ -222,7 +223,7 @@ export default function PricingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/coach/apply"
-              className="inline-flex items-center gap-2 bg-[#D4A574] text-white px-8 py-4 rounded-2xl text-lg font-bold hover:bg-[#C4956A] transition-all hover:-translate-y-0.5 shadow-[0_8px_32px_rgba(212,165,116,0.35)]"
+              className="inline-flex items-center gap-2 bg-[#EC7711] text-white px-8 py-4 rounded-2xl text-lg font-bold hover:bg-[#D4600A] transition-all hover:-translate-y-0.5 shadow-[0_8px_32px_rgba(236,119,17,0.35)]"
             >
               Iscriviti come Coach
               <ArrowRight size={20} />
@@ -244,14 +245,14 @@ export default function PricingPage() {
       </section>
 
       {/* TRASFORMAZIONE */}
-      <section className="bg-[#1a1a1a] text-white py-20 px-6 relative overflow-hidden">
+      <section className="bg-charcoal text-white py-20 px-6 relative overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-[radial-gradient(ellipse,rgba(212,165,116,0.08)_0%,transparent_70%)] pointer-events-none" />
         <div className="max-w-4xl mx-auto relative">
           <div className="text-center mb-14">
-            <p className="text-[#D4A574] text-sm font-bold uppercase tracking-widest mb-3">La tua trasformazione</p>
+            <p className="text-[#EC7711] text-sm font-bold uppercase tracking-widest mb-3">La tua trasformazione</p>
             <h2 className="text-4xl md:text-5xl font-bold leading-tight">
               Da coach che si vende<br />
-              <span className="text-[#D4A574]">a coach che viene cercato</span>
+              <span className="text-[#EC7711]">a coach che viene cercato</span>
             </h2>
           </div>
           <div className="space-y-3">
@@ -261,7 +262,7 @@ export default function PricingPage() {
                   <span className="text-red-400 text-lg mt-0.5 flex-shrink-0">✗</span>
                   <p className="text-white/50 text-sm leading-snug">{t.before}</p>
                 </div>
-                <ArrowRight size={16} className="text-[#D4A574] flex-shrink-0" />
+                <ArrowRight size={16} className="text-[#EC7711] flex-shrink-0" />
                 <div className="flex items-start gap-3">
                   <span className="text-emerald-400 text-lg mt-0.5 flex-shrink-0">✓</span>
                   <p className="text-white text-sm font-medium leading-snug">{t.after}</p>
@@ -276,8 +277,8 @@ export default function PricingPage() {
       <section className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-[#D4A574] text-sm font-bold uppercase tracking-widest mb-3">Perché scegliere CoachaMi</p>
-            <h2 className="text-4xl md:text-5xl font-bold text-[#1a1a1a] leading-tight">
+            <p className="text-[#EC7711] text-sm font-bold uppercase tracking-widest mb-3">Perché scegliere CoachaMi</p>
+            <h2 className="text-4xl md:text-5xl font-bold text-charcoal leading-tight">
               Tutto quello che ti serve<br />per far crescere il tuo business
             </h2>
           </div>
@@ -287,7 +288,7 @@ export default function PricingPage() {
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-5" style={{ background: b.bg }}>
                   <b.icon size={22} style={{ color: b.color }} />
                 </div>
-                <h3 className="text-lg font-bold text-[#1a1a1a] mb-2">{b.title}</h3>
+                <h3 className="text-lg font-bold text-charcoal mb-2">{b.title}</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">{b.desc}</p>
               </div>
             ))}
@@ -298,7 +299,7 @@ export default function PricingPage() {
       {/* MARKETING BANNER */}
       <section className="px-6 pb-20">
         <div className="max-w-5xl mx-auto">
-          <div className="bg-gradient-to-br from-[#D4A574] to-[#C4956A] rounded-3xl p-10 md:p-14 text-white relative overflow-hidden">
+          <div className="bg-gradient-to-br from-[#EC7711] to-[#D4600A] rounded-3xl p-10 md:p-14 text-white relative overflow-hidden">
             <div className="absolute -right-16 -top-16 w-64 h-64 bg-white/10 rounded-full blur-2xl" />
             <div className="absolute -left-8 -bottom-8 w-40 h-40 bg-white/5 rounded-full" />
             <div className="relative grid md:grid-cols-2 gap-8 items-center">
@@ -335,11 +336,11 @@ export default function PricingPage() {
       </section>
 
       {/* UFFICIO VIRTUALE */}
-      <section className="bg-[#F8F4EF] py-20 px-6">
+      <section className="bg-cream py-20 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-[#D4A574] text-sm font-bold uppercase tracking-widest mb-3">Ufficio Virtuale</p>
-            <h2 className="text-4xl font-bold text-[#1a1a1a]">Il tuo studio coaching, sempre con te</h2>
+            <p className="text-[#EC7711] text-sm font-bold uppercase tracking-widest mb-3">Ufficio Virtuale</p>
+            <h2 className="text-4xl font-bold text-charcoal">Il tuo studio coaching, sempre con te</h2>
             <p className="text-gray-500 mt-3 max-w-xl mx-auto">Gestisci l&apos;intero ciclo di vita dei tuoi clienti da un&apos;unica dashboard professionale.</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -355,9 +356,9 @@ export default function PricingPage() {
             ].map((item, i) => (
               <div key={i} className="bg-white rounded-2xl p-5 border border-black/[0.04] text-center hover:shadow-md transition-all">
                 <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center mx-auto mb-3">
-                  <item.icon size={18} className="text-[#D4A574]" />
+                  <item.icon size={18} className="text-[#EC7711]" />
                 </div>
-                <p className="font-bold text-sm text-[#1a1a1a] mb-1">{item.label}</p>
+                <p className="font-bold text-sm text-charcoal mb-1">{item.label}</p>
                 <p className="text-xs text-gray-400 leading-snug">{item.desc}</p>
               </div>
             ))}
@@ -370,15 +371,15 @@ export default function PricingPage() {
         <div className="max-w-4xl mx-auto">
           <div className="grid md:grid-cols-2 gap-10 items-center">
             <div>
-              <p className="text-[#D4A574] text-sm font-bold uppercase tracking-widest mb-4">Community</p>
-              <h2 className="text-4xl font-bold text-[#1a1a1a] mb-5 leading-tight">Non sei solo.<br />Sei in ottima compagnia.</h2>
+              <p className="text-[#EC7711] text-sm font-bold uppercase tracking-widest mb-4">Community</p>
+              <h2 className="text-4xl font-bold text-charcoal mb-5 leading-tight">Non sei solo.<br />Sei in ottima compagnia.</h2>
               <p className="text-gray-500 leading-relaxed mb-7">
-                La community di CoachaMi è aperta a coach e coachee. Un forum dove confrontarsi, condividere esperienze e costruire la tua reputazione professionale.
+                La community Coach Corner è riservata ai coach approvati. Confrontati con colleghi, accedi a risorse esclusive, partecipa a masterclass e costruisci la tua reputazione professionale.
               </p>
               <div className="space-y-3">
                 {[
-                  'Forum aperto a coach e coachee',
-                  'Discussioni pubbliche indicizzate su Google',
+                  'Coach Corner: forum riservato ai professionisti',
+                  'Masterclass e webinar mensili',
                   'Risorse, template e guide pratiche',
                   'Leaderboard e gamification per crescere',
                   'Network con coach di tutta Italia',
@@ -392,10 +393,10 @@ export default function PricingPage() {
                 ))}
               </div>
             </div>
-            <div className="bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] rounded-3xl p-8 text-white">
+            <div className="bg-gradient-to-br from-charcoal to-[#3a3f41] rounded-3xl p-8 text-white">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-[#D4A574]/20 rounded-xl flex items-center justify-center">
-                  <Zap size={18} className="text-[#D4A574]" />
+                <div className="w-10 h-10 bg-[#EC7711]/20 rounded-xl flex items-center justify-center">
+                  <Zap size={18} className="text-[#EC7711]" />
                 </div>
                 <div>
                   <p className="font-bold">Sistema a punti</p>
@@ -408,7 +409,7 @@ export default function PricingPage() {
                   { level: '⭐ Rising', pts: '100 pt', color: '#F59E0B' },
                   { level: '🔥 Pro', pts: '300 pt', color: '#F97316' },
                   { level: '💎 Elite', pts: '600 pt', color: '#6366F1' },
-                  { level: '👑 Legend', pts: '1000 pt', color: '#D4A574' },
+                  { level: '👑 Legend', pts: '1000 pt', color: '#EC7711' },
                 ].map((l, i) => (
                   <div key={i} className="flex items-center justify-between bg-white/[0.06] rounded-xl px-4 py-2.5">
                     <span className="text-sm font-medium">{l.level}</span>
@@ -423,18 +424,18 @@ export default function PricingPage() {
       </section>
 
       {/* PRICING */}
-      <section className="bg-[#F8F4EF] py-20 px-6">
+      <section className="bg-cream py-20 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
-            <p className="text-[#D4A574] text-sm font-bold uppercase tracking-widest mb-3">Piani e prezzi</p>
-            <h2 className="text-4xl md:text-5xl font-bold text-[#1a1a1a] mb-4">Scegli il piano giusto per te</h2>
+            <p className="text-[#EC7711] text-sm font-bold uppercase tracking-widest mb-3">Piani e prezzi</p>
+            <h2 className="text-4xl md:text-5xl font-bold text-charcoal mb-4">Scegli il piano giusto per te</h2>
             <p className="text-gray-500 text-lg">Inizia gratis per 14 giorni. Cancella quando vuoi.</p>
             <div className="flex items-center justify-center gap-4 mt-8">
-              <span className={`text-sm font-medium transition-colors ${!isAnnual ? 'text-[#1a1a1a]' : 'text-gray-400'}`}>Mensile</span>
-              <button onClick={() => setIsAnnual(!isAnnual)} className={`w-14 h-[30px] rounded-full relative transition-colors ${isAnnual ? 'bg-[#D4A574]' : 'bg-[#D4A574]/40'}`}>
+              <span className={`text-sm font-medium transition-colors ${!isAnnual ? 'text-charcoal' : 'text-gray-400'}`}>Mensile</span>
+              <button onClick={() => setIsAnnual(!isAnnual)} className={`w-14 h-[30px] rounded-full relative transition-colors ${isAnnual ? 'bg-[#EC7711]' : 'bg-[#EC7711]/40'}`}>
                 <div className={`w-6 h-6 bg-white rounded-full absolute top-[3px] shadow-md transition-transform duration-300 ${isAnnual ? 'translate-x-[29px]' : 'translate-x-[3px]'}`} />
               </button>
-              <span className={`text-sm font-medium transition-colors ${isAnnual ? 'text-[#1a1a1a]' : 'text-gray-400'}`}>Annuale</span>
+              <span className={`text-sm font-medium transition-colors ${isAnnual ? 'text-charcoal' : 'text-gray-400'}`}>Annuale</span>
               {isAnnual && <span className="text-xs font-bold text-white bg-emerald-500 px-3 py-1 rounded-full">Risparmi 2 mesi!</span>}
             </div>
           </div>
@@ -444,13 +445,13 @@ export default function PricingPage() {
               <div
                 key={plan.id}
                 className={`rounded-3xl p-8 relative border-[1.5px] transition-all duration-300 hover:-translate-y-1 ${
-                  plan.popular ? 'border-[#D4A574] bg-white scale-[1.03] shadow-[0_16px_48px_rgba(212,165,116,0.15)]'
-                    : plan.elite ? 'border-transparent bg-[#1a1a1a] text-white'
+                  plan.popular ? 'border-[#EC7711] bg-white scale-[1.03] shadow-[0_16px_48px_rgba(212,165,116,0.15)]'
+                    : plan.elite ? 'border-transparent bg-charcoal text-white'
                     : 'border-black/[0.06] bg-white hover:shadow-lg'
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#D4A574] text-white px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap">⭐ Più scelto</div>
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#EC7711] text-white px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap">⭐ Più scelto</div>
                 )}
                 <div className={`w-12 h-12 rounded-[14px] flex items-center justify-center text-[22px] mb-5 ${plan.elite ? 'bg-white/10' : 'bg-orange-50'}`}>{plan.icon}</div>
                 <div className={`text-[13px] font-bold uppercase tracking-[1.5px] mb-1 ${plan.elite ? 'text-white/50' : 'text-gray-400'}`}>{plan.name}</div>
@@ -467,9 +468,9 @@ export default function PricingPage() {
                 <Link
                   href={`/coach/apply?plan=${plan.id}`}
                   className={`block w-full py-3.5 rounded-[14px] text-center text-[15px] font-bold transition-all duration-200 mb-7 ${
-                    plan.ctaStyle === 'primary' ? 'bg-[#D4A574] text-white shadow-[0_4px_16px_rgba(212,165,116,0.35)] hover:bg-[#C4956A]'
-                      : plan.ctaStyle === 'elite' ? 'bg-white text-[#1a1a1a] hover:bg-amber-50'
-                      : 'border-[1.5px] border-black/10 text-[#1a1a1a] hover:border-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-white'
+                    plan.ctaStyle === 'primary' ? 'bg-[#EC7711] text-white shadow-[0_4px_16px_rgba(236,119,17,0.35)] hover:bg-[#D4600A]'
+                      : plan.ctaStyle === 'elite' ? 'bg-white text-charcoal hover:bg-amber-50'
+                      : 'border-[1.5px] border-black/10 text-charcoal hover:border-charcoal hover:bg-charcoal hover:text-white'
                   }`}
                 >
                   Inizia ora
@@ -482,12 +483,12 @@ export default function PricingPage() {
                     const isNew = typeof feature === 'object' && feature.isNew
                     return (
                       <div key={fi} className="flex items-start gap-2.5 text-sm leading-[1.45]">
-                        <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] mt-0.5 ${plan.elite ? 'bg-amber-500/15 text-amber-400' : 'bg-orange-50 text-[#D4A574]'}`}>
+                        <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] mt-0.5 ${plan.elite ? 'bg-amber-500/15 text-amber-400' : 'bg-orange-50 text-[#EC7711]'}`}>
                           <Check size={12} strokeWidth={3} />
                         </span>
                         <span>
                           {text}
-                          {isNew && <span className={`inline-block ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold align-middle ${plan.elite ? 'bg-amber-500/20 text-amber-400' : 'bg-orange-100 text-[#D4A574]'}`}>NEW</span>}
+                          {isNew && <span className={`inline-block ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold align-middle ${plan.elite ? 'bg-amber-500/20 text-amber-400' : 'bg-orange-100 text-[#EC7711]'}`}>NEW</span>}
                         </span>
                       </div>
                     )
@@ -503,7 +504,7 @@ export default function PricingPage() {
       <section className="py-20 px-6">
         <div className="max-w-3xl mx-auto">
           <div className="bg-white rounded-3xl p-10 border border-black/[0.05] text-center shadow-sm">
-            <h2 className="text-3xl font-bold text-[#1a1a1a] mb-3">Come funzionano i tuoi guadagni</h2>
+            <h2 className="text-3xl font-bold text-charcoal mb-3">Come funzionano i tuoi guadagni</h2>
             <p className="text-gray-400 leading-relaxed mb-8">Per ogni sessione prenotata tramite CoachaMi, tratteniamo solo una commissione. Il resto è direttamente tuo.</p>
             <div className="flex items-center justify-center gap-10 flex-wrap mb-6">
               <div className="text-center">
@@ -512,7 +513,7 @@ export default function PricingPage() {
               </div>
               <div className="text-3xl text-gray-200">→</div>
               <div className="text-center">
-                <div className="text-6xl font-bold text-[#D4A574]/50">30%</div>
+                <div className="text-6xl font-bold text-[#EC7711]/50">30%</div>
                 <div className="text-sm text-gray-400 mt-1">Piattaforma</div>
               </div>
             </div>
@@ -524,15 +525,15 @@ export default function PricingPage() {
       </section>
 
       {/* FAQ */}
-      <section className="bg-[#F8F4EF] py-20 px-6">
+      <section className="bg-cream py-20 px-6">
         <div className="max-w-2xl mx-auto">
-          <h2 className="text-4xl font-bold text-center text-[#1a1a1a] mb-12">Domande frequenti</h2>
+          <h2 className="text-4xl font-bold text-center text-charcoal mb-12">Domande frequenti</h2>
           <div className="space-y-0">
             {faqs.map((faq, i) => (
               <div key={i} className="border-b border-black/[0.08] cursor-pointer" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
                 <div className="flex justify-between items-center py-5">
-                  <span className="font-semibold text-base pr-4 text-[#1a1a1a]">{faq.q}</span>
-                  <ChevronDown size={20} className={`text-[#D4A574] flex-shrink-0 transition-transform duration-300 ${openFaq === i ? 'rotate-180' : ''}`} />
+                  <span className="font-semibold text-base pr-4 text-charcoal">{faq.q}</span>
+                  <ChevronDown size={20} className={`text-[#EC7711] flex-shrink-0 transition-transform duration-300 ${openFaq === i ? 'rotate-180' : ''}`} />
                 </div>
                 <div className={`overflow-hidden transition-all duration-300 text-sm text-gray-500 leading-relaxed ${openFaq === i ? 'max-h-[300px] pb-5' : 'max-h-0'}`}>
                   {faq.a}
@@ -544,17 +545,17 @@ export default function PricingPage() {
       </section>
 
       {/* BOTTOM CTA */}
-      <section className="bg-[#1a1a1a] text-white text-center px-6 py-20 relative overflow-hidden">
+      <section className="bg-charcoal text-white text-center px-6 py-20 relative overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-[radial-gradient(ellipse,rgba(212,165,116,0.12)_0%,transparent_70%)] pointer-events-none" />
         <div className="relative">
-          <p className="text-[#D4A574] text-sm font-bold uppercase tracking-widest mb-4">Pronto a iniziare?</p>
+          <p className="text-[#EC7711] text-sm font-bold uppercase tracking-widest mb-4">Pronto a iniziare?</p>
           <h2 className="text-4xl md:text-5xl font-bold mb-5 leading-tight">
             Il tuo prossimo cliente<br />ti sta cercando ora.
           </h2>
           <p className="text-white/50 text-lg mb-10 max-w-md mx-auto">
             Iscriviti, completa il profilo e inizia a ricevere lead qualificati. 14 giorni gratis, senza carta di credito.
           </p>
-          <Link href="/coach/apply" className="inline-flex items-center gap-3 bg-[#D4A574] text-white px-10 py-5 rounded-2xl text-lg font-bold hover:bg-[#C4956A] transition-all hover:-translate-y-0.5 shadow-[0_8px_32px_rgba(212,165,116,0.3)]">
+          <Link href="/coach/apply" className="inline-flex items-center gap-3 bg-[#EC7711] text-white px-10 py-5 rounded-2xl text-lg font-bold hover:bg-[#D4600A] transition-all hover:-translate-y-0.5 shadow-[0_8px_32px_rgba(212,165,116,0.3)]">
             Iscriviti come Coach
             <ArrowRight size={20} />
           </Link>
