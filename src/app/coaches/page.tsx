@@ -453,19 +453,16 @@ function CoachesContent() {
                           {/* Info */}
                           <div className="p-4 bg-white border-t border-gray-100">
                             <h3 className="text-lg font-bold text-charcoal mb-1">{coach.name}</h3>
-                            <p className="text-sm text-primary-600 font-medium mb-2">
-                              {areaLabels[0] || coach.specializations?.focusTopics?.[0] || 'Life Coach'}
-                            </p>
-                            
-                            {/* Match Reasons */}
-                            {result.matchReasons && result.matchReasons.length > 0 && result.matchReasons[0]?.label && (
-                              <div className="mb-3">
-                                <p className="text-xs text-gray-500 flex items-center gap-1">
-                                  <CheckCircle2 size={12} className="text-green-500" />
-                                  {result.matchReasons[0].label}
-                                </p>
-                              </div>
-                            )}
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {areaLabels.length > 0
+                                ? areaLabels.map((label, i) => (
+                                    <span key={i} className="text-xs text-primary-600 font-medium bg-primary-50 px-2 py-0.5 rounded-full">
+                                      {label}
+                                    </span>
+                                  ))
+                                : <span className="text-xs text-primary-600 font-medium">Life Coach</span>
+                              }
+                            </div>
                             
                             {/* Rating */}
                             {(coach.reviewCount || 0) > 0 && (
