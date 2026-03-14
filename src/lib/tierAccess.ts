@@ -116,7 +116,8 @@ export const TIER_CONFIG: Record<CoachTier, {
 }
 
 export function getTierConfig(tier?: string | null) {
-  return TIER_CONFIG[(tier as CoachTier) || 'starter'] || TIER_CONFIG.starter
+  const normalized = tier === 'free' ? 'starter' : tier
+  return TIER_CONFIG[(normalized as CoachTier) || 'starter'] || TIER_CONFIG.starter
 }
 
 export function getCommissionSplit(tier?: string | null) {
