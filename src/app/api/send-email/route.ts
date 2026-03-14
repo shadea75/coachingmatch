@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     // =====================================================
     if (type === 'coach_registration') {
       const coachEmailResult = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: data.email,
         subject: '✅ Registrazione ricevuta - CoachaMi',
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       })
       
       const adminEmailResult = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: 'coach@coachami.it',
         subject: '🆕 Nuova registrazione coach - ' + data.name,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     // =====================================================
     if (type === 'coach_approved') {
       const result = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: data.email,
         subject: '🎉 Sei stato approvato! - CoachaMi',
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       const { coachName, coachEmail, coacheeName, coacheeEmail, date, time, duration } = data
       
       const coacheeEmailResult = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coacheeEmail,
         subject: `⏳ Richiesta inviata a ${coachName} - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
       })
       
       const coachEmailResult = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coachEmail,
         subject: `📥 Nuova richiesta da ${coacheeName} - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
       const calendarButton = googleCalendarUrl ? `<div style="text-align: center; margin: 20px 0;"><a href="${googleCalendarUrl}" target="_blank" style="display: inline-block; background: #4285F4; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none;">📅 Aggiungi a Google Calendar</a></div>` : ''
       
       const coacheeEmailResult = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coacheeEmail,
         subject: `✅ Prenotazione confermata con ${coachName} - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
       })
       
       const coachEmailResult = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coachEmail,
         subject: `📅 Sessione confermata con ${coacheeName} - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -261,7 +261,7 @@ export async function POST(request: NextRequest) {
       const { coachName, coachEmail, coacheeName, coacheeEmail, objectives, budget, notes } = data
       
       const coachEmailResult = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coachEmail,
         subject: `💼 Nuova richiesta offerta da ${coacheeName} - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -295,7 +295,7 @@ export async function POST(request: NextRequest) {
       const reasonText = reason === 'rejected' ? 'non ha potuto accettare' : 'ha annullato'
       
       const coacheeEmailResult = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coacheeEmail,
         subject: `❌ Sessione annullata - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -326,7 +326,7 @@ export async function POST(request: NextRequest) {
       const { coachName, coacheeName, coacheeEmail, date, time, coachId } = data
       
       const coacheeEmailResult = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coacheeEmail,
         subject: `🔄 Sessione da riprogrammare - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -362,7 +362,7 @@ export async function POST(request: NextRequest) {
       const coachEarning = coachPayout || (paidByCoachee * 0.70)
       
       const coacheeEmailResult = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coacheeEmail,
         subject: `✅ Pagamento confermato - ${offerTitle} - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -386,7 +386,7 @@ export async function POST(request: NextRequest) {
       })
       
       const coachEmailResult = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coachEmail,
         subject: `💰 Nuovo pagamento da ${coacheeName} - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -420,7 +420,7 @@ export async function POST(request: NextRequest) {
       const { coacheeEmail, coacheeName, coachName, offerTitle, totalSessions, priceTotal, pricePerSession, validDays, offerId } = data
       
       const result = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coacheeEmail,
         subject: `🎁 Nuova offerta da ${coachName} - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -472,7 +472,7 @@ export async function POST(request: NextRequest) {
       const { coacheeEmail, coacheeName, coachName, offerTitle, totalSessions, priceTotal, pricePerSession, validUntil, hoursLeft } = data
       
       const result = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coacheeEmail,
         subject: `⏰ L'offerta di ${coachName} scade domani! - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -524,7 +524,7 @@ export async function POST(request: NextRequest) {
       const { coacheeEmail, coacheeName, coachName, offerTitle } = data
       
       const result = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coacheeEmail,
         subject: `😔 L'offerta di ${coachName} è scaduta - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -564,7 +564,7 @@ export async function POST(request: NextRequest) {
       const { coachEmail, coachName, coacheeName, offerTitle } = data
       
       const result = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coachEmail,
         subject: `📋 Offerta "${offerTitle}" scaduta - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -604,7 +604,7 @@ export async function POST(request: NextRequest) {
       const { coachEmail, coachName, offerTitle, sessionNumber, amount, invoiceNumber } = data
       
       const result = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coachEmail,
         subject: `✅ Fattura ${invoiceNumber} registrata - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -650,7 +650,7 @@ export async function POST(request: NextRequest) {
       const payoutDate = nextMonday.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })
       
       const result = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coachEmail,
         subject: `✅ Fattura approvata - Payout in arrivo! - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -687,7 +687,7 @@ export async function POST(request: NextRequest) {
       const { coachEmail, coachName, offerTitle, sessionNumber, amount, invoiceNumber, rejectionReason } = data
       
       const result = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coachEmail,
         subject: `⚠️ Fattura da correggere - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -735,7 +735,7 @@ export async function POST(request: NextRequest) {
       const today = new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })
       
       const result = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coachEmail,
         subject: `💰 Pagamento effettuato - €${amount?.toFixed(2)} - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -774,7 +774,7 @@ export async function POST(request: NextRequest) {
       const { coachEmail, coachName, offerTitle, sessionNumber, amount } = data
       
       const result = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coachEmail,
         subject: `📝 Richiesta nuova fattura - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -822,7 +822,7 @@ export async function POST(request: NextRequest) {
       }
       
       const result = await resend.emails.send({
-        from: 'CoachaMi Alert <noreply@coachami.it>',
+        from: 'CoachaMi Alert <coachami@coachami.it>',
         to: adminEmail,
         subject: `⚠️ ALERT: Tentativo sospetto da ${data.coachName}`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -890,7 +890,7 @@ export async function POST(request: NextRequest) {
     if (type === 'product_purchase') {
       // Email al cliente
       const customerEmailResult = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: data.customerEmail,
         subject: `🎉 Acquisto completato - ${data.productTitle}`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -945,7 +945,7 @@ export async function POST(request: NextRequest) {
       
       // Email al coach
       const coachEmailResult = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: data.coachEmail,
         subject: `💰 Nuova vendita - ${data.productTitle}`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -1011,7 +1011,7 @@ export async function POST(request: NextRequest) {
     // =====================================================
     if (type === 'new_message') {
       const emailResult = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: data.recipientEmail,
         subject: `💬 Nuovo messaggio da ${data.senderName} - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -1054,7 +1054,7 @@ export async function POST(request: NextRequest) {
     // =====================================================
     if (type === 'subscription_activated') {
       const result = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: data.email,
         subject: `🎉 Il tuo abbonamento ${data.tier} è attivo - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -1100,7 +1100,7 @@ export async function POST(request: NextRequest) {
 
       // Email al coach
       await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: data.coachEmail,
         subject: `🎉 Abbonamento ${tierLabel} attivato - CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -1132,7 +1132,7 @@ export async function POST(request: NextRequest) {
 
       // Email all'admin
       await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: 'debora.carofiglio@gmail.com',
         subject: `💰 Nuovo abbonamento: ${data.coachName} - Piano ${tierLabel}`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
