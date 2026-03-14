@@ -38,7 +38,6 @@ const plans = [
       'Matching illimitato con coachee',
       'Ufficio Virtuale completo',
       'Gestione clienti esterni (CRM)',
-      'Offerte e percorsi personalizzati',
       'Google Calendar sync',
       'Report guadagni mensili',
     ],
