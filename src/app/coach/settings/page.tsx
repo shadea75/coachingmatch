@@ -828,6 +828,35 @@ export default function CoachSettingsPage() {
                   </div>
                 </div>
                 
+                {/* Link recensioni esterne */}
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+                  <h3 className="font-semibold text-charcoal mb-1 flex items-center gap-2">
+                    ⭐ Il tuo link per raccogliere recensioni
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Condividi questo link con i tuoi clienti (anche esterni alla piattaforma) per raccogliere recensioni pubbliche sul tuo profilo.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={`https://www.coachami.it/review/${user?.id}`}
+                      className="flex-1 px-3 py-2 bg-white border border-amber-200 rounded-lg text-sm text-gray-700 focus:outline-none"
+                      onClick={e => (e.target as HTMLInputElement).select()}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`https://www.coachami.it/review/${user?.id}`)
+                        alert('Link copiato!')
+                      }}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      Copia link
+                    </button>
+                  </div>
+                </div>
+
                 {/* Salva Profilo */}
                 <div className="flex items-center justify-between bg-white rounded-2xl p-4 border border-gray-200">
                   {saveSuccess && (
