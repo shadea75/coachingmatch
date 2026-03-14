@@ -158,6 +158,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'Email inviate con successo' })
     }
 
+    // ── contact_form: messaggio dalla pagina /contact ──────────────────────
+    if (type === 'contact_form') {
+      const { name, email, subject, message } = data
+
+      await resend.emails.send({
+        from: 'CoachaMi <coachami@coachami.it>',
+        to: 'coachami@coachami.it',
+        replyTo: email,
+        subject: `[Contatti] ${subject || 'Nuovo messaggio dal sito'}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #EC7711;">Nuovo messaggio dal form contatti</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 8px; font-weight: bold; color: #666; width: 120px;">Nome</td><td style="padding: 8px;">${name}</td></tr>
+              <tr><td style="padding: 8px; font-weight: bold; color: #666;">Email</td><td style="padding: 8px;"><a href="mailto:${email}">${email}</a></td></tr>
+              <tr><td style="padding: 8px; font-weight: bold; color: #666;">Oggetto</td><td style="padding: 8px;">${subject}</td></tr>
+              <tr><td style="padding: 8px; font-weight: bold; color: #666; vertical-align: top;">Messaggio</td><td style="padding: 8px; white-space: pre-wrap;">${message}</td></tr>
+            </table>
+            <p style="margin-top: 20px; font-size: 12px; color: #999;">Rispondi direttamente a questa email per rispondere a ${name}.</p>
+          </div>
+        `
+      })
+
+      // Conferma automatica all'utente
+      await resend.emails.send({
+        from: 'CoachaMi <coachami@coachami.it>',
+        to: email,
+        subject: 'Abbiamo ricevuto il tuo messaggio — CoachaMi',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #EC7711;">Ciao ${name}! 👋</h2>
+            <p>Abbiamo ricevuto il tuo messaggio e ti risponderemo al più presto, di solito entro 24-48 ore lavorative.</p>
+            <div style="background: #FFF7ED; border-left: 4px solid #EC7711; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
+              <strong>Il tuo messaggio:</strong><br/>
+              <em style="color: #666;">${message}</em>
+            </div>
+            <p>Nel frattempo, puoi esplorare la nostra community o trovare il tuo coach ideale.</p>
+            <center style="margin-top: 24px;">
+              <a href="https://www.coachami.it" style="background: #EC7711; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">Vai a CoachaMi</a>
+            </center>
+            <p style="margin-top: 24px; font-size: 12px; color: #999;">CoachaMi — un'idea di Debora Carofiglio — P.IVA IT02411430685</p>
+          </div>
+        `
+      })
+
+      return NextResponse.json({ success: true, message: 'Messaggio inviato' })
+    }
+
     return NextResponse.json({ error: 'Tipo email non supportato' }, { status: 400 })
 
   } catch (error) {
