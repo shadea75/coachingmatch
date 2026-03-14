@@ -3,7 +3,6 @@ import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { OnboardingProvider } from '@/contexts/OnboardingContext'
 import Script from 'next/script'
-import CookieBanner from '@/components/CookieBanner'
 
 export const metadata: Metadata = {
   title: 'CoachaMi | Trova il coach giusto per te',
@@ -31,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="it">
       <body className="antialiased">
-        {/* Google Consent Mode v2 — default negato fino a consenso */}
+        {/* Google Consent Mode v2 — default negato fino a consenso Iubenda */}
         <Script id="consent-mode-default" strategy="beforeInteractive">
           {`
             window.dataLayer = window.dataLayer || [];
@@ -45,6 +44,7 @@ export default function RootLayout({
             });
           `}
         </Script>
+
         {/* Google Analytics */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-581C4X09C7"
@@ -59,10 +59,16 @@ export default function RootLayout({
             gtag('config', 'AW-17946914930');
           `}
         </Script>
+
+        {/* Iubenda — Privacy Controls & Cookie Solution */}
+        <Script
+          src="https://embeds.iubenda.com/widgets/528dc70b-d5e2-4e74-867b-6241c81e5103.js"
+          strategy="afterInteractive"
+        />
+
         <AuthProvider>
           <OnboardingProvider>
             {children}
-            <CookieBanner />
           </OnboardingProvider>
         </AuthProvider>
       </body>
