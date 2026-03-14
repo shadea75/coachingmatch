@@ -22,9 +22,10 @@ import {
   Loader2,
   AlertTriangle,
   RefreshCw,
-  TrendingUp,
   UserPlus,
-  ChevronRight
+  ChevronRight,
+  Send,
+  X
 } from 'lucide-react'
 
 const ROLE_CONFIG: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
@@ -46,9 +47,14 @@ export default function AdminUsersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState<User | null>(null)
   const [coachOnlyCount, setCoachOnlyCount] = useState(0)
-  // Lead coachee: ultimi 7 giorni
-  const [newCoachees, setNewCoachees] = useState<User[]>([])
-  const [showLeads, setShowLeads] = useState(true)
+  // Pannello coachee
+  const [showCoacheePanel, setShowCoacheePanel] = useState(true)
+  // Popup contatto
+  const [contactTarget, setContactTarget] = useState<User | null>(null)
+  const [contactSubject, setContactSubject] = useState('')
+  const [contactMessage, setContactMessage] = useState('')
+  const [isSendingContact, setIsSendingContact] = useState(false)
+  const [contactSent, setContactSent] = useState(false)
 
   useEffect(() => {
     fetchUsers()
@@ -110,15 +116,6 @@ export default function AdminUsersPage() {
         return dateB.getTime() - dateA.getTime()
       })
       
-      // 4. Estrai i coachee registrati negli ultimi 7 giorni come "lead"
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-      const recentCoachees = usersData.filter(u => {
-        const created = u.createdAt instanceof Date ? u.createdAt : new Date(u.createdAt || 0)
-        return u.role === 'coachee' && created >= sevenDaysAgo
-      })
-      setNewCoachees(recentCoachees)
-
       setCoachOnlyCount(coachOnly)
       setUsers(usersData)
     } catch (error) {
@@ -195,6 +192,41 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function sendContactEmail() {
+    if (!contactTarget || !contactMessage.trim()) return
+    setIsSendingContact(true)
+    try {
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'admin_contact_coachee',
+          data: {
+            coacheeName: contactTarget.name,
+            coacheeEmail: contactTarget.email,
+            subject: contactSubject.trim() || 'Un messaggio da CoachaMi',
+            message: contactMessage.trim(),
+          }
+        })
+      })
+      const json = await res.json()
+      if (!json.success) throw new Error('Invio fallito')
+      setContactSent(true)
+      setTimeout(() => {
+        setContactTarget(null)
+        setContactSubject('')
+        setContactMessage('')
+        setContactSent(false)
+      }, 2000)
+    } catch (err) {
+      alert('Errore durante l\'invio. Riprova.')
+    } finally {
+      setIsSendingContact(false)
+    }
+  }
+
+  const allCoachees = users.filter(u => u.role === 'coachee')
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
       user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -231,41 +263,38 @@ export default function AdminUsersPage() {
           </button>
         </div>
 
-        {/* ── LEAD COACHEE (ultimi 7 giorni) ─────────────────── */}
-        {newCoachees.length > 0 && (
+        {/* ── PANNELLO COACHEE ─────────────────────────────── */}
+        {allCoachees.length > 0 && (
           <div className="bg-white rounded-xl border border-green-200 overflow-hidden">
             <button
-              onClick={() => setShowLeads(v => !v)}
-              className="w-full flex items-center justify-between px-5 py-4 hover:bg-green-50/50 transition-colors"
+              onClick={() => setShowCoacheePanel(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-green-50/40 transition-colors"
             >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center">
-                  <UserPlus size={18} className="text-green-600" />
+                  <UserPlus size={17} className="text-green-600" />
                 </div>
                 <div className="text-left">
                   <p className="font-semibold text-gray-900 flex items-center gap-2">
-                    Nuovi coachee (ultimi 7 giorni)
+                    Coachee registrati
                     <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-xs font-bold">
-                      {newCoachees.length}
+                      {allCoachees.length}
                     </span>
                   </p>
-                  <p className="text-sm text-gray-500">Lead da coltivare — nessuno li ha ancora contattati</p>
+                  <p className="text-xs text-gray-500">Tutti i coachee sulla piattaforma</p>
                 </div>
               </div>
-              <ChevronRight
-                size={18}
-                className={`text-gray-400 transition-transform ${showLeads ? 'rotate-90' : ''}`}
-              />
+              <ChevronRight size={17} className={`text-gray-400 transition-transform ${showCoacheePanel ? 'rotate-90' : ''}`} />
             </button>
 
-            {showLeads && (
+            {showCoacheePanel && (
               <div className="border-t border-green-100 divide-y divide-gray-100">
-                {newCoachees.map(coachee => {
+                {allCoachees.map(coachee => {
                   const created = coachee.createdAt instanceof Date
                     ? coachee.createdAt
-                    : new Date(coachee.createdAt || 0)
+                    : new Date((coachee.createdAt as any) || 0)
                   const daysAgo = Math.floor((Date.now() - created.getTime()) / 86400000)
-                  const daysLabel = daysAgo === 0 ? 'oggi' : daysAgo === 1 ? 'ieri' : `${daysAgo} giorni fa`
+                  const daysLabel = daysAgo === 0 ? 'oggi' : daysAgo === 1 ? 'ieri' : `${daysAgo}g fa`
 
                   return (
                     <div key={coachee.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50">
@@ -284,28 +313,32 @@ export default function AdminUsersPage() {
                           <p className="text-xs text-gray-500">{coachee.email}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3">
                         <span className="text-xs text-gray-400 flex items-center gap-1">
-                          <Calendar size={12} />
+                          <Calendar size={11} />
                           {daysLabel}
                         </span>
                         {(coachee as any).onboardingCompleted ? (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
-                            Onboarding ✓
+                            Ruota completata
                           </span>
                         ) : (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
-                            Onboarding incompleto
+                            Ruota non completata
                           </span>
                         )}
-                        <a
-                          href={`mailto:${coachee.email}?subject=Benvenuto su CoachaMi!&body=Ciao ${coachee.name},%0D%0A%0D%0ASono Debora di CoachaMi. Come posso aiutarti nel tuo percorso?%0D%0A%0D%0AUn caro saluto`}
-                          className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
-                          onClick={e => e.stopPropagation()}
+                        <button
+                          onClick={() => {
+                            setContactTarget(coachee)
+                            setContactSubject('')
+                            setContactMessage('')
+                            setContactSent(false)
+                          }}
+                          className="flex items-center gap-1 text-xs bg-primary-500 hover:bg-primary-600 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"
                         >
-                          <Mail size={13} />
+                          <Mail size={12} />
                           Contatta
-                        </a>
+                        </button>
                       </div>
                     </div>
                   )
@@ -524,6 +557,79 @@ export default function AdminUsersPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal contatto coachee */}
+      {contactTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="text-lg font-semibold text-charcoal">Scrivi a {contactTarget.name}</h3>
+                <p className="text-sm text-gray-500">{contactTarget.email}</p>
+              </div>
+              <button
+                onClick={() => setContactTarget(null)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={18} className="text-gray-500" />
+              </button>
+            </div>
+
+            {contactSent ? (
+              <div className="text-center py-8">
+                <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+                  <Send size={24} className="text-green-600" />
+                </div>
+                <p className="font-semibold text-green-700">Email inviata!</p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Oggetto</label>
+                    <input
+                      type="text"
+                      value={contactSubject}
+                      onChange={e => setContactSubject(e.target.value)}
+                      placeholder="Un messaggio da CoachaMi"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Messaggio <span className="text-red-500">*</span></label>
+                    <textarea
+                      value={contactMessage}
+                      onChange={e => setContactMessage(e.target.value)}
+                      placeholder={`Ciao ${contactTarget.name}, ...`}
+                      rows={5}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-5">
+                  <button
+                    onClick={() => setContactTarget(null)}
+                    className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors text-sm"
+                  >
+                    Annulla
+                  </button>
+                  <button
+                    onClick={sendContactEmail}
+                    disabled={isSendingContact || !contactMessage.trim()}
+                    className="flex-1 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                  >
+                    {isSendingContact ? (
+                      <><Loader2 size={16} className="animate-spin" /> Invio...</>
+                    ) : (
+                      <><Send size={16} /> Invia email</>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal conferma eliminazione */}
       {showDeleteModal && (
