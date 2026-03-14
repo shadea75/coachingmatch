@@ -60,7 +60,7 @@ export const TIER_CONFIG: Record<CoachTier, {
     hasVerifiedBadge: false,
     hasElectronicInvoicing: false,
     hasDigitalProducts: false,
-    hasAutoContracts: false,
+    hasAutoContracts: true,
     hasAdvancedAnalytics: false,
     hasPrioritySupport: false,
     hasPremiumProfile: false,

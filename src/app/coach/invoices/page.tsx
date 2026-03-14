@@ -22,6 +22,7 @@ import {
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
+import TierGate from '@/components/TierGate'
 import { db } from '@/lib/firebase'
 import { 
   collection, 
@@ -120,6 +121,7 @@ const NATURE_IVA = [
 export default function CoachInvoicesPage() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
+  const [coachTier, setCoachTier] = useState<string | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [clients, setClients] = useState<Client[]>([])
@@ -181,6 +183,7 @@ export default function CoachInvoicesPage() {
       const coachDoc = await getDoc(doc(db, 'coachApplications', user.id))
       if (coachDoc.exists()) {
         const data = coachDoc.data()
+        setCoachTier(data.subscriptionTier || 'starter')
         if (data.fiscalData) {
           setFiscalData(data.fiscalData)
           setEditFiscalData(data.fiscalData)
@@ -521,6 +524,7 @@ export default function CoachInvoicesPage() {
   }
 
   return (
+    <TierGate feature="hasElectronicInvoicing" currentTier={coachTier}>
     <div className="min-h-screen bg-cream">
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
@@ -1123,5 +1127,6 @@ export default function CoachInvoicesPage() {
         )}
       </AnimatePresence>
     </div>
+    </TierGate>
   )
 }

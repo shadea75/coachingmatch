@@ -41,6 +41,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
+import TierGate from '@/components/TierGate'
 import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs, orderBy, doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore'
 import { format } from 'date-fns'
@@ -106,6 +107,7 @@ export default function CoachOfficePage() {
   
   const [activeTab, setActiveTab] = useState<'clients' | 'products'>('clients')
   const [isLoading, setIsLoading] = useState(true)
+  const [coachTier, setCoachTier] = useState<string | null>(null)
   const [clients, setClients] = useState<Client[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -390,9 +392,10 @@ export default function CoachOfficePage() {
         
         // Carica tariffa oraria del coach
         const coachDoc = await getDoc(doc(db, 'coachApplications', user.id))
-        let loadedHourlyRate = 80 // Default
+        let loadedHourlyRate = 80
         if (coachDoc.exists()) {
           loadedHourlyRate = coachDoc.data().hourlyRate || coachDoc.data().averagePrice || 80
+          setCoachTier(coachDoc.data().subscriptionTier || 'starter')
         }
         setHourlyRate(loadedHourlyRate)
         
@@ -592,6 +595,7 @@ export default function CoachOfficePage() {
   }
 
   return (
+    <TierGate feature="hasVirtualOffice" currentTier={coachTier}>
     <div className="p-4 lg:p-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
@@ -1132,5 +1136,6 @@ export default function CoachOfficePage() {
         </div>
       )}
     </div>
+    </TierGate>
   )
 }

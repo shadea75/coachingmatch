@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { 
   ArrowLeft,
@@ -19,10 +20,12 @@ import {
   User,
   RefreshCw,
   ExternalLink,
-  Settings
+  Settings,
+  Lock
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
+import TierGate from '@/components/TierGate'
 import CalendarSettings from '@/components/CalendarSettings'
 import { db } from '@/lib/firebase'
 import { doc, getDoc, setDoc, collection, query, where, getDocs, addDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
@@ -94,6 +97,7 @@ export default function CoachAvailabilityPage() {
   
   // Google Calendar state
   const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false)
+  const [coachTier, setCoachTier] = useState<string | null>(null)
   const [googleEvents, setGoogleEvents] = useState<GoogleEvent[]>([])
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false)
   const [googleError, setGoogleError] = useState<string | null>(null)
@@ -205,6 +209,7 @@ export default function CoachAvailabilityPage() {
         if (coachDoc.exists()) {
           const coachData = coachDoc.data()
           setGoogleCalendarConnected(coachData.googleCalendarConnected || false)
+          setCoachTier(coachData.subscriptionTier || 'starter')
         }
         
         // Carica eventi manuali
@@ -682,6 +687,15 @@ export default function CoachAvailabilityPage() {
                       <Loader2 size={16} className="animate-spin text-primary-500" />
                       <span className="text-sm text-gray-600">Connessione in corso...</span>
                     </div>
+                  ) : coachTier && !['professional', 'business', 'elite'].includes(coachTier) ? (
+                    // Gate: solo Professional+
+                    <Link
+                      href="/coach/subscription"
+                      className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200"
+                    >
+                      <Lock size={14} />
+                      Google Calendar Sync — Piano Professional+
+                    </Link>
                   ) : googleCalendarConnected ? (
                     <div className="flex items-center gap-2">
                       <div className={`w-3 h-3 rounded-full ${googleError ? 'bg-amber-500' : 'bg-green-500'}`}></div>

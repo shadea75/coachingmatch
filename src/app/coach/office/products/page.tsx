@@ -30,13 +30,15 @@ import {
   Check
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import TierGate from '@/components/TierGate'
 import { db } from '@/lib/firebase'
 import { 
   collection, 
   query, 
   where, 
   getDocs, 
-  doc, 
+  doc,
+  getDoc,
   deleteDoc,
   updateDoc,
   orderBy 
@@ -92,6 +94,7 @@ export default function CoachProductsPage() {
   const { user, loading: authLoading } = useAuth()
   
   const [isLoading, setIsLoading] = useState(true)
+  const [coachTier, setCoachTier] = useState<string | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState<string>('all')
@@ -119,6 +122,10 @@ export default function CoachProductsPage() {
       
       setIsLoading(true)
       try {
+        // Leggi tier abbonamento
+        const coachDoc = await getDoc(doc(db, 'coachApplications', user.id))
+        setCoachTier(coachDoc.exists() ? (coachDoc.data()?.subscriptionTier || 'starter') : 'starter')
+
         // Carica prodotti del coach
         const productsQuery = query(
           collection(db, 'digitalProducts'),
@@ -229,6 +236,7 @@ export default function CoachProductsPage() {
   }
 
   return (
+    <TierGate feature="hasDigitalProducts" currentTier={coachTier}>
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
@@ -501,5 +509,6 @@ export default function CoachProductsPage() {
         </div>
       </div>
     </div>
+    </TierGate>
   )
 }
