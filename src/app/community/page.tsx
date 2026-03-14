@@ -311,14 +311,22 @@ export default function CommunityPage() {
                 />
               </div>
               
-              {/* Crea post button */}
-              {(userRole === 'coach' || userRole === 'coachee' || userRole === 'admin') && (
+              {/* Crea post button — solo per utenti registrati */}
+              {user ? (
                 <Link 
                   href="/community/new"
                   className="btn bg-primary-500 text-white hover:bg-primary-600"
                 >
                   <Plus size={18} />
                   <span className="hidden sm:inline">Nuovo Post</span>
+                </Link>
+              ) : (
+                <Link
+                  href="/login?redirect=/community/new"
+                  className="btn bg-primary-500 text-white hover:bg-primary-600"
+                >
+                  <Plus size={18} />
+                  <span className="hidden sm:inline">Scrivi un post</span>
                 </Link>
               )}
             </div>

@@ -15,6 +15,7 @@ export interface CommunityPost {
   section: CommunitySection
   title: string
   content: string
+  slug?: string
   images?: string[]
   tags?: string[]
   likeCount: number

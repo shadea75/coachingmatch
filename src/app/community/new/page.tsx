@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -21,9 +21,22 @@ import { addPoints, incrementMonthlyPosts, initializeCoachPoints } from '@/lib/c
 
 export default function NewPostPage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  // Funzione per generare slug SEO dal titolo
+  const generateSlug = (title: string): string => {
+    return title
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // rimuove accenti
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .substring(0, 80)
+  }
   
   const [formData, setFormData] = useState({
     title: '',
@@ -34,6 +47,13 @@ export default function NewPostPage() {
   })
 
   const userRole = user?.role || 'coachee'
+
+  // Redirect al login se non autenticato
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login?redirect=/community/new')
+    }
+  }, [user, loading, router])
 
   // Sezioni disponibili per l'utente
   const availableSections = Object.entries(SECTIONS_CONFIG).filter(([key, config]) => 
@@ -89,6 +109,7 @@ export default function NewPostPage() {
         authorRole: userRole,
         section: formData.section,
         title: formData.title.trim(),
+        slug: generateSlug(formData.title.trim()),
         content: formData.content.trim(),
         tags: formData.tags,
         likeCount: 0,

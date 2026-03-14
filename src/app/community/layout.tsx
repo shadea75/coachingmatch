@@ -142,8 +142,8 @@ export default function CommunityLayout({
     window.location.href = '/login'
   }
 
-  // Loading state
-  if (loading || isDataLoading) {
+  // Loading state — ma solo se c'è un utente da caricare
+  if ((loading || isDataLoading) && user !== null) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
