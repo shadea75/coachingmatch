@@ -1173,40 +1173,33 @@ export async function POST(request: NextRequest) {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
       })
 
-      // 1. Email di benvenuto al coachee
-      const coacheeResult = await resend.emails.send({
+      await resend.emails.send({
         from: 'CoachaMi <noreply@coachami.it>',
         to: email,
         subject: '🌱 Benvenuto su CoachaMi! Inizia il tuo percorso',
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
-              <tr><td>
-                ${logoHeader}
-                <table width="100%" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
-                  <tr><td style="padding: 0;">
-                    <div style="background: linear-gradient(135deg, #EC7711, #F59E0B); padding: 35px 30px; text-align: center;">
-                      <div style="font-size: 48px; margin-bottom: 10px;">🌱</div>
-                      <h1 style="color: white; margin: 0; font-size: 26px;">Benvenuto su CoachaMi!</h1>
-                      <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 16px;">Il tuo percorso di crescita inizia ora</p>
+          <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;color:#333;margin:0;padding:0;background-color:#f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;padding:20px;">
+              <tr><td>${logoHeader}
+                <table width="100%" style="background:#fff;border-radius:12px;overflow:hidden;">
+                  <tr><td style="padding:0;">
+                    <div style="background:linear-gradient(135deg,#EC7711,#F59E0B);padding:35px 30px;text-align:center;">
+                      <div style="font-size:48px;margin-bottom:10px;">🌱</div>
+                      <h1 style="color:white;margin:0;font-size:26px;">Benvenuto su CoachaMi!</h1>
+                      <p style="color:rgba(255,255,255,0.9);margin:8px 0 0 0;font-size:16px;">Il tuo percorso di crescita inizia ora</p>
                     </div>
-                    <div style="padding: 30px;">
+                    <div style="padding:30px;">
                       <p>Ciao <strong>${name}</strong>! 👋</p>
                       <p>Siamo felici di averti con noi. CoachaMi ti mette in contatto con coach professionisti italiani per aiutarti a crescere nelle 8 aree della vita.</p>
-                      <div style="background: #FFF7ED; border-radius: 12px; padding: 24px; margin: 24px 0; border-left: 4px solid #EC7711;">
-                        <h3 style="margin: 0 0 16px 0; color: #EC7711;">🚀 Cosa fare adesso:</h3>
-                        <p style="margin: 8px 0;"><strong>1.</strong> Completa il tuo profilo con i tuoi obiettivi</p>
-                        <p style="margin: 8px 0;"><strong>2.</strong> Scopri i coach e trova quello più adatto a te</p>
-                        <p style="margin: 8px 0;"><strong>3.</strong> Inizia una conversazione con il tuo coach</p>
+                      <div style="background:#FFF7ED;border-radius:12px;padding:24px;margin:24px 0;border-left:4px solid #EC7711;">
+                        <h3 style="margin:0 0 16px 0;color:#EC7711;">🚀 Cosa fare adesso:</h3>
+                        <p style="margin:8px 0;"><strong>1.</strong> Completa la valutazione delle 8 aree della vita</p>
+                        <p style="margin:8px 0;"><strong>2.</strong> Scopri i coach più adatti a te</p>
+                        <p style="margin:8px 0;"><strong>3.</strong> Inizia una conversazione con il tuo coach</p>
                       </div>
-                      <div style="text-align: center; margin: 30px 0;">
-                        <a href="https://www.coachami.it/onboarding" style="display: inline-block; background: #EC7711; color: white; padding: 16px 40px; border-radius: 30px; text-decoration: none; font-weight: 700; font-size: 16px;">
-                          Inizia ora →
-                        </a>
+                      <div style="text-align:center;margin:30px 0;">
+                        <a href="https://www.coachami.it/onboarding" style="display:inline-block;background:#EC7711;color:white;padding:16px 40px;border-radius:30px;text-decoration:none;font-weight:700;font-size:16px;">Inizia ora →</a>
                       </div>
-                      <p style="font-size: 14px; color: #888; text-align: center;">
-                        Hai domande? Scrivi a <a href="mailto:info@coachami.it" style="color: #EC7711;">info@coachami.it</a>
-                      </p>
                     </div>
                   </td></tr>
                 </table>
@@ -1216,39 +1209,35 @@ export async function POST(request: NextRequest) {
           </body></html>`
       })
 
-      // 2. Notifica admin
-      const adminResult = await resend.emails.send({
+      await resend.emails.send({
         from: 'CoachaMi <noreply@coachami.it>',
         to: 'debora.carofiglio@gmail.com',
         subject: `🆕 Nuovo coachee registrato: ${name}`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
-              <tr><td>
-                ${logoHeader}
-                <table width="100%" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
-                  <tr><td style="padding: 30px;">
-                    <div style="background: #ECFDF5; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; border-left: 4px solid #10B981;">
-                      <h2 style="margin: 0; color: #065F46; font-size: 18px;">🆕 Nuovo coachee registrato!</h2>
+          <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;color:#333;margin:0;padding:0;background-color:#f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;padding:20px;">
+              <tr><td>${logoHeader}
+                <table width="100%" style="background:#fff;border-radius:12px;overflow:hidden;">
+                  <tr><td style="padding:30px;">
+                    <div style="background:#ECFDF5;border-radius:8px;padding:16px 20px;margin-bottom:24px;border-left:4px solid #10B981;">
+                      <h2 style="margin:0;color:#065F46;font-size:18px;">🆕 Nuovo coachee registrato!</h2>
                     </div>
-                    <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #E5E7EB; border-radius: 8px; overflow: hidden; margin-bottom: 24px;">
-                      <tr style="background: #F9FAFB;">
-                        <td style="padding: 12px 16px; font-weight: 600; color: #6B7280; width: 120px; font-size: 13px; text-transform: uppercase;">NOME</td>
-                        <td style="padding: 12px 16px; font-weight: 600; color: #111827;">${name}</td>
+                    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+                      <tr style="background:#F9FAFB;">
+                        <td style="padding:12px 16px;font-weight:600;color:#6B7280;width:120px;font-size:13px;text-transform:uppercase;">NOME</td>
+                        <td style="padding:12px 16px;font-weight:600;color:#111827;">${name}</td>
                       </tr>
                       <tr>
-                        <td style="padding: 12px 16px; font-weight: 600; color: #6B7280; font-size: 13px; text-transform: uppercase;">EMAIL</td>
-                        <td style="padding: 12px 16px;"><a href="mailto:${email}" style="color: #EC7711;">${email}</a></td>
+                        <td style="padding:12px 16px;font-weight:600;color:#6B7280;font-size:13px;text-transform:uppercase;">EMAIL</td>
+                        <td style="padding:12px 16px;"><a href="mailto:${email}" style="color:#EC7711;">${email}</a></td>
                       </tr>
-                      <tr style="background: #F9FAFB;">
-                        <td style="padding: 12px 16px; font-weight: 600; color: #6B7280; font-size: 13px; text-transform: uppercase;">DATA</td>
-                        <td style="padding: 12px 16px; color: #374151;">${registrationDate}</td>
+                      <tr style="background:#F9FAFB;">
+                        <td style="padding:12px 16px;font-weight:600;color:#6B7280;font-size:13px;text-transform:uppercase;">DATA</td>
+                        <td style="padding:12px 16px;color:#374151;">${registrationDate}</td>
                       </tr>
                     </table>
-                    <div style="text-align: center;">
-                      <a href="https://www.coachami.it/admin/users" style="display: inline-block; background: #EC7711; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
-                        Vedi Gestione Utenti →
-                      </a>
+                    <div style="text-align:center;">
+                      <a href="https://www.coachami.it/admin/users" style="display:inline-block;background:#EC7711;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">Vedi Gestione Utenti →</a>
                     </div>
                   </td></tr>
                 </table>
@@ -1259,7 +1248,139 @@ export async function POST(request: NextRequest) {
       })
 
       console.log('✅ Email benvenuto coachee e notifica admin inviate')
-      return NextResponse.json({ success: true, coacheeResult, adminResult })
+      return NextResponse.json({ success: true })
+    }
+
+    // =====================================================
+    // EMAIL REPORT RUOTA DELLA VITA + NOTIFICA ADMIN
+    // =====================================================
+    if (type === 'coachee_report') {
+      const { name, email, scores } = data
+      // scores = [{ label, color, score }, ...]
+
+      const scoreBars = (scores as Array<{ label: string; color: string; score: number }>)
+        .sort((a, b) => b.score - a.score)
+        .map(({ label, color, score }) => {
+          const pct = Math.round((score / 10) * 100)
+          const scoreColor = score >= 7 ? '#16a34a' : score >= 4 ? '#d97706' : '#dc2626'
+          return `<tr>
+            <td style="padding:6px 0;width:130px;font-size:13px;color:#374151;font-weight:500;white-space:nowrap;">
+              <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:6px;vertical-align:middle;"></span>
+              ${label.split(' ').slice(0, 2).join(' ')}
+            </td>
+            <td style="padding:6px 8px;">
+              <div style="background:#F3F4F6;border-radius:20px;height:10px;">
+                <div style="background:${color};border-radius:20px;height:10px;width:${pct}%;"></div>
+              </div>
+            </td>
+            <td style="padding:6px 0;width:36px;text-align:right;font-size:13px;font-weight:700;color:${scoreColor};">${score}/10</td>
+          </tr>`
+        }).join('')
+
+      const scoreRowsAdmin = (scores as Array<{ label: string; score: number }>)
+        .sort((a, b) => b.score - a.score)
+        .map(({ label, score }) => {
+          const scoreColor = score >= 7 ? '#16a34a' : score >= 4 ? '#d97706' : '#dc2626'
+          return `<tr>
+            <td style="padding:6px 12px;font-size:13px;color:#374151;">${label}</td>
+            <td style="padding:6px 12px;font-size:13px;font-weight:700;color:${scoreColor};text-align:right;">${score}/10</td>
+          </tr>`
+        }).join('')
+
+      const sorted = [...(scores as Array<{ label: string; score: number }>)].sort((a, b) => b.score - a.score)
+      const strongest = sorted[0]
+      const weakest = sorted[sorted.length - 1]
+
+      await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: email,
+        subject: `📊 Il tuo Report della Ruota della Vita — CoachaMi`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;color:#333;margin:0;padding:0;background-color:#f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;padding:20px;">
+              <tr><td>${logoHeader}
+                <table width="100%" style="background:#fff;border-radius:12px;overflow:hidden;">
+                  <tr><td style="padding:0;">
+                    <div style="background:linear-gradient(135deg,#1e3a5f,#2d5a8e);padding:35px 30px;text-align:center;">
+                      <div style="font-size:44px;margin-bottom:10px;">📊</div>
+                      <h1 style="color:white;margin:0;font-size:24px;">Il tuo Report della Vita</h1>
+                      <p style="color:rgba(255,255,255,0.85);margin:8px 0 0 0;font-size:15px;">La tua fotografia nelle 8 aree</p>
+                    </div>
+                    <div style="padding:30px;">
+                      <p>Ciao <strong>${name}</strong>!</p>
+                      <p style="color:#555;">Hai completato la valutazione della <strong>Ruota della Vita</strong>. Ecco i tuoi risultati:</p>
+                      <div style="background:#F9FAFB;border-radius:12px;padding:20px;margin:20px 0;">
+                        <h3 style="margin:0 0 16px 0;font-size:15px;color:#374151;">Le tue 8 aree</h3>
+                        <table width="100%" cellpadding="0" cellspacing="0">${scoreBars}</table>
+                      </div>
+                      <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
+                        <tr>
+                          <td style="width:48%;padding:16px;background:#ECFDF5;border-radius:10px;vertical-align:top;">
+                            <p style="margin:0 0 6px 0;font-size:12px;color:#16a34a;font-weight:700;text-transform:uppercase;">💪 Punto di forza</p>
+                            <p style="margin:0;font-weight:700;color:#065F46;font-size:15px;">${strongest?.label || ''}</p>
+                            <p style="margin:4px 0 0 0;font-size:13px;color:#374151;">${strongest?.score || 0}/10</p>
+                          </td>
+                          <td style="width:4%;"></td>
+                          <td style="width:48%;padding:16px;background:#FFF7ED;border-radius:10px;vertical-align:top;">
+                            <p style="margin:0 0 6px 0;font-size:12px;color:#d97706;font-weight:700;text-transform:uppercase;">🎯 Area da sviluppare</p>
+                            <p style="margin:0;font-weight:700;color:#92400e;font-size:15px;">${weakest?.label || ''}</p>
+                            <p style="margin:4px 0 0 0;font-size:13px;color:#374151;">${weakest?.score || 0}/10</p>
+                          </td>
+                        </tr>
+                      </table>
+                      <div style="background:#EFF6FF;border-radius:12px;padding:20px;margin:20px 0;border-left:4px solid #3B82F6;">
+                        <p style="margin:0;font-size:14px;color:#1E40AF;">💡 <strong>Un coach può aiutarti</strong> a lavorare sull'area più debole e potenziare i tuoi punti di forza.</p>
+                      </div>
+                      <div style="text-align:center;margin:28px 0;">
+                        <a href="https://www.coachami.it/matching" style="display:inline-block;background:#EC7711;color:white;padding:16px 40px;border-radius:30px;text-decoration:none;font-weight:700;font-size:16px;">Trova il tuo coach →</a>
+                      </div>
+                    </div>
+                  </td></tr>
+                </table>
+                ${footer}
+              </td></tr>
+            </table>
+          </body></html>`
+      })
+
+      await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: 'debora.carofiglio@gmail.com',
+        subject: `📊 ${name} ha completato l'onboarding — Report disponibile`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;color:#333;margin:0;padding:0;background-color:#f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;padding:20px;">
+              <tr><td>${logoHeader}
+                <table width="100%" style="background:#fff;border-radius:12px;overflow:hidden;">
+                  <tr><td style="padding:30px;">
+                    <div style="background:#EFF6FF;border-radius:8px;padding:16px 20px;margin-bottom:24px;border-left:4px solid #3B82F6;">
+                      <h2 style="margin:0;color:#1E40AF;font-size:18px;">📊 Onboarding completato!</h2>
+                    </div>
+                    <p><strong>${name}</strong> (<a href="mailto:${email}" style="color:#EC7711;">${email}</a>) ha completato la ruota della vita.</p>
+                    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;margin:20px 0;">
+                      <tr style="background:#F9FAFB;">
+                        <td style="padding:8px 12px;font-weight:600;color:#6B7280;font-size:12px;text-transform:uppercase;">AREA</td>
+                        <td style="padding:8px 12px;font-weight:600;color:#6B7280;font-size:12px;text-transform:uppercase;text-align:right;">PUNTEGGIO</td>
+                      </tr>
+                      ${scoreRowsAdmin}
+                    </table>
+                    <div style="background:#F9FAFB;border-radius:8px;padding:16px;margin-bottom:20px;">
+                      <p style="margin:0 0 6px 0;font-size:13px;color:#6B7280;">💪 Punto di forza: <strong>${strongest?.label}</strong> (${strongest?.score}/10)</p>
+                      <p style="margin:0;font-size:13px;color:#6B7280;">🎯 Area debole: <strong>${weakest?.label}</strong> (${weakest?.score}/10)</p>
+                    </div>
+                    <div style="text-align:center;">
+                      <a href="https://www.coachami.it/admin/users" style="display:inline-block;background:#EC7711;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">Vedi utente →</a>
+                    </div>
+                  </td></tr>
+                </table>
+                ${footer}
+              </td></tr>
+            </table>
+          </body></html>`
+      })
+
+      console.log('✅ Email report coachee e notifica admin inviate')
+      return NextResponse.json({ success: true })
     }
 
     return NextResponse.json({ error: 'Tipo email non supportato' }, { status: 400 })

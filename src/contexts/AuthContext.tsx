@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     await setDoc(doc(db, 'users', result.user.uid), newUser)
 
-    // Invia email benvenuto coachee + notifica admin (fire-and-forget, non blocca il login)
+    // Notifica admin nuovo coachee (fire-and-forget)
     if (role === 'coachee') {
       fetch('/api/send-email', {
         method: 'POST',

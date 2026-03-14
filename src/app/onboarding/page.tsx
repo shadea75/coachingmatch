@@ -160,6 +160,25 @@ export default function OnboardingPage() {
       
       setIsSubmitting(false)
       goToStep('results')
+
+      // Invia email report ruota della vita (fire-and-forget)
+      try {
+        const scoresForEmail = LIFE_AREAS.map(area => ({
+          label: area.label,
+          color: area.color,
+          score: (state.areaScores[area.id] as number) || 0,
+        }))
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'coachee_report',
+            data: { name: formData.name, email: formData.email, scores: scoresForEmail }
+          })
+        }).catch(err => console.error('Errore invio email report:', err))
+      } catch (err) {
+        console.error('Errore preparazione email report:', err)
+      }
     } catch (error: any) {
       setFormError(error.message || 'Errore durante la registrazione')
       setIsSubmitting(false)
