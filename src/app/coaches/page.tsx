@@ -140,7 +140,9 @@ function CoachesContent() {
             averagePrice: data.averagePrice || 0,
             sessionMode: data.sessionMode || ['online'],
             freeCallAvailable: data.freeCallAvailable ?? true,
-            certifications: data.certifications || data.experience?.certifications || []
+            certifications: data.certifications || data.experience?.certifications || [],
+            subscriptionTier: data.subscriptionTier || 'starter',
+            videoUrl: data.videoUrl || null,
           }
         })
         setCoaches(loadedCoaches)
@@ -237,6 +239,12 @@ function CoachesContent() {
         filtered = [...filtered].sort((a, b) => (a.coach.averagePrice || 0) - (b.coach.averagePrice || 0))
         break
     }
+
+    // Elite sempre in cima (boost visibilità)
+    filtered = [
+      ...filtered.filter(r => r.coach.subscriptionTier === 'elite'),
+      ...filtered.filter(r => r.coach.subscriptionTier !== 'elite'),
+    ]
 
     return { coaches: filtered, hasRelated }
   }

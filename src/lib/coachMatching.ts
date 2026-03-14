@@ -38,6 +38,8 @@ export interface CoachProfile {
   sessionMode?: string[]
   freeCallAvailable?: boolean
   certifications?: string[]
+  subscriptionTier?: string
+  videoUrl?: string
   // Engagement metrics
   engagementMetrics?: Partial<CoachEngagementMetrics>
 }

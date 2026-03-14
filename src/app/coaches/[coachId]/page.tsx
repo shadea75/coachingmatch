@@ -63,6 +63,8 @@ interface CoachProfile {
   reviewCount: number
   hourlyRate: number
   availability: Record<number, string[]>
+  subscriptionTier: string
+  videoUrl?: string
 }
 
 interface ExpandedSection {
@@ -112,6 +114,7 @@ export default function CoachPublicProfilePage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [coachSubscriptionTier, setCoachSubscriptionTier] = useState<string>('starter')
+  const [reviews, setReviews] = useState<any[]>([])
   const [error, setError] = useState('')
   const [expanded, setExpanded] = useState<ExpandedSection>({
     story: false,
@@ -131,13 +134,13 @@ export default function CoachPublicProfilePage() {
         
         if (coachDoc.exists()) {
           const data = coachDoc.data()
-          setCoachSubscriptionTier(data.subscriptionTier || 'starter')
           
           // Supporta sia lifeAreas (nuovo) che lifeArea (vecchio)
           const lifeAreasArray = data.lifeAreas || []
           const lifeAreaSingle = data.lifeArea || null
           const allAreas = lifeAreasArray.length > 0 ? lifeAreasArray : (lifeAreaSingle ? [lifeAreaSingle] : [])
           
+          setCoachSubscriptionTier(data.subscriptionTier || 'starter')
           setCoach({
             id: coachDoc.id,
             name: data.name || 'Coach',
@@ -163,7 +166,9 @@ export default function CoachPublicProfilePage() {
             rating: data.rating || 5.0,
             reviewCount: data.reviewCount || 0,
             hourlyRate: data.hourlyRate || data.averagePrice || 80,
-            availability: data.availability || {}
+            availability: data.availability || {},
+            subscriptionTier: data.subscriptionTier || 'starter',
+            videoUrl: data.videoUrl || undefined,
           })
           
           // Carica prodotti del coach
@@ -188,6 +193,17 @@ export default function CoachPublicProfilePage() {
             }
           })
           setProducts(loadedProducts)
+
+          // Carica recensioni pubbliche per profilo premium
+          try {
+            const reviewsSnap = await getDocs(query(
+              collection(db, 'reviews'),
+              where('coachId', '==', coachId),
+              where('isPublic', '==', true),
+              orderBy('createdAt', 'desc')
+            ))
+            setReviews(reviewsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+          } catch { /* recensioni opzionali */ }
           
         } else {
           setError('Coach non trovato')
@@ -278,15 +294,13 @@ export default function CoachPublicProfilePage() {
                   </div>
                 )}
                 
-                {/* Badge Coach Certificato — solo Business+ */}
-                {hasFeature(coachSubscriptionTier, 'hasVerifiedBadge') && (
+                {/* Badge Coach Certificato */}
                 <div className="absolute top-4 left-4">
                   <span className="px-3 py-1 bg-primary-500 text-white rounded-full text-sm font-medium flex items-center gap-1">
                     <Award size={14} />
                     Coach Certificato
                   </span>
                 </div>
-                )}
               </div>
               
               {/* Info base */}
@@ -513,7 +527,74 @@ export default function CoachPublicProfilePage() {
                 </div>
               )}
             </motion.div>
-            
+
+            {/* ── SEZIONI PREMIUM (solo Elite) ───────────────────── */}
+            {hasFeature(coachSubscriptionTier, 'hasPremiumProfile') && (
+              <>
+                {/* Video di presentazione */}
+                {coach.videoUrl && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25 }}
+                    className="bg-white rounded-2xl shadow-sm overflow-hidden p-6"
+                  >
+                    <h3 className="text-lg font-semibold text-charcoal mb-4 flex items-center gap-2">
+                      <span className="text-xl">🎬</span> Presentazione
+                    </h3>
+                    <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
+                      <iframe
+                        src={coach.videoUrl.includes('youtu')
+                          ? coach.videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'www.youtube.com/embed/')
+                          : coach.videoUrl.replace('vimeo.com/', 'player.vimeo.com/video/')
+                        }
+                        className="w-full h-full"
+                        allowFullScreen
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      />
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Recensioni in evidenza */}
+                {reviews.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="bg-white rounded-2xl shadow-sm overflow-hidden p-6"
+                  >
+                    <h3 className="text-lg font-semibold text-charcoal mb-4 flex items-center gap-2">
+                      <span className="text-xl">⭐</span> Recensioni dei clienti
+                      <span className="text-sm font-normal text-gray-500">({reviews.length})</span>
+                    </h3>
+                    <div className="space-y-4">
+                      {reviews.slice(0, 5).map((review: any) => (
+                        <div key={review.id} className="border border-gray-100 rounded-xl p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-sm font-semibold text-primary-600">
+                                {review.coacheeName?.charAt(0) || '?'}
+                              </div>
+                              <span className="font-medium text-sm text-charcoal">{review.coacheeName}</span>
+                            </div>
+                            <div className="flex">
+                              {[1,2,3,4,5].map(i => (
+                                <Star key={i} size={14} className={i <= review.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200'} />
+                              ))}
+                            </div>
+                          </div>
+                          {review.message && (
+                            <p className="text-sm text-gray-600 italic">"{review.message}"</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </>
+            )}
+
             {/* Sezione Prodotti Digitali */}
             {products.length > 0 && (
               <motion.div
@@ -586,6 +667,78 @@ export default function CoachPublicProfilePage() {
               </motion.div>
             )}
             
+            {/* ── SEZIONI PREMIUM (solo Elite con hasPremiumProfile) ── */}
+            {hasFeature(coachSubscriptionTier, 'hasPremiumProfile') && (
+              <>
+                {/* Video di presentazione */}
+                {coach.videoUrl && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25 }}
+                    className="bg-white rounded-2xl shadow-sm overflow-hidden"
+                  >
+                    <div className="p-6 border-b border-gray-100">
+                      <h3 className="text-lg font-semibold text-charcoal flex items-center gap-2">
+                        <span>🎬</span> Video di presentazione
+                      </h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="aspect-video rounded-xl overflow-hidden bg-gray-100">
+                        <iframe
+                          src={coach.videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                          className="w-full h-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Recensioni in evidenza */}
+                {reviews.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.28 }}
+                    className="bg-white rounded-2xl shadow-sm overflow-hidden"
+                  >
+                    <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-charcoal flex items-center gap-2">
+                        <span>⭐</span> Cosa dicono i coachee
+                      </h3>
+                      <span className="text-sm text-gray-500">{reviews.length} recensioni</span>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {reviews.slice(0, 5).map((review: any) => (
+                        <div key={review.id} className="border border-gray-100 rounded-xl p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
+                                <span className="text-xs font-semibold text-primary-600">
+                                  {(review.coacheeName || 'U').charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <span className="text-sm font-medium text-charcoal">{review.coacheeName || 'Utente'}</span>
+                            </div>
+                            <div className="flex gap-0.5">
+                              {[1,2,3,4,5].map(i => (
+                                <Star key={i} size={14} className={i <= (review.rating || 5) ? 'text-amber-400 fill-amber-400' : 'text-gray-200'} />
+                              ))}
+                            </div>
+                          </div>
+                          {review.message && (
+                            <p className="text-sm text-gray-600 italic">"{review.message}"</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </>
+            )}
+
             {/* CTA finale */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
