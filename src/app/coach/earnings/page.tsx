@@ -29,7 +29,6 @@ import { it } from 'date-fns/locale'
 export default function CoachEarningsPage() {
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
-  const [coachTier, setCoachTier] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'incasso'>('overview')
   const [stripeConfigured, setStripeConfigured] = useState(false)
   const [payoutMethod, setPayoutMethod] = useState<'stripe' | 'bank_transfer' | null>(null)
@@ -58,7 +57,6 @@ export default function CoachEarningsPage() {
         const coachDoc = await getDoc(doc(db, 'coachApplications', user.id))
         const method = coachDoc.exists() ? (coachDoc.data()?.payoutMethod || null) : null
         setPayoutMethod(method)
-        setCoachTier(coachDoc.exists() ? (coachDoc.data()?.subscriptionTier || 'starter') : 'starter')
 
         // Stats
         const earningsDoc = await getDoc(doc(db, 'coachEarnings', user.id))
@@ -132,7 +130,6 @@ export default function CoachEarningsPage() {
       : 'Configura il metodo di pagamento per ricevere i tuoi guadagni.'
 
   return (
-    <TierGate feature="hasEarningsReport" currentTier={coachTier}>
     <div className="min-h-screen bg-cream">
       <header className="bg-white border-b border-gray-100">
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -462,6 +459,5 @@ export default function CoachEarningsPage() {
         )}
       </main>
     </div>
-    </TierGate>
   )
 }

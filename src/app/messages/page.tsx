@@ -26,6 +26,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
 import { filterMessage } from '@/lib/messageFilter'
+import { getMatchLimit } from '@/lib/tierAccess'
 import {
   collection,
   query,
@@ -110,6 +111,7 @@ function MessagesContent() {
   const [showConversationList, setShowConversationList] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterWarning, setFilterWarning] = useState<string | null>(null)
+  const [matchLimitReached, setMatchLimitReached] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -206,6 +208,25 @@ function MessagesContent() {
           const coachData = coachDoc.exists() ? coachDoc.data() : null
           const coachName = targetCoachName || coachData?.name || 'Coach'
           const coachPhoto = coachData?.photo || null
+
+          // ── GATE matchLimit ──
+          const coachTier = coachData?.subscriptionTier || 'free'
+          const monthLimit = getMatchLimit(coachTier) // 0 = illimitato
+          if (monthLimit > 0) {
+            const startOfMonth = new Date()
+            startOfMonth.setDate(1)
+            startOfMonth.setHours(0, 0, 0, 0)
+            const monthConvsSnap = await getDocs(query(
+              collection(db, 'conversations'),
+              where('participants', 'array-contains', targetCoachId),
+              where('createdAt', '>=', Timestamp.fromDate(startOfMonth))
+            ))
+            if (monthConvsSnap.size >= monthLimit) {
+              setMatchLimitReached(true)
+              return
+            }
+          }
+          // ── fine gate ──
 
           const convRef = await addDoc(collection(db, 'conversations'), {
             participants: [user.id, targetCoachId],
@@ -776,6 +797,20 @@ function MessagesContent() {
                 )}
                 <div ref={messagesEndRef} />
               </div>
+
+              {/* Match Limit Warning */}
+              {matchLimitReached && (
+                <div className="mx-3 mt-2 p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm text-center">
+                  <p className="text-2xl mb-2">😔</p>
+                  <p className="font-semibold text-gray-700 mb-1">Coach non disponibile</p>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Questo coach non è al momento disponibile per nuovi percorsi. Scopri gli altri coach sulla piattaforma!
+                  </p>
+                  <Link href="/coaches" className="inline-block text-xs font-semibold text-primary-600 hover:text-primary-700 underline">
+                    Scopri altri coach →
+                  </Link>
+                </div>
+              )}
 
               {/* Filter Warning */}
               <AnimatePresence>
