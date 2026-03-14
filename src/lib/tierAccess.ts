@@ -20,8 +20,6 @@ export const TIER_CONFIG: Record<CoachTier, {
   hasAdvancedAnalytics: boolean
   hasPrioritySupport: boolean
   hasPremiumProfile: boolean
-  hasBlogAccess: boolean
-  hasWebinarAccess: boolean
   hasDedicatedManager: boolean
   hasEarlyAccess: boolean
 }> = {
@@ -42,15 +40,13 @@ export const TIER_CONFIG: Record<CoachTier, {
     hasAdvancedAnalytics: false,
     hasPrioritySupport: false,
     hasPremiumProfile: false,
-    hasBlogAccess: false,
-    hasWebinarAccess: false,
     hasDedicatedManager: false,
     hasEarlyAccess: false,
   },
   professional: {
     name: 'Professional',
     monthlyPrice: 29,
-    matchLimit: 0, // illimitato
+    matchLimit: 0,
     commissionPercent: 30,
     coachPercent: 70,
     hasVirtualOffice: true,
@@ -64,8 +60,6 @@ export const TIER_CONFIG: Record<CoachTier, {
     hasAdvancedAnalytics: false,
     hasPrioritySupport: false,
     hasPremiumProfile: false,
-    hasBlogAccess: false,
-    hasWebinarAccess: false,
     hasDedicatedManager: false,
     hasEarlyAccess: false,
   },
@@ -86,8 +80,6 @@ export const TIER_CONFIG: Record<CoachTier, {
     hasAdvancedAnalytics: true,
     hasPrioritySupport: true,
     hasPremiumProfile: false,
-    hasBlogAccess: false,
-    hasWebinarAccess: false,
     hasDedicatedManager: false,
     hasEarlyAccess: false,
   },
@@ -108,8 +100,6 @@ export const TIER_CONFIG: Record<CoachTier, {
     hasAdvancedAnalytics: true,
     hasPrioritySupport: true,
     hasPremiumProfile: true,
-    hasBlogAccess: true,
-    hasWebinarAccess: true,
     hasDedicatedManager: true,
     hasEarlyAccess: true,
   },

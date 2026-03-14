@@ -42,7 +42,7 @@ const benefits = [
     color: '#EC4899',
     bg: '#FDF2F8',
     title: 'Community esclusiva Coach',
-    desc: 'Coach Corner, masterclass, risorse e colleghi con cui confrontarsi. Non sei solo: sei parte di una rete di professionisti in crescita.',
+    desc: 'Forum aperto a coach e coachee, discussioni pubbliche indicizzate su Google. Costruisci la tua reputazione professionale.',
   },
   {
     icon: Globe,
@@ -142,8 +142,6 @@ const plans = [
       'Commissione ridotta: 20% (invece di 30%)',
       'Boost visibilità da engagement Community',
       'Pagina profilo personalizzata premium',
-      'Pubblicazione articoli sul blog',
-      'Webinar e masterclass sulla piattaforma',
       'Account manager dedicato',
       'Early access nuove funzionalità',
     ],
@@ -376,12 +374,12 @@ export default function PricingPage() {
               <p className="text-[#D4A574] text-sm font-bold uppercase tracking-widest mb-4">Community</p>
               <h2 className="text-4xl font-bold text-[#1a1a1a] mb-5 leading-tight">Non sei solo.<br />Sei in ottima compagnia.</h2>
               <p className="text-gray-500 leading-relaxed mb-7">
-                La community Coach Corner è riservata ai coach approvati. Confrontati con colleghi, accedi a risorse esclusive, partecipa a masterclass e costruisci la tua reputazione professionale.
+                La community di CoachaMi è aperta a coach e coachee. Un forum dove confrontarsi, condividere esperienze e costruire la tua reputazione professionale.
               </p>
               <div className="space-y-3">
                 {[
-                  'Coach Corner: forum riservato ai professionisti',
-                  'Masterclass e webinar mensili',
+                  'Forum aperto a coach e coachee',
+                  'Discussioni pubbliche indicizzate su Google',
                   'Risorse, template e guide pratiche',
                   'Leaderboard e gamification per crescere',
                   'Network con coach di tutta Italia',

@@ -65,8 +65,6 @@ const plans = [
       'Commissione ridotta: 20% (invece di 30%)',
       'Boost visibilità da engagement Community',
       'Pagina profilo personalizzata premium',
-      'Pubblicazione articoli sul blog',
-      'Webinar e masterclass sulla piattaforma',
       'Account manager dedicato',
       'Early access nuove funzionalità',
     ],
