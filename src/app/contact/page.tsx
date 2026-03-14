@@ -239,10 +239,27 @@ export default function ContactPage() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="py-8 px-4 border-t border-gray-100 mt-12">
-        <div className="max-w-4xl mx-auto text-center text-sm text-gray-400">
-          © 2025 CoachaMi. Tutti i diritti riservati.
+            {/* Footer */}
+      <footer className="py-10 px-4 border-t border-gray-100 bg-white">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <Logo size="sm" />
+            <div className="flex flex-wrap gap-5 text-sm text-gray-500">
+              <Link href="/privacy" className="hover:text-charcoal transition-colors">Privacy Policy</Link>
+              <Link href="/terms" className="hover:text-charcoal transition-colors">Termini di Servizio</Link>
+              <Link href="/cookie-policy" className="hover:text-charcoal transition-colors">Cookie Policy</Link>
+              <Link href="/codice-etico" className="hover:text-charcoal transition-colors">Codice Etico</Link>
+              <Link href="/coach/apply" className="hover:text-charcoal transition-colors">Diventa Coach</Link>
+              <Link href="/contact" className="hover:text-charcoal transition-colors">Contatti</Link>
+            </div>
+          </div>
+          <div className="border-t border-gray-100 pt-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-xs text-gray-400">
+            <div className="space-y-0.5">
+              <p>CoachaMi — un'idea di Debora Carofiglio</p>
+              <p>Strada Lungofino 187, 65013 Città Sant'Angelo (PE) — P.IVA IT02411430685</p>
+            </div>
+            <p>© {new Date().getFullYear()} CoachaMi. Tutti i diritti riservati.</p>
+          </div>
         </div>
       </footer>
     </div>
