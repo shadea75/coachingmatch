@@ -380,6 +380,7 @@ export default function CoachLayoutWrapper({
     { href: '/coach/sessions', label: 'Sessioni', icon: Video, badge: coachData.pendingSessions },
     { href: '/coach/office', label: 'Ufficio Virtuale', icon: Building2, requiredFeature: 'hasVirtualOffice' as const },
     { href: '/coach/invoices', label: 'Fatturazione', icon: FileText, requiredFeature: 'hasElectronicInvoicing' as const },
+    { href: '/coach/analytics', label: 'Statistiche', icon: BarChart3, requiredFeature: 'hasAdvancedAnalytics' as const },
     { href: '/coach/reviews', label: 'Recensioni', icon: Star, badge: coachData.pendingReviews },
     { href: '/community/my-points', label: 'I miei punti', icon: Trophy },
     { href: '/coach/availability', label: 'Disponibilità', icon: Calendar },

@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       description,
       authorName: data.authorName || 'CoachaMi',
       slug: data.slug || id,
+      section: data.section || '',
     })
   } catch (err) {
     console.error('Errore lettura post meta:', err)

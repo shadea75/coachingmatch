@@ -44,6 +44,7 @@ import {
   arrayRemove
 } from 'firebase/firestore'
 import { addPoints, initializeCoachPoints } from '@/lib/coachPoints'
+import { formatDisplayName } from '@/lib/formatName'
 
 // Mock data
 const MOCK_POST: CommunityPost = {
@@ -383,7 +384,7 @@ export default function PostClient() {
       const commentData = {
         postId: post.id,
         authorId: user.id,
-        authorName: user.name || 'Utente',
+        authorName: formatDisplayName(user.name || 'Utente'),
         authorPhoto: user.photo || null,
         authorRole: userRole,
         content: newComment.trim(),
@@ -405,7 +406,7 @@ export default function PostClient() {
         id: docRef.id,
         postId: post.id,
         authorId: user.id,
-        authorName: user.name || 'Utente',
+        authorName: formatDisplayName(user.name || 'Utente'),
         authorPhoto: user.photo,
         authorRole: userRole as 'coach' | 'coachee' | 'admin',
         content: newComment.trim(),
@@ -503,7 +504,7 @@ export default function PostClient() {
                 )}
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-charcoal">{post.authorName}</span>
+                    <span className="font-semibold text-charcoal">{formatDisplayName(post.authorName)}</span>
                     {post.authorRole === 'coach' && <span className="text-sm">⭐</span>}
                     {post.authorRole === 'admin' && <span className="text-sm">👑</span>}
                     <span 
@@ -689,7 +690,7 @@ export default function PostClient() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-semibold text-charcoal text-sm">
-                          {comment.authorName}
+                          {formatDisplayName(comment.authorName)}
                         </span>
                         {comment.authorRole === 'coach' && (
                           <span className="text-xs bg-primary-100 text-primary-600 px-2 py-0.5 rounded-full">

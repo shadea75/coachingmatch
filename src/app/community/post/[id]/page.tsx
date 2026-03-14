@@ -6,8 +6,6 @@ interface Props {
   params: { id: string }
 }
 
-// Importiamo firebase-admin lato server tramite API route per i meta
-// Usiamo fetch sulla nostra API per evitare problemi con firebase client SDK lato server
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const res = await fetch(
@@ -16,6 +14,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     )
     if (!res.ok) throw new Error('not found')
     const data = await res.json()
+
+    // Post coachee-corner: NON indicizzabili
+    if (data.section === 'coachee-corner') {
+      return {
+        title: `${data.title} — CoachaMi Community`,
+        robots: { index: false, follow: false },
+      }
+    }
 
     return {
       title: `${data.title} — CoachaMi Community`,

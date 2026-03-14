@@ -18,6 +18,7 @@ import { CommunitySection, SECTIONS_CONFIG } from '@/types/community'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { addPoints, incrementMonthlyPosts, initializeCoachPoints } from '@/lib/coachPoints'
+import { formatDisplayName } from '@/lib/formatName'
 
 export default function NewPostPage() {
   const router = useRouter()
@@ -104,7 +105,7 @@ export default function NewPostPage() {
       // Crea il post
       const postData = {
         authorId: user?.id,
-        authorName: user?.name || 'Utente',
+        authorName: formatDisplayName(user?.name || 'Utente'),
         authorPhoto: user?.photo || null,
         authorRole: userRole,
         section: formData.section,
