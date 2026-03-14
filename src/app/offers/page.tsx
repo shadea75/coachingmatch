@@ -23,6 +23,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
+import { hasFeature } from '@/lib/tierAccess'
 import { 
   collection, 
   query, 
@@ -30,6 +31,7 @@ import {
   orderBy, 
   getDocs,
   doc,
+  getDoc,
   updateDoc,
   serverTimestamp
 } from 'firebase/firestore'
@@ -88,6 +90,7 @@ export default function CoacheeOffersPage() {
   const [offers, setOffers] = useState<Offer[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [coachTiers, setCoachTiers] = useState<Record<string, string>>({})
   const [processingId, setProcessingId] = useState<string | null>(null)
   
   // Carica offerte e sessioni
@@ -127,6 +130,17 @@ export default function CoacheeOffersPage() {
           source: doc.data().source
         }))
         setOffers(loadedOffers)
+
+        // Carica tier abbonamento dei coach coinvolti nelle offerte
+        const uniqueCoachIds = [...new Set(loadedOffers.map(o => o.coachId))]
+        const tierMap: Record<string, string> = {}
+        await Promise.all(uniqueCoachIds.map(async (coachId) => {
+          try {
+            const coachDoc = await getDoc(doc(db, 'coachApplications', coachId))
+            tierMap[coachId] = coachDoc.exists() ? (coachDoc.data()?.subscriptionTier || 'starter') : 'starter'
+          } catch { tierMap[coachId] = 'starter' }
+        }))
+        setCoachTiers(tierMap)
         
         // Carica sessioni collegate alle offerte
         const sessionsQuery = query(
@@ -326,10 +340,12 @@ export default function CoacheeOffersPage() {
                             </div>
                             <div>
                               <p className="font-semibold text-charcoal">{offer.coachName}</p>
-                              <div className="flex items-center gap-1 text-sm text-gray-500">
-                                <Star size={14} className="text-yellow-400 fill-yellow-400" />
-                                <span>Coach Verificato</span>
-                              </div>
+                              {hasFeature(coachTiers[offer.coachId], 'hasVerifiedBadge') && (
+                                <div className="flex items-center gap-1 text-sm text-gray-500">
+                                  <Star size={14} className="text-yellow-400 fill-yellow-400" />
+                                  <span>Coach Verificato</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                           

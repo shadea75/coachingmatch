@@ -23,12 +23,14 @@ import {
   Clock,
   Target,
   FileText,
-  MessageCircle
+  MessageCircle,
+  Lock
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import Logo from '@/components/Logo'
 import { db } from '@/lib/firebase'
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
+import { getTierConfig } from '@/lib/tierAccess'
 
 // Pagine che NON devono avere la sidebar
 const PAGES_WITHOUT_SIDEBAR = [
@@ -67,6 +69,7 @@ export default function CoachLayoutWrapper({
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>('loading')
   const [subscriptionPrice, setSubscriptionPrice] = useState<number>(19)
   const [trialDaysLeft, setTrialDaysLeft] = useState<number>(0)
+  const [coachTier, setCoachTier] = useState<string>('starter')
 
   // Verifica se la pagina corrente deve mostrare la sidebar
   const shouldShowSidebar = !PAGES_WITHOUT_SIDEBAR.some(page => pathname?.startsWith(page))
@@ -98,6 +101,7 @@ export default function CoachLayoutWrapper({
           const data = coachDoc.data()
           name = data.name || name
           subPrice = data.subscriptionPrice ?? 19
+          setCoachTier(data.subscriptionTier || 'starter')
           
           // Calcola stato abbonamento
           const now = new Date()
@@ -374,8 +378,8 @@ export default function CoachLayoutWrapper({
     { href: '/coach/dashboard', label: 'Dashboard', icon: BarChart3 },
     { href: '/coach/messages', label: 'Messaggi', icon: MessageCircle },
     { href: '/coach/sessions', label: 'Sessioni', icon: Video, badge: coachData.pendingSessions },
-    { href: '/coach/office', label: 'Ufficio Virtuale', icon: Building2 },
-    { href: '/coach/invoices', label: 'Fatturazione', icon: FileText },
+    { href: '/coach/office', label: 'Ufficio Virtuale', icon: Building2, requiredFeature: 'hasVirtualOffice' as const },
+    { href: '/coach/invoices', label: 'Fatturazione', icon: FileText, requiredFeature: 'hasElectronicInvoicing' as const },
     { href: '/coach/reviews', label: 'Recensioni', icon: Star, badge: coachData.pendingReviews },
     { href: '/community/my-points', label: 'I miei punti', icon: Trophy },
     { href: '/coach/availability', label: 'Disponibilità', icon: Calendar },
@@ -419,7 +423,24 @@ export default function CoachLayoutWrapper({
         {navItems.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
-          
+          const tierCfg = getTierConfig(coachTier)
+          const isLocked = item.requiredFeature && !tierCfg[item.requiredFeature]
+
+          if (isLocked) {
+            return (
+              <Link
+                key={item.href}
+                href="/coach/subscription"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-gray-400 hover:bg-gray-50"
+              >
+                <Icon size={20} />
+                <span className="font-medium flex-1">{item.label}</span>
+                <Lock size={14} className="text-gray-300" />
+              </Link>
+            )
+          }
+
           return (
             <Link
               key={item.href}

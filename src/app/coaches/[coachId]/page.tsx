@@ -34,6 +34,7 @@ import { db } from '@/lib/firebase'
 import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { useAuth } from '@/contexts/AuthContext'
 import { LIFE_AREAS } from '@/types'
+import { hasFeature } from '@/lib/tierAccess'
 import { getAreaIllustration } from '@/components/AreaIllustrations'
 
 interface CoachProfile {
@@ -110,6 +111,7 @@ export default function CoachPublicProfilePage() {
   const [coach, setCoach] = useState<CoachProfile | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [coachSubscriptionTier, setCoachSubscriptionTier] = useState<string>('starter')
   const [error, setError] = useState('')
   const [expanded, setExpanded] = useState<ExpandedSection>({
     story: false,
@@ -129,6 +131,7 @@ export default function CoachPublicProfilePage() {
         
         if (coachDoc.exists()) {
           const data = coachDoc.data()
+          setCoachSubscriptionTier(data.subscriptionTier || 'starter')
           
           // Supporta sia lifeAreas (nuovo) che lifeArea (vecchio)
           const lifeAreasArray = data.lifeAreas || []
@@ -275,13 +278,15 @@ export default function CoachPublicProfilePage() {
                   </div>
                 )}
                 
-                {/* Badge Coach Certificato */}
+                {/* Badge Coach Certificato — solo Business+ */}
+                {hasFeature(coachSubscriptionTier, 'hasVerifiedBadge') && (
                 <div className="absolute top-4 left-4">
                   <span className="px-3 py-1 bg-primary-500 text-white rounded-full text-sm font-medium flex items-center gap-1">
                     <Award size={14} />
                     Coach Certificato
                   </span>
                 </div>
+                )}
               </div>
               
               {/* Info base */}
