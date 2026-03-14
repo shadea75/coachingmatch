@@ -3,6 +3,7 @@ import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { OnboardingProvider } from '@/contexts/OnboardingContext'
 import Script from 'next/script'
+import CookieBanner from '@/components/CookieBanner'
 
 export const metadata: Metadata = {
   title: 'CoachaMi | Trova il coach giusto per te',
@@ -30,6 +31,20 @@ export default function RootLayout({
   return (
     <html lang="it">
       <body className="antialiased">
+        {/* Google Consent Mode v2 — default negato fino a consenso */}
+        <Script id="consent-mode-default" strategy="beforeInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('consent', 'default', {
+              analytics_storage: 'denied',
+              ad_storage: 'denied',
+              ad_user_data: 'denied',
+              ad_personalization: 'denied',
+              wait_for_update: 500
+            });
+          `}
+        </Script>
         {/* Google Analytics */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-581C4X09C7"
@@ -47,6 +62,7 @@ export default function RootLayout({
         <AuthProvider>
           <OnboardingProvider>
             {children}
+            <CookieBanner />
           </OnboardingProvider>
         </AuthProvider>
       </body>
