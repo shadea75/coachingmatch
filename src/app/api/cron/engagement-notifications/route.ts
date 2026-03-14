@@ -31,7 +31,7 @@ interface ProfileNotification {
 const PROFILE_NOTIFICATIONS: ProfileNotification[] = [
   {
     type: 'profile_day3',
-    daysThreshold: 3,
+    daysThreshold: 7,
     subject: '📸 Una foto può fare la differenza!',
     getMessage: (name) => `Ciao ${name}!\n\nAbbiamo notato che il tuo profilo su CoachaMi non ha ancora una foto. I coach con foto profilo ricevono fino al 30% in più di richieste dai coachee!\n\nBastano 2 minuti per caricarla e aumentare la tua visibilità.`,
     suggestions: [
@@ -42,9 +42,9 @@ const PROFILE_NOTIFICATIONS: ProfileNotification[] = [
   },
   {
     type: 'profile_day7',
-    daysThreshold: 7,
+    daysThreshold: 14,
     subject: '⚡ Il tuo profilo è incompleto - stai perdendo coachee',
-    getMessage: (name) => `Ciao ${name},\n\nÈ passata una settimana dalla tua registrazione su CoachaMi, ma il tuo profilo non è ancora completo.\n\nSenza una foto, i coachee non possono "conoscerti" prima di contattarti, e questo riduce significativamente le tue possibilità di essere scelto.`,
+    getMessage: (name) => `Ciao ${name},\n\nSono passate due settimane dalla tua registrazione su CoachaMi, ma il tuo profilo non è ancora completo.\n\nSenza una foto, i coachee non possono "conoscerti" prima di contattarti, e questo riduce significativamente le tue possibilità di essere scelto.`,
     suggestions: [
       'Aggiungi una foto profilo (aumenta la visibilità del 30%)',
       'Completa la tua biografia',
@@ -53,7 +53,7 @@ const PROFILE_NOTIFICATIONS: ProfileNotification[] = [
   },
   {
     type: 'profile_day14',
-    daysThreshold: 14,
+    daysThreshold: 21,
     subject: '⚠️ Ultima chiamata: completa il tuo profilo CoachaMi',
     getMessage: (name) => `Ciao ${name},\n\nQuesta è l'ultima email che ti mandiamo riguardo al profilo incompleto.\n\nI coach senza foto appaiono in fondo ai risultati di ricerca. Se vuoi ricevere richieste dai coachee, ti consigliamo di completare il profilo oggi stesso.`,
     suggestions: [

@@ -434,20 +434,6 @@ function CoachesContent() {
                             <div className="absolute top-3 left-3">
                               <MatchBadge result={result} />
                             </div>
-                            
-                            {/* Badge Illustrazioni Aree in basso a destra */}
-                            {coach.lifeAreas && coach.lifeAreas.length > 0 && (
-                              <div className="absolute bottom-3 right-3 flex gap-1">
-                                {coach.lifeAreas.slice(0, 3).map((areaId) => {
-                                  const AreaIllustration = AreaIllustrations[areaId]
-                                  return AreaIllustration ? (
-                                    <div key={areaId} className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full p-1 shadow-md flex items-center justify-center">
-                                      <AreaIllustration size={28} />
-                                    </div>
-                                  ) : null
-                                })}
-                              </div>
-                            )}
                           </div>
                           
                           {/* Info */}
