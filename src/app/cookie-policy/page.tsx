@@ -22,7 +22,7 @@ export default function CookiePolicyPage() {
 
           <div className="border-b border-gray-100 pb-8">
             <h1 className="text-3xl md:text-4xl font-serif font-bold text-charcoal mb-3">Cookie Policy</h1>
-            <p className="text-gray-500 text-sm">Ultimo aggiornamento: gennaio 2025 — CoachaMi, P.IVA IT02411430685</p>
+            <p className="text-gray-500 text-sm">Ultimo aggiornamento: marzo 2026 — CoachaMi, P.IVA IT02411430685</p>
           </div>
 
           <section className="space-y-3">
