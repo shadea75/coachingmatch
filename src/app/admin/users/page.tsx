@@ -330,8 +330,8 @@ export default function AdminUsersPage() {
                         <button
                           onClick={() => {
                             setContactTarget(coachee)
-                            setContactSubject('')
-                            setContactMessage('')
+                            setContactSubject('Benvenuto su CoachaMi — posso aiutarti?')
+                            setContactMessage(`Ciao ${coachee.name},\n\nSono Debora, fondatrice di CoachaMi. Ho visto che ti sei appena iscritto/a e volevo darti il benvenuto di persona! 🎉\n\nCoachaMi nasce per aiutarti a trovare il coach giusto per te — quello che ti accompagna concretamente verso i tuoi obiettivi nelle aree della vita che ti stanno più a cuore.\n\nSe hai dubbi su come funziona la piattaforma, su quale coach scegliere, o semplicemente vuoi raccontarmi cosa stai cercando, sono qui. Rispondimi pure a questa email.\n\nIn bocca al lupo per il tuo percorso! 🌱\n\nDebora\nCoachaMi`)
                             setContactSent(false)
                           }}
                           className="flex items-center gap-1 text-xs bg-primary-500 hover:bg-primary-600 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"

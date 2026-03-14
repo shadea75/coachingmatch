@@ -1171,7 +1171,7 @@ export async function POST(request: NextRequest) {
       const { coacheeName, coacheeEmail, subject, message } = data
 
       const result = await resend.emails.send({
-        from: 'CoachaMi <noreply@coachami.it>',
+        from: 'CoachaMi <coachami@coachami.it>',
         to: coacheeEmail,
         subject: subject || `Un messaggio da CoachaMi`,
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
