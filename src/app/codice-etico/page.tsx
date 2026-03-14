@@ -30,7 +30,7 @@ export default function CodiceEticoPage() {
               Codice Etico del Coaching
             </h1>
             <p className="text-gray-500 text-sm">
-              CoachaMi — versione in vigore dal 1° gennaio 2025 — adottato da tutti i coach iscritti alla piattaforma
+              CoachaMi — versione in vigore dal 1° marzo 2026 — adottato da tutti i coach iscritti alla piattaforma
             </p>
           </div>
 
@@ -172,7 +172,7 @@ export default function CodiceEticoPage() {
               L'accettazione è condizione indispensabile per operare sulla piattaforma.
             </p>
             <p className="text-gray-500 text-xs">
-              Ultimo aggiornamento: gennaio 2025. CoachaMi si riserva il diritto di aggiornare periodicamente il presente documento. 
+              Ultimo aggiornamento: marzo 2026. CoachaMi si riserva il diritto di aggiornare periodicamente il presente documento. 
               I coach iscritti saranno notificati via email di eventuali modifiche sostanziali.
             </p>
           </section>
