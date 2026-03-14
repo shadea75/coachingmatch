@@ -29,7 +29,7 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 
 export default function SettingsPage() {
   const router = useRouter()
-  const { user, signOut } = useAuth()
+  const { user, signOut, loading } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -255,7 +255,14 @@ export default function SettingsPage() {
     }
   }
   
-  if (!user) {
+  // Redirect se non loggato (aspetta che Firebase risolva l'auth)
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login')
+    }
+  }, [user, loading, router])
+
+  if (loading || !user) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
         <Loader2 className="animate-spin text-primary-500" size={32} />
