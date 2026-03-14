@@ -100,12 +100,20 @@ function CoachesContent() {
   useEffect(() => {
     const loadCoaches = async () => {
       try {
-        const coachesQuery = query(
-          collection(db, 'coachApplications'),
-          where('status', '==', 'approved'),
-          where('subscriptionStatus', '==', 'active')
-        )
-        const snapshot = await getDocs(coachesQuery)
+        // Due query separate perché Firestore non supporta OR sullo stesso campo
+        const [activeSnap, freeSnap] = await Promise.all([
+          getDocs(query(
+            collection(db, 'coachApplications'),
+            where('status', '==', 'approved'),
+            where('subscriptionStatus', '==', 'active')
+          )),
+          getDocs(query(
+            collection(db, 'coachApplications'),
+            where('status', '==', 'approved'),
+            where('subscriptionStatus', '==', 'free')
+          ))
+        ])
+        const snapshot = { docs: [...activeSnap.docs, ...freeSnap.docs] }
         const loadedCoaches: CoachProfile[] = snapshot.docs.map(doc => {
           const data = doc.data()
           
