@@ -1164,6 +1164,104 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true })
     }
 
+    // =====================================================
+    // EMAIL BENVENUTO COACHEE + NOTIFICA ADMIN
+    // =====================================================
+    if (type === 'coachee_welcome') {
+      const { name, email } = data
+      const registrationDate = new Date().toLocaleDateString('it-IT', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+      })
+
+      // 1. Email di benvenuto al coachee
+      const coacheeResult = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: email,
+        subject: '🌱 Benvenuto su CoachaMi! Inizia il tuo percorso',
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr><td>
+                ${logoHeader}
+                <table width="100%" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                  <tr><td style="padding: 0;">
+                    <div style="background: linear-gradient(135deg, #EC7711, #F59E0B); padding: 35px 30px; text-align: center;">
+                      <div style="font-size: 48px; margin-bottom: 10px;">🌱</div>
+                      <h1 style="color: white; margin: 0; font-size: 26px;">Benvenuto su CoachaMi!</h1>
+                      <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 16px;">Il tuo percorso di crescita inizia ora</p>
+                    </div>
+                    <div style="padding: 30px;">
+                      <p>Ciao <strong>${name}</strong>! 👋</p>
+                      <p>Siamo felici di averti con noi. CoachaMi ti mette in contatto con coach professionisti italiani per aiutarti a crescere nelle 8 aree della vita.</p>
+                      <div style="background: #FFF7ED; border-radius: 12px; padding: 24px; margin: 24px 0; border-left: 4px solid #EC7711;">
+                        <h3 style="margin: 0 0 16px 0; color: #EC7711;">🚀 Cosa fare adesso:</h3>
+                        <p style="margin: 8px 0;"><strong>1.</strong> Completa il tuo profilo con i tuoi obiettivi</p>
+                        <p style="margin: 8px 0;"><strong>2.</strong> Scopri i coach e trova quello più adatto a te</p>
+                        <p style="margin: 8px 0;"><strong>3.</strong> Inizia una conversazione con il tuo coach</p>
+                      </div>
+                      <div style="text-align: center; margin: 30px 0;">
+                        <a href="https://www.coachami.it/onboarding" style="display: inline-block; background: #EC7711; color: white; padding: 16px 40px; border-radius: 30px; text-decoration: none; font-weight: 700; font-size: 16px;">
+                          Inizia ora →
+                        </a>
+                      </div>
+                      <p style="font-size: 14px; color: #888; text-align: center;">
+                        Hai domande? Scrivi a <a href="mailto:info@coachami.it" style="color: #EC7711;">info@coachami.it</a>
+                      </p>
+                    </div>
+                  </td></tr>
+                </table>
+                ${footer}
+              </td></tr>
+            </table>
+          </body></html>`
+      })
+
+      // 2. Notifica admin
+      const adminResult = await resend.emails.send({
+        from: 'CoachaMi <noreply@coachami.it>',
+        to: 'debora.carofiglio@gmail.com',
+        subject: `🆕 Nuovo coachee registrato: ${name}`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <tr><td>
+                ${logoHeader}
+                <table width="100%" style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                  <tr><td style="padding: 30px;">
+                    <div style="background: #ECFDF5; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; border-left: 4px solid #10B981;">
+                      <h2 style="margin: 0; color: #065F46; font-size: 18px;">🆕 Nuovo coachee registrato!</h2>
+                    </div>
+                    <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #E5E7EB; border-radius: 8px; overflow: hidden; margin-bottom: 24px;">
+                      <tr style="background: #F9FAFB;">
+                        <td style="padding: 12px 16px; font-weight: 600; color: #6B7280; width: 120px; font-size: 13px; text-transform: uppercase;">NOME</td>
+                        <td style="padding: 12px 16px; font-weight: 600; color: #111827;">${name}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 12px 16px; font-weight: 600; color: #6B7280; font-size: 13px; text-transform: uppercase;">EMAIL</td>
+                        <td style="padding: 12px 16px;"><a href="mailto:${email}" style="color: #EC7711;">${email}</a></td>
+                      </tr>
+                      <tr style="background: #F9FAFB;">
+                        <td style="padding: 12px 16px; font-weight: 600; color: #6B7280; font-size: 13px; text-transform: uppercase;">DATA</td>
+                        <td style="padding: 12px 16px; color: #374151;">${registrationDate}</td>
+                      </tr>
+                    </table>
+                    <div style="text-align: center;">
+                      <a href="https://www.coachami.it/admin/users" style="display: inline-block; background: #EC7711; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                        Vedi Gestione Utenti →
+                      </a>
+                    </div>
+                  </td></tr>
+                </table>
+                ${footer}
+              </td></tr>
+            </table>
+          </body></html>`
+      })
+
+      console.log('✅ Email benvenuto coachee e notifica admin inviate')
+      return NextResponse.json({ success: true, coacheeResult, adminResult })
+    }
+
     return NextResponse.json({ error: 'Tipo email non supportato' }, { status: 400 })
 
   } catch (error: any) {

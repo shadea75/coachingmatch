@@ -119,6 +119,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     
     await setDoc(doc(db, 'users', result.user.uid), newUser)
+
+    // Invia email benvenuto coachee + notifica admin (fire-and-forget, non blocca il login)
+    if (role === 'coachee') {
+      fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'coachee_welcome',
+          data: { name, email }
+        })
+      }).catch(err => console.error('Errore invio email benvenuto:', err))
+    }
   }
 
   const signInWithGoogle = async () => {

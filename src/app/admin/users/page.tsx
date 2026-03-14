@@ -21,7 +21,10 @@ import {
   Trash2,
   Loader2,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  TrendingUp,
+  UserPlus,
+  ChevronRight
 } from 'lucide-react'
 
 const ROLE_CONFIG: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
@@ -43,6 +46,9 @@ export default function AdminUsersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState<User | null>(null)
   const [coachOnlyCount, setCoachOnlyCount] = useState(0)
+  // Lead coachee: ultimi 7 giorni
+  const [newCoachees, setNewCoachees] = useState<User[]>([])
+  const [showLeads, setShowLeads] = useState(true)
 
   useEffect(() => {
     fetchUsers()
@@ -104,6 +110,15 @@ export default function AdminUsersPage() {
         return dateB.getTime() - dateA.getTime()
       })
       
+      // 4. Estrai i coachee registrati negli ultimi 7 giorni come "lead"
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+      const recentCoachees = usersData.filter(u => {
+        const created = u.createdAt instanceof Date ? u.createdAt : new Date(u.createdAt || 0)
+        return u.role === 'coachee' && created >= sevenDaysAgo
+      })
+      setNewCoachees(recentCoachees)
+
       setCoachOnlyCount(coachOnly)
       setUsers(usersData)
     } catch (error) {
@@ -215,6 +230,90 @@ export default function AdminUsersPage() {
             Aggiorna
           </button>
         </div>
+
+        {/* ── LEAD COACHEE (ultimi 7 giorni) ─────────────────── */}
+        {newCoachees.length > 0 && (
+          <div className="bg-white rounded-xl border border-green-200 overflow-hidden">
+            <button
+              onClick={() => setShowLeads(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-green-50/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center">
+                  <UserPlus size={18} className="text-green-600" />
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-gray-900 flex items-center gap-2">
+                    Nuovi coachee (ultimi 7 giorni)
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-xs font-bold">
+                      {newCoachees.length}
+                    </span>
+                  </p>
+                  <p className="text-sm text-gray-500">Lead da coltivare — nessuno li ha ancora contattati</p>
+                </div>
+              </div>
+              <ChevronRight
+                size={18}
+                className={`text-gray-400 transition-transform ${showLeads ? 'rotate-90' : ''}`}
+              />
+            </button>
+
+            {showLeads && (
+              <div className="border-t border-green-100 divide-y divide-gray-100">
+                {newCoachees.map(coachee => {
+                  const created = coachee.createdAt instanceof Date
+                    ? coachee.createdAt
+                    : new Date(coachee.createdAt || 0)
+                  const daysAgo = Math.floor((Date.now() - created.getTime()) / 86400000)
+                  const daysLabel = daysAgo === 0 ? 'oggi' : daysAgo === 1 ? 'ieri' : `${daysAgo} giorni fa`
+
+                  return (
+                    <div key={coachee.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50">
+                      <div className="flex items-center gap-3">
+                        {coachee.photo ? (
+                          <img src={coachee.photo} alt={coachee.name} className="w-9 h-9 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center">
+                            <span className="text-sm font-semibold text-green-700">
+                              {coachee.name?.charAt(0)?.toUpperCase() || '?'}
+                            </span>
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">{coachee.name}</p>
+                          <p className="text-xs text-gray-500">{coachee.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                          <Calendar size={12} />
+                          {daysLabel}
+                        </span>
+                        {(coachee as any).onboardingCompleted ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
+                            Onboarding ✓
+                          </span>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                            Onboarding incompleto
+                          </span>
+                        )}
+                        <a
+                          href={`mailto:${coachee.email}?subject=Benvenuto su CoachaMi!&body=Ciao ${coachee.name},%0D%0A%0D%0ASono Debora di CoachaMi. Come posso aiutarti nel tuo percorso?%0D%0A%0D%0AUn caro saluto`}
+                          className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <Mail size={13} />
+                          Contatta
+                        </a>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Filters */}
         <div className="flex items-center gap-4">
