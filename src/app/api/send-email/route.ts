@@ -1185,7 +1185,7 @@ export async function POST(request: NextRequest) {
                     <div style="background:#F9FAFB;border-radius:10px;padding:20px;margin:20px 0;border-left:4px solid #EC7711;white-space:pre-line;font-size:15px;color:#374151;">
                       ${message.replace(/\n/g, '<br>')}
                     </div>
-                    <p style="font-size:14px;color:#6B7280;">Hai ricevuto questo messaggio dal team di <strong>CoachaMi</strong>.<br>Per rispondere scrivi a <a href="mailto:info@coachami.it" style="color:#EC7711;">info@coachami.it</a></p>
+                    <p style="font-size:14px;color:#6B7280;">Hai ricevuto questo messaggio dal team di <strong>CoachaMi</strong>.<br>Per rispondere scrivi a <a href="mailto:coachami@coachami.it" style="color:#EC7711;">coachami@coachami.it</a></p>
                     <div style="text-align:center;margin-top:24px;">
                       <a href="https://www.coachami.it/dashboard" style="display:inline-block;background:#EC7711;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">Vai alla tua Dashboard →</a>
                     </div>
