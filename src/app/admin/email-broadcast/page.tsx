@@ -25,6 +25,7 @@ import { db } from '@/lib/firebase'
 import { 
   collection, 
   getDocs, 
+  getDoc,
   query, 
   where, 
   doc, 
@@ -194,17 +195,30 @@ export default function EmailBroadcastPage() {
         where('status', '==', 'approved')
       )
       const coachesSnapshot = await getDocs(coachesQuery)
-      const loadedCoaches: Coach[] = coachesSnapshot.docs
-        .filter(doc => doc.data().email) // Solo con email
-        .map(doc => ({
-          id: doc.id,
-          email: doc.data().email,
-          name: doc.data().name || 'Coach',
-          lifeArea: doc.data().lifeArea,
-          status: doc.data().status,
-          subscriptionStatus: doc.data().subscriptionStatus
-        }))
-      setCoaches(loadedCoaches)
+
+      // Per coach senza email in coachApplications, leggi da users
+      const loadedCoaches: Coach[] = await Promise.all(
+        coachesSnapshot.docs.map(async (d) => {
+          const data = d.data()
+          let email = data.email || ''
+          if (!email) {
+            try {
+              const userDoc = await getDoc(doc(db, 'users', d.id))
+              if (userDoc.exists()) email = userDoc.data().email || ''
+            } catch { /* ignora */ }
+          }
+          return {
+            id: d.id,
+            email,
+            name: data.name || 'Coach',
+            lifeArea: data.lifeArea,
+            status: data.status,
+            subscriptionStatus: data.subscriptionStatus
+          }
+        })
+      )
+      // Escludi solo chi non ha email neanche in users
+      setCoaches(loadedCoaches.filter(c => c.email))
       
       // Carica template salvati
       const templatesSnapshot = await getDocs(collection(db, 'emailTemplates'))
