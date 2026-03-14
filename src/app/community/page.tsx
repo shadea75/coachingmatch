@@ -51,7 +51,6 @@ import {
   arrayRemove
 } from 'firebase/firestore'
 import { getCoachLeaderboard, addPoints, initializeCoachPoints } from '@/lib/coachPoints'
-import { formatDisplayName } from '@/lib/formatName'
 
 export default function CommunityPage() {
   const router = useRouter()
@@ -93,6 +92,7 @@ export default function CommunityPage() {
             authorRole: data.authorRole || 'coachee',
             section: data.section || 'coach-corner',
             title: data.title || '',
+            slug: data.slug || '',
             content: data.content || '',
             tags: data.tags || [],
             likeCount: data.likeCount || 0,
@@ -462,7 +462,7 @@ export default function CommunityPage() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-charcoal">{formatDisplayName(post.authorName)}</span>
+                            <span className="font-semibold text-charcoal">{post.authorName}</span>
                             <span 
                               className="text-xs px-2 py-0.5 rounded-full"
                               style={{ 
@@ -505,7 +505,7 @@ export default function CommunityPage() {
                     </div>
 
                     {/* Post content */}
-                    <Link href={`/community/post/${post.id}`}>
+                    <Link href={`/community/post/${post.slug || post.id}`}>
                       <h2 className="text-lg font-semibold text-charcoal mb-2 hover:text-primary-500 transition-colors">
                         {post.title}
                       </h2>
@@ -543,7 +543,7 @@ export default function CommunityPage() {
                           <span>{post.likeCount}</span>
                         </button>
                         <Link 
-                          href={`/community/post/${post.id}`}
+                          href={`/community/post/${post.slug || post.id}`}
                           className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary-500"
                         >
                           <MessageCircle size={18} />
@@ -563,7 +563,7 @@ export default function CommunityPage() {
                       </div>
                       
                       <Link 
-                        href={`/community/post/${post.id}`}
+                        href={`/community/post/${post.slug || post.id}`}
                         className="text-sm text-primary-500 hover:underline flex items-center gap-1"
                       >
                         Leggi tutto

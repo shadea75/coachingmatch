@@ -1,4 +1,3 @@
-// API route per leggere i metadata di un post community (usata da generateMetadata)
 import { NextRequest, NextResponse } from 'next/server'
 import { initializeApp, getApps, cert } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
@@ -18,17 +17,34 @@ function getAdminDb() {
 
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get('id')
-  if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 })
+  const slug = request.nextUrl.searchParams.get('slug')
+
+  if (!id && !slug) return NextResponse.json({ error: 'missing id or slug' }, { status: 400 })
 
   try {
     const db = getAdminDb()
-    const postDoc = await db.collection('communityPosts').doc(id).get()
+    let data: FirebaseFirestore.DocumentData | undefined
+    let docId = ''
 
-    if (!postDoc.exists) {
-      return NextResponse.json({ error: 'not found' }, { status: 404 })
+    if (slug) {
+      // Cerca per slug
+      const snap = await db.collection('communityPosts').where('slug', '==', slug).limit(1).get()
+      if (!snap.empty) {
+        docId = snap.docs[0].id
+        data = snap.docs[0].data()
+      }
+      // Fallback: prova come ID diretto
+      if (!data) {
+        const direct = await db.collection('communityPosts').doc(slug).get()
+        if (direct.exists) { docId = direct.id; data = direct.data() }
+      }
+    } else if (id) {
+      const postDoc = await db.collection('communityPosts').doc(id).get()
+      if (postDoc.exists) { docId = postDoc.id; data = postDoc.data() }
     }
 
-    const data = postDoc.data()!
+    if (!data) return NextResponse.json({ error: 'not found' }, { status: 404 })
+
     const title = data.title || 'Post della Community'
     const content = (data.content || '').replace(/[#*_`>\-]/g, '').trim()
     const description = content.length > 160
@@ -39,7 +55,7 @@ export async function GET(request: NextRequest) {
       title,
       description,
       authorName: data.authorName || 'CoachaMi',
-      slug: data.slug || id,
+      slug: data.slug || docId,
       section: data.section || '',
     })
   } catch (err) {

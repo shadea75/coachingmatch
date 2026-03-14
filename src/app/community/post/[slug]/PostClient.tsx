@@ -177,7 +177,8 @@ export default function PostClient() {
   const params = useParams()
   const router = useRouter()
   const { user } = useAuth()
-  const postId = params.id as string
+  const slug = params.slug as string
+  const postId = slug
 
   const [post, setPost] = useState<CommunityPost | null>(null)
   const [comments, setComments] = useState<CommunityComment[]>([])
@@ -197,11 +198,31 @@ export default function PostClient() {
       if (!postId) return
       setIsLoading(true)
       try {
-        const postDoc = await getDoc(doc(db, 'communityPosts', postId))
-        if (postDoc.exists()) {
-          const data = postDoc.data()
+        // Cerca per slug
+        let postDocId = ''
+        let data: any = null
+
+        const slugQuery = query(
+          collection(db, 'communityPosts'),
+          where('slug', '==', postId)
+        )
+        const slugSnap = await getDocs(slugQuery)
+
+        if (!slugSnap.empty) {
+          postDocId = slugSnap.docs[0].id
+          data = slugSnap.docs[0].data()
+        } else {
+          // Fallback: cerca per ID diretto (post vecchi senza slug)
+          const directDoc = await getDoc(doc(db, 'communityPosts', postId))
+          if (directDoc.exists()) {
+            postDocId = directDoc.id
+            data = directDoc.data()
+          }
+        }
+
+        if (data) {
           setPost({
-            id: postDoc.id,
+            id: postDocId,
             authorId: data.authorId || '',
             authorName: data.authorName || 'Utente',
             authorPhoto: data.authorPhoto || null,
