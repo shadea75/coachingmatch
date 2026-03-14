@@ -102,7 +102,8 @@ function CoachesContent() {
       try {
         const coachesQuery = query(
           collection(db, 'coachApplications'),
-          where('status', '==', 'approved')
+          where('status', '==', 'approved'),
+          where('subscriptionStatus', '==', 'active')
         )
         const snapshot = await getDocs(coachesQuery)
         const loadedCoaches: CoachProfile[] = snapshot.docs.map(doc => {
